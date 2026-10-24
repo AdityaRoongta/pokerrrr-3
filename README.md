@@ -81,3 +81,7 @@ Never commit credentials, real session databases, private player data or deploym
 ## Working backlog
 
 All 15 development issues are published. Start with [the issue index and suggested sequence](docs/ISSUES.md). Current priorities are server/client separation, persistent identity, reliable shared state, durable history and weekly settlement.
+
+## Standalone Cloudflare staging
+
+The practice-only Cloudflare target builds with `pnpm run build:staging` and deploys with `pnpm run deploy:staging`. It serves the existing UI with shared multiplayer disabled, requires no database/secrets, and targets **pokerrr-3-staging**. The original Sites build remains separate. See [staging setup, checks and dashboard commands](docs/CLOUDFLARE_STAGING.md).

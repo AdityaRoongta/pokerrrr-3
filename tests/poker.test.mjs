@@ -40,6 +40,13 @@ test('pot awards distinguish winners, side pots and returned uncalled money',()=
 test('fold win does not expose the winner’s private cards or invent a five-card hand',()=>{
  const r=room(2);startHand(r);const folder=r.turn;act(r,folder,'fold');const v=view(r,folder),w=v.result[0];assert.equal(w.description,'Everyone else folded');assert.deepEqual(w.winningCards,[]);assert.equal(v.players.find(p=>p.id!==folder).cards,undefined);assert.equal(v.history[0].showdown.length,0);assert.equal(w.amount,w.wonAmount+w.returnedAmount);
 });
+test('hand-history exports include only public card disclosures',()=>{
+ const r=room(2);startHand(r);const folder=r.turn,foldedCards=[...r.players.find(p=>p.id===folder).cards];act(r,folder,'fold');
+ // Simulate a future internal-only field: the exporter must not copy it through.
+ r.history[0].privateCards=[{playerId:folder,cards:foldedCards}];let record=publicHandRecord(r.code,r.history[0]);
+ assert.equal(record.showdown.length,0);assert.equal(record.reveals.length,0);assert.equal('privateCards' in record,false);assert.equal(handHistoryJson([record]).includes(`"cards":${JSON.stringify(foldedCards)}`),false);assert.equal(handHistoryCsv([record]).includes('cards'),false);
+ command(r,folder,{type:'voluntary_reveal'});record=publicHandRecord(r.code,r.history[0]);assert.deepEqual(record.reveals[0].cards,foldedCards);
+});
 test('voluntary reveals and any seated player’s Rabbit Hunt are recorded as public completed-hand events',()=>{
  const r=room(2);startHand(r,1000);const cards=[...r.players.find(p=>p.id===token).cards];
  act(r,token,'fold',0,2000);assert.equal(r.phase,'showdown');

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {newRoom,command,startHand,legal,act,evaluate,rank5,view,settlement,resolveAlias,tick,finish,resolveRunout,runoutCardsNeeded} from '../lib/poker.mjs';
+import {publicHandRecord,handHistoryCsv,handHistoryJson} from '../lib/hand-history.mjs';
 const token='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const card=s=>{const ranks='23456789TJQKA',suits='cdhs';return suits.indexOf(s[1])*13+ranks.indexOf(s[0])};
 const cs=s=>s.split(' ').map(card);
@@ -38,6 +39,20 @@ test('pot awards distinguish winners, side pots and returned uncalled money',()=
 });
 test('fold win does not expose the winner’s private cards or invent a five-card hand',()=>{
  const r=room(2);startHand(r);const folder=r.turn;act(r,folder,'fold');const v=view(r,folder),w=v.result[0];assert.equal(w.description,'Everyone else folded');assert.deepEqual(w.winningCards,[]);assert.equal(v.players.find(p=>p.id!==folder).cards,undefined);assert.equal(v.history[0].showdown.length,0);assert.equal(w.amount,w.wonAmount+w.returnedAmount);
+});
+test('voluntary reveals and Rabbit Hunt are recorded as public completed-hand events',()=>{
+ const r=room(2);startHand(r,1000);const cards=[...r.players.find(p=>p.id===token).cards];
+ act(r,token,'fold',0,2000);assert.equal(r.phase,'showdown');
+ command(r,token,{type:'voluntary_reveal'},2100);assert.deepEqual(r.history[0].reveals,[{seat:0,name:'Host',cards,at:2100,source:'voluntary'}]);
+ command(r,token,{type:'rabbit_hunt'},2200);const hunt=r.history[0].rabbitHunt;
+ assert.equal(hunt.fromBoard.length,0);assert.equal(hunt.cards.length,5);assert.equal(hunt.burnCards.length,3);assert.equal(new Set([...r.players.flatMap(p=>p.cards),...hunt.cards,...hunt.burnCards,...r.deck]).size,52);
+ assert.ok(r.history[0].actionLog.some(e=>e.type==='voluntary_reveal'));assert.ok(r.history[0].actionLog.some(e=>e.type==='rabbit_hunt'));
+ assert.throws(()=>command(r,token,{type:'rabbit_hunt'}),/already been run/);
+});
+test('completed hand exports are structured and never include player bearer tokens',()=>{
+ const r=room(2);startHand(r,1000);act(r,token,'fold',0,2000);command(r,token,{type:'voluntary_reveal'},2100);command(r,token,{type:'rabbit_hunt'},2200);
+ const record=publicHandRecord(r.code,r.history[0]),json=handHistoryJson([record]),csv=handHistoryCsv([record]);
+ assert.equal(record.sessionCode,r.code);assert.equal(record.handNumber,1);assert.ok(!json.includes(token));assert.ok(!json.includes('player-1'));assert.match(csv,/rabbit_hunt/);assert.match(csv,/voluntary_reveal/);
 });
 test('deal animation goes clockwise card by card, including all forty PLO5 cards',async()=>{
  const {dealPlan,boardPlan}=await import('../lib/table-presentation.mjs');const r=room(8);r.completed=4;startHand(r,1000);const plan=dealPlan(r);assert.equal(plan.flights.length,40);assert.deepEqual(plan.flights.slice(0,8).map(f=>f.seat),[1,2,3,4,5,6,7,0]);assert.deepEqual(plan.flights.slice(8,16).map(f=>f.round),Array(8).fill(1));assert.ok(plan.flights.every((f,i)=>!i||f.at>plan.flights[i-1].at));assert.equal(r.deadline,1000+plan.duration+30000);assert.deepEqual(boardPlan(0,5).map(e=>e.index),[0,1,2,3,4]);assert.deepEqual(boardPlan(3,5).map(e=>e.index),[3,4]);

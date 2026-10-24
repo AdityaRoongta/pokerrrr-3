@@ -45,10 +45,11 @@ Use the URL printed by the development server. Practice mode is browser-local. M
 ```sh
 pnpm build
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_public_cargill.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_durable_hand_history.sql
 pnpm start
 ```
 
-Apply the migration once per fresh local database. These commands reflect the retained framework setup; fresh-machine verification outside the original workspace remains a tracked task. See `docs/SITES_STARTER.md` for platform profiles and bindings. Do not run integration tests against live storage.
+Apply each migration once per fresh local database, in order. `0001_durable_hand_history.sql` adds completed-hand, action-event and session records; it is required for hand-history JSON/CSV exports, voluntary reveals and Rabbit Hunt logging. These commands reflect the retained framework setup; fresh-machine verification outside the original workspace remains a tracked task. See `docs/SITES_STARTER.md` for platform profiles and bindings. Do not run integration tests against live storage.
 
 ## Checks
 

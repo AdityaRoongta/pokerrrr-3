@@ -18,6 +18,10 @@ for(let i=0;i<7;i++){
  assert.equal(r.phase,'showdown');assert.equal(r.players.reduce((s,p)=>s+p.stack,0),2750);
 }
 assert.equal(games.size,3);assert.equal(r.history.length,7);
+const exportUrl=`${base}/api/poker?code=${code}&export=hands&format=`;
+let exported=await fetch(`${exportUrl}json`,{headers:{Authorization:`Bearer ${host}`}});assert.equal(exported.status,200);const archive=await exported.json();assert.equal(archive.schemaVersion,1);assert.equal(archive.hands.length,7);assert.ok(archive.hands.every(h=>!JSON.stringify(h).includes(host)));
+exported=await fetch(`${exportUrl}csv`,{headers:{Authorization:`Bearer ${host}`}});assert.equal(exported.status,200);assert.match(await exported.text(),/"session_code","hand_number"/);
+const denied=await fetch(`${exportUrl}json`,{headers:{Authorization:`Bearer ${friend}`}});assert.equal(denied.status,403);
 r=await api(host,{type:'end',code});assert.equal(r.phase,'closed');assert.equal(r.players.reduce((s,p)=>s+p.cashout,0),2750);
 if(r.settlements.length){r=await api(host,{type:'paid',code,index:0});assert.equal(r.settlements[0].paid,true)}
-console.log('API integration passed: two independent players, durable room, player-selected stacks, private cards, 7 hands, 3 variants, showdown, balanced cash-outs and settlement.');
+console.log('API integration passed: two independent players, durable room, player-selected stacks, private cards, 7 hands, 3 variants, persisted JSON/CSV exports, showdown, balanced cash-outs and settlement.');

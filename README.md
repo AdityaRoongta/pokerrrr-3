@@ -27,8 +27,8 @@ Source location and hosting are separate. Importing this repository does not mig
 | `lib/use-table-effects.ts`, `app/table-motion.tsx` | Client animations and sound scheduling |
 | `drizzle/` | Database schema migrations |
 | `tests/` | Engine, presentation and HTTP integration checks |
-| `docs/BACKLOG.md` | Remaining work with acceptance criteria |
-| `docs/issues.json` | Prepared GitHub issue payloads; not proof of issue creation |
+| `docs/BACKLOG.md` | Published issue links and remaining work with acceptance criteria |
+| `docs/issues.json` | Published issue payloads and GitHub issue numbers |
 | `docs/SITES_STARTER.md` | Retained framework/platform setup reference |
 
 ## Local development
@@ -77,3 +77,7 @@ GitHub Pages can host a static practice demo or an extracted client connected to
 Use short feature branches and reviewed pull requests. Start from an issue with acceptance criteria. Do not change poker rules or chip accounting without focused tests. Protect `main` with checks/review if the repository's plan permits it. A merge does not currently publish the live Site. Preserve the current deployment until a separate release workflow is explicitly configured and verified.
 
 Never commit credentials, real session databases, private player data or deployment archives. `.openai/hosting.json` identifies the original Site; it is not a credential and must not be repointed casually. Keep the original Site deployment flow distinct from GitHub development until synchronization is deliberately configured.
+
+## Working backlog
+
+All 15 development issues are published. Start with [the issue index and suggested sequence](docs/ISSUES.md). Current priorities are server/client separation, persistent identity, reliable shared state, durable history and weekly settlement.

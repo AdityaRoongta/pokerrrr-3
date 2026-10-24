@@ -1,8 +1,8 @@
 # Development backlog
 
-These are prepared issue descriptions, not yet published GitHub issues. `issues.json` contains the matching full acceptance criteria. P0 items gate reliable live play; P1 items support usability and operations.
+All 15 issues are published on GitHub. See [the issue index](ISSUES.md) for links and suggested order. `issues.json` contains the matching acceptance criteria and published issue numbers. P0 items gate reliable live play; P1 items support usability and operations.
 
-## W01 — P0: Separate browser client, game server and shared protocol
+## [W01 / #1](https://github.com/arundevanathan/pokerrrr-3/issues/1) — P0: Separate browser client, game server and shared protocol
 
 The current React page and server import the same pure poker engine, but deployment is coupled to Sites. Create clear client/server boundaries while retaining the existing tested rules.
 
@@ -11,7 +11,7 @@ The current React page and server import the same pure poker engine, but deploym
 - [ ] Reuse lib/poker.mjs, keep local practice explicitly separate, and document a one-table architecture.
 - [ ] Preserve the current live deployment until the replacement is verified.
 
-## W02 — P0: Deploy the game server with one durable table coordinator
+## [W02 / #2](https://github.com/arundevanathan/pokerrrr-3/issues/2) — P0: Deploy the game server with one durable table coordinator
 
 Run one authoritative table for the private group. Cloudflare Workers plus a Durable Object is the proposed implementation; confirm the deployment and persistence design before migration.
 
@@ -20,7 +20,7 @@ Run one authoritative table for the private group. Cloudflare Workers plus a Dur
 - [ ] Serialize state mutations across asynchronous operations.
 - [ ] Allow only one active session for the group, enforced atomically on the server; no room directory, matchmaking or multi-group features.
 
-## W03 — P0: Replace polling with authenticated WebSocket synchronization
+## [W03 / #3](https://github.com/arundevanathan/pokerrrr-3/issues/3) — P0: Replace polling with authenticated WebSocket synchronization
 
 Current clients poll once a second, or every 200ms during voting/showdown. Push authoritative per-player updates instead.
 
@@ -29,7 +29,7 @@ Current clients poll once a second, or every 200ms during voting/showdown. Push 
 - [ ] Send a fresh private snapshot after reconnect with bounded retry/backoff.
 - [ ] Validate origin and payloads; never send raw deck, other players’ tokens or hidden cards.
 
-## W04 — P0: Add persistent player authentication and group access
+## [W04 / #4](https://github.com/arundevanathan/pokerrrr-3/issues/4) — P0: Add persistent player authentication and group access
 
 Browser-local bearer identity cannot reliably recover a seat after browser data is cleared or a device is replaced. Members should stay signed in across normal app launches.
 
@@ -39,7 +39,7 @@ Browser-local bearer identity cannot reliably recover a seat after browser data 
 - [ ] Map existing player/session records to stable identities without changing balances; prevent impersonation and duplicate occupied seats.
 - [ ] Test iOS and Android installed PWA session persistence and recovery.
 
-## W05 — P0: Persist session and hand history independently of live room state
+## [W05 / #5](https://github.com/arundevanathan/pokerrrr-3/issues/5) — P0: Persist session and hand history independently of live room state
 
 Current room JSON retains only the latest 100 hands. Completed sessions need durable, queryable history across weeks.
 
@@ -49,7 +49,7 @@ Current room JSON retains only the latest 100 hands. Completed sessions need dur
 - [ ] Define visibility and retention of folded/private cards; do not expose them through history or logs.
 - [ ] Provide safe backup, restore and export; verify historical totals after restore.
 
-## W06 — P0: Build a cross-session ledger and weekly settlement
+## [W06 / #6](https://github.com/arundevanathan/pokerrrr-3/issues/6) — P0: Build a cross-session ledger and weekly settlement
 
 The group settles several sessions together, rather than settling each session immediately. Current settlement is per closed session.
 
@@ -60,7 +60,7 @@ The group settles several sessions together, rather than settling each session i
 - [ ] Prove total player net is zero and show session-by-session reconciliation before and after payments.
 - [ ] Carry unpaid balances forward and export a weekly statement; do not automatically forgive balances on a calendar boundary.
 
-## W07 — P1: Redesign the home screen for one private group
+## [W07 / #7](https://github.com/arundevanathan/pokerrrr-3/issues/7) — P1: Redesign the home screen for one private group
 
 The current create/join-room landing page was a prototype. A signed-in member should land on the group’s current activity and balance.
 
@@ -70,7 +70,7 @@ The current create/join-room landing page was a prototype. A signed-in member sh
 - [ ] Show member identity and sign-out/account controls; handle empty, loading and disconnected states.
 - [ ] Avoid multiple-room discovery, tournaments and public game creation.
 
-## W08 — P0: Move action, vote and auto-deal timers fully onto the server
+## [W08 / #8](https://github.com/arundevanathan/pokerrrr-3/issues/8) — P0: Move action, vote and auto-deal timers fully onto the server
 
 Current tick processing is driven by incoming HTTP requests. Progress must remain correct when every phone backgrounds or disconnects.
 
@@ -80,7 +80,7 @@ Current tick processing is driven by incoming HTTP requests. Progress must remai
 - [ ] Use authoritative server presentation timing for sequential runouts/payouts, then the existing three-second next-deal countdown.
 - [ ] Reject manual deal or other transitions that bypass an unfinished payout presentation.
 
-## W09 — P0: Make game and accounting commands safe under retries and concurrency
+## [W09 / #9](https://github.com/arundevanathan/pokerrrr-3/issues/9) — P0: Make game and accounting commands safe under retries and concurrency
 
 State-version compare-and-swap exists, but network retries need command-level deduplication, especially for reloads and future payments.
 
@@ -89,7 +89,7 @@ State-version compare-and-swap exists, but network retries need command-level de
 - [ ] Reject stale hand/turn actions and unauthorized commands with explicit recoverable responses.
 - [ ] Test simultaneous joins/actions, reload retry after a lost response, racing vote/deal deadlines and settlement double submission.
 
-## W10 — P1: Recover seats after disconnects and support host handover
+## [W10 / #10](https://github.com/arundevanathan/pokerrrr-3/issues/10) — P1: Recover seats after disconnects and support host handover
 
 A host’s phone must not control game availability. Current recovery uses local storage and lacks a host transfer flow.
 
@@ -98,7 +98,7 @@ A host’s phone must not control game availability. Current recovery uses local
 - [ ] Allow authorized host/admin handover without revealing private cards or changing ledger balances.
 - [ ] Show connection status and resync before enabling actions; document policies for absent players and long inactivity.
 
-## W11 — P0: Add multiplayer API and multi-device acceptance tests
+## [W11 / #11](https://github.com/arundevanathan/pokerrrr-3/issues/11) — P0: Add multiplayer API and multi-device acceptance tests
 
 39 engine/presentation tests passed on the imported baseline. The existing API integration script was not run during the most recent change and does not cover the full reliability scope.
 
@@ -108,7 +108,7 @@ A host’s phone must not control game availability. Current recovery uses local
 - [ ] Complete a 6–8-device session with phone backgrounding, network loss, browser refresh and a server restart.
 - [ ] Reconcile all starting chips, reloads, cash-outs and cross-session balances with zero unexplained difference.
 
-## W12 — P1: Establish reproducible local setup and contributor CI
+## [W12 / #12](https://github.com/arundevanathan/pokerrrr-3/issues/12) — P1: Establish reproducible local setup and contributor CI
 
 The imported project uses Vinext, Cloudflare bindings and Sites helper scripts. A fresh clone must work outside the original workspace.
 
@@ -118,7 +118,7 @@ The imported project uses Vinext, Cloudflare bindings and Sites helper scripts. 
 - [ ] Document contribution, review and release process and how to run the full checks.
 - [ ] Format dense source consistently and split the main page into bounded components without changing game behavior.
 
-## W13 — P1: Deploy the client independently and evaluate GitHub Pages demo
+## [W13 / #13](https://github.com/arundevanathan/pokerrrr-3/issues/13) — P1: Deploy the client independently and evaluate GitHub Pages demo
 
 GitHub Pages is static hosting. It can serve a browser client but cannot execute the current poker API or database.
 
@@ -128,7 +128,7 @@ GitHub Pages is static hosting. It can serve a browser client but cannot execute
 - [ ] Test iOS/Android PWA installation, updates, persistent auth and cache handling; do not cache private game responses.
 - [ ] Confirm Pages plan/access requirements before publishing; do not change repository or website visibility silently.
 
-## W14 — P1: Review access controls, privacy and release secrets
+## [W14 / #14](https://github.com/arundevanathan/pokerrrr-3/issues/14) — P1: Review access controls, privacy and release secrets
 
 This is a private friends-only app. Repository access does not grant game-server administration.
 
@@ -138,7 +138,7 @@ This is a private friends-only app. Repository access does not grant game-server
 - [ ] Keep sensitive cards/tokens out of logs and browser responses; record safe security/operational events.
 - [ ] Define deployment permissions and backups independently from collaborator code access.
 
-## W15 — P1: Add operational diagnostics, backup verification and rollback
+## [W15 / #15](https://github.com/arundevanathan/pokerrrr-3/issues/15) — P1: Add operational diagnostics, backup verification and rollback
 
 The group needs to recover a session and reconcile chips when something fails.
 

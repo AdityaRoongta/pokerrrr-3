@@ -14,4 +14,4 @@ The import additionally names the package/repository `pokerrrr-3` and documents 
 
 Source import does not move production data or hosting. The original Site is still the live application. No GitHub Pages deployment or production deployment credentials are configured here.
 
-Prepared backlog payloads are in `docs/issues.json`; the published issues are the working backlog. The initial checks workflow has not yet been verified on GitHub; local baseline engine/presentation tests passed (39 tests).
+All 15 backlog issues are published and linked from `docs/ISSUES.md`. The first GitHub Actions run passed locked dependency installation, all 39 engine/presentation tests, TypeScript checking and the production build. API integration and multi-device acceptance remain open work.

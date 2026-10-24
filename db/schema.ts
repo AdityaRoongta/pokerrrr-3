@@ -32,3 +32,9 @@ export const pokerHandEvents = sqliteTable('poker_hand_events', {
   happenedAt: integer('happened_at'),
   payload: text('payload').notNull(),
 });
+
+export const pokerHandParticipants = sqliteTable('poker_hand_participants', {
+  roomCode: text('room_code').notNull(),
+  handNumber: integer('hand_number').notNull(),
+  playerKey: text('player_key').notNull(),
+});

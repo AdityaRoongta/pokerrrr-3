@@ -5,6 +5,9 @@ export const dynamic = 'force-dynamic';
 const response=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store, private','Vary':'Authorization'}});
 export async function GET(request:Request){return handle(request,false)}
 export async function POST(request:Request){return handle(request,true)}
+async function participantKey(token:string){
+ const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token));return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+}
 async function ensureSession(db:any,r:any){
  await db.prepare('INSERT OR IGNORE INTO poker_sessions(code,created_at,settings) VALUES(?,?,?)').bind(r.code,r.createdAt,JSON.stringify(r.settings)).run();
 }
@@ -13,6 +16,9 @@ async function persistHand(db:any,r:any,hand:any){
  await db.prepare('INSERT INTO poker_hand_history(room_code,hand_number,started_at,completed_at,payload) VALUES(?,?,?,?,?) ON CONFLICT(room_code,hand_number) DO UPDATE SET completed_at=excluded.completed_at,payload=excluded.payload').bind(r.code,record.handNumber,record.startedAt,record.completedAt,payload).run();
  for(const [eventIndex,event] of (record.actionLog||[]).entries()){
   await db.prepare('INSERT INTO poker_hand_events(room_code,hand_number,event_index,event_type,happened_at,payload) VALUES(?,?,?,?,?,?) ON CONFLICT(room_code,hand_number,event_index) DO UPDATE SET event_type=excluded.event_type,happened_at=excluded.happened_at,payload=excluded.payload').bind(r.code,record.handNumber,eventIndex,event.type,event.at??null,JSON.stringify(event)).run();
+ }
+ for(const seat of record.seats||[]){
+  const player=r.players.find((candidate:any)=>candidate.seat===seat.seat&&candidate.name===seat.name);if(player)await db.prepare('INSERT OR IGNORE INTO poker_hand_participants(room_code,hand_number,player_key) VALUES(?,?,?)').bind(r.code,record.handNumber,await participantKey(player.id)).run();
  }
 }
 async function persistHistory(db:any,r:any){await ensureSession(db,r);for(const hand of r.history||[])await persistHand(db,r,hand)}
@@ -38,9 +44,9 @@ async function handle(request:Request,write:boolean){
    const row=await db.prepare('SELECT state, version FROM poker_rooms WHERE code=?').bind(code).first() as {state:string,version:number}|null;if(!row)return response({error:'Table not found. Check your code.'},404);
    const r=JSON.parse(row.state);const changed=tick(r,Date.now(),!write);
    if(exportFormat){
-    if(r.host!==token)return response({error:'Only the host can export this session’s hand history.'},403);
+    if(!r.players.some((player:any)=>player.id===token))return response({error:'Join this table before exporting your hands.'},403);
     await persistHistory(db,r);
-    const saved=await db.prepare('SELECT payload FROM poker_hand_history WHERE room_code=? ORDER BY hand_number ASC').bind(code).all();
+    const saved=await db.prepare('SELECT h.payload FROM poker_hand_history h INNER JOIN poker_hand_participants p ON p.room_code=h.room_code AND p.hand_number=h.hand_number WHERE h.room_code=? AND p.player_key=? ORDER BY h.hand_number ASC').bind(code,await participantKey(token)).all();
     return exportResponse(saved.results.map((row:any)=>JSON.parse(row.payload)),exportFormat,code);
    }
    if(write){if(input.version!==undefined&&input.version!==row.version&&['fold','call','check','raise','deal'].includes(input.type))return response({error:'The table changed. Review your turn and try again.'},409);if(input.player)input.player=resolveAlias(r,input.player);command(r,token,input)}

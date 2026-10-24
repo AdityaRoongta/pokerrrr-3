@@ -24,4 +24,12 @@ CREATE TABLE `poker_hand_events` (
   PRIMARY KEY (`room_code`, `hand_number`, `event_index`)
 );
 
+CREATE TABLE `poker_hand_participants` (
+  `room_code` text NOT NULL,
+  `hand_number` integer NOT NULL,
+  `player_key` text NOT NULL,
+  PRIMARY KEY (`room_code`, `hand_number`, `player_key`)
+);
+
 CREATE INDEX `poker_hand_history_room_completed_idx` ON `poker_hand_history` (`room_code`, `completed_at` DESC);
+CREATE INDEX `poker_hand_participants_player_idx` ON `poker_hand_participants` (`room_code`, `player_key`, `hand_number`);

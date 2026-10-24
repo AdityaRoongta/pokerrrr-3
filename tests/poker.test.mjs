@@ -52,7 +52,7 @@ test('voluntary reveals and any seated player’s Rabbit Hunt are recorded as pu
 test('completed hand exports are structured and never include player bearer tokens',()=>{
  const r=room(2);startHand(r,1000);act(r,token,'fold',0,2000);command(r,token,{type:'voluntary_reveal'},2100);command(r,token,{type:'rabbit_hunt'},2200);
  const record=publicHandRecord(r.code,r.history[0]),json=handHistoryJson([record]),csv=handHistoryCsv([record]);
- assert.equal(record.sessionCode,r.code);assert.equal(record.handNumber,1);assert.ok(!json.includes(token));assert.ok(!json.includes('player-1'));assert.match(csv,/rabbit_hunt/);assert.match(csv,/voluntary_reveal/);
+ assert.equal(record.sessionCode,r.code);assert.equal(record.handNumber,1);assert.ok(!json.includes(token));assert.ok(!json.includes('player-1'));assert.match(csv,/"Hand ID","Date","Session","Street","Seq","Player","Pos","Action","Size","Stack After"/);assert.match(csv,/rabbit_hunt/);assert.match(csv,/voluntary_reveal/);assert.ok(csv.split('\n').length>2,'Each action should receive its own CSV row');
 });
 test('deal animation goes clockwise card by card, including all forty PLO5 cards',async()=>{
  const {dealPlan,boardPlan}=await import('../lib/table-presentation.mjs');const r=room(8);r.completed=4;startHand(r,1000);const plan=dealPlan(r);assert.equal(plan.flights.length,40);assert.deepEqual(plan.flights.slice(0,8).map(f=>f.seat),[1,2,3,4,5,6,7,0]);assert.deepEqual(plan.flights.slice(8,16).map(f=>f.round),Array(8).fill(1));assert.ok(plan.flights.every((f,i)=>!i||f.at>plan.flights[i-1].at));assert.equal(r.deadline,1000+plan.duration+30000);assert.deepEqual(boardPlan(0,5).map(e=>e.index),[0,1,2,3,4]);assert.deepEqual(boardPlan(3,5).map(e=>e.index),[3,4]);

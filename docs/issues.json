@@ -1,0 +1,77 @@
+[
+  {
+    "key": "W01",
+    "title": "P0: Separate browser client, game server and shared protocol",
+    "body": "## Problem\n\nThe current React page and server import the same pure poker engine, but deployment is coupled to Sites. Create clear client/server boundaries while retaining the existing tested rules.\n\n## Acceptance criteria\n\n- [ ] Client contains UI, sound and animations; authoritative multiplayer shuffling, actions and payouts run only on the server.\n- [ ] Define versioned client action and per-player snapshot/event contracts.\n- [ ] Reuse lib/poker.mjs, keep local practice explicitly separate, and document a one-table architecture.\n- [ ] Preserve the current live deployment until the replacement is verified.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W02",
+    "title": "P0: Deploy the game server with one durable table coordinator",
+    "body": "## Problem\n\nRun one authoritative table for the private group. Cloudflare Workers plus a Durable Object is the proposed implementation; confirm the deployment and persistence design before migration.\n\n## Acceptance criteria\n\n- [ ] Provision development and production environments with separate storage and secrets.\n- [ ] Persist accepted state before acknowledging actions; restore deck, bets, turn and deadlines after restart.\n- [ ] Serialize state mutations across asynchronous operations.\n- [ ] Allow only one active session for the group, enforced atomically on the server; no room directory, matchmaking or multi-group features.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W03",
+    "title": "P0: Replace polling with authenticated WebSocket synchronization",
+    "body": "## Problem\n\nCurrent clients poll once a second, or every 200ms during voting/showdown. Push authoritative per-player updates instead.\n\n## Acceptance criteria\n\n- [ ] Authenticate connections and authorize group membership and seat access.\n- [ ] Use state versions, action IDs and acknowledgements; ignore duplicates and resync gaps.\n- [ ] Send a fresh private snapshot after reconnect with bounded retry/backoff.\n- [ ] Validate origin and payloads; never send raw deck, other players\u2019 tokens or hidden cards.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W04",
+    "title": "P0: Add persistent player authentication and group access",
+    "body": "## Problem\n\nBrowser-local bearer identity cannot reliably recover a seat after browser data is cleared or a device is replaced. Members should stay signed in across normal app launches.\n\n## Acceptance criteria\n\n- [ ] Choose and document the login provider and private-group invitation/allowlist flow.\n- [ ] Use stable user IDs and securely persisted, refreshable sessions; avoid reauthentication on every visit while credentials remain valid.\n- [ ] Support explicit logout, session revocation and account recovery; expired/revoked sessions can require login.\n- [ ] Map existing player/session records to stable identities without changing balances; prevent impersonation and duplicate occupied seats.\n- [ ] Test iOS and Android installed PWA session persistence and recovery.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W05",
+    "title": "P0: Persist session and hand history independently of live room state",
+    "body": "## Problem\n\nCurrent room JSON retains only the latest 100 hands. Completed sessions need durable, queryable history across weeks.\n\n## Acceptance criteria\n\n- [ ] Define session, participant, hand, action and chip transaction records linked to stable player IDs.\n- [ ] Persist starts, buy-ins, reloads, cash-outs and completed hands with timestamps and stable IDs.\n- [ ] Keep historical rules, blinds and names understandable after later profile/config changes.\n- [ ] Define visibility and retention of folded/private cards; do not expose them through history or logs.\n- [ ] Provide safe backup, restore and export; verify historical totals after restore.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W06",
+    "title": "P0: Build a cross-session ledger and weekly settlement",
+    "body": "## Problem\n\nThe group settles several sessions together, rather than settling each session immediately. Current settlement is per closed session.\n\n## Acceptance criteria\n\n- [ ] Accumulate each player\u2019s net position across completed sessions with a clearly defined chip-to-money conversion.\n- [ ] Record actual transfers with payer, recipient, amount, date and recorder; partial payments reduce outstanding balances.\n- [ ] Generate a settlement suggestion across the selected unsettled period without erasing original session results.\n- [ ] Make recording/retrying payments idempotent; allow audited corrections and reversals.\n- [ ] Prove total player net is zero and show session-by-session reconciliation before and after payments.\n- [ ] Carry unpaid balances forward and export a weekly statement; do not automatically forgive balances on a calendar boundary.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W07",
+    "title": "P1: Redesign the home screen for one private group",
+    "body": "## Problem\n\nThe current create/join-room landing page was a prototype. A signed-in member should land on the group\u2019s current activity and balance.\n\n## Acceptance criteria\n\n- [ ] Design and review mobile screens before implementation.\n- [ ] Show Join current table or Resume seat when a session is active; an authorized member can start the sole session otherwise.\n- [ ] Show personal outstanding balance, recent sessions and weekly settlement/history entry points.\n- [ ] Show member identity and sign-out/account controls; handle empty, loading and disconnected states.\n- [ ] Avoid multiple-room discovery, tournaments and public game creation.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W08",
+    "title": "P0: Move action, vote and auto-deal timers fully onto the server",
+    "body": "## Problem\n\nCurrent tick processing is driven by incoming HTTP requests. Progress must remain correct when every phone backgrounds or disconnects.\n\n## Acceptance criteria\n\n- [ ] Persist server deadlines and schedule independent durable alarms for actions, votes and next deal.\n- [ ] Process retried alarms idempotently and reschedule the next deadline.\n- [ ] Keep the five-second sealed vote, default Once, and unanimous Twice behavior.\n- [ ] Use authoritative server presentation timing for sequential runouts/payouts, then the existing three-second next-deal countdown.\n- [ ] Reject manual deal or other transitions that bypass an unfinished payout presentation.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W09",
+    "title": "P0: Make game and accounting commands safe under retries and concurrency",
+    "body": "## Problem\n\nState-version compare-and-swap exists, but network retries need command-level deduplication, especially for reloads and future payments.\n\n## Acceptance criteria\n\n- [ ] Give every mutating command a unique ID and store its accepted outcome atomically with state.\n- [ ] Retrying the same command returns the original outcome with no additional chips, votes or payments.\n- [ ] Reject stale hand/turn actions and unauthorized commands with explicit recoverable responses.\n- [ ] Test simultaneous joins/actions, reload retry after a lost response, racing vote/deal deadlines and settlement double submission.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W10",
+    "title": "P1: Recover seats after disconnects and support host handover",
+    "body": "## Problem\n\nA host\u2019s phone must not control game availability. Current recovery uses local storage and lacks a host transfer flow.\n\n## Acceptance criteria\n\n- [ ] Keep seats and identity across reconnects and device changes with an explicit one-active-player-control policy.\n- [ ] Keep server action timers running during disconnects and apply documented check/fold behavior.\n- [ ] Allow authorized host/admin handover without revealing private cards or changing ledger balances.\n- [ ] Show connection status and resync before enabling actions; document policies for absent players and long inactivity.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W11",
+    "title": "P0: Add multiplayer API and multi-device acceptance tests",
+    "body": "## Problem\n\n39 engine/presentation tests passed on the imported baseline. The existing API integration script was not run during the most recent change and does not cover the full reliability scope.\n\n## Acceptance criteria\n\n- [ ] Run the API integration suite against a disposable database in CI.\n- [ ] Cover hidden-card/token privacy, unauthorized access, reconnects, command retries, concurrent writes and durable recovery.\n- [ ] Cover NLH/PLO4/PLO5, rotation, pot caps, short all-ins, side pots, odd chips, one/two runs and queued reloads.\n- [ ] Complete a 6\u20138-device session with phone backgrounding, network loss, browser refresh and a server restart.\n- [ ] Reconcile all starting chips, reloads, cash-outs and cross-session balances with zero unexplained difference.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W12",
+    "title": "P1: Establish reproducible local setup and contributor CI",
+    "body": "## Problem\n\nThe imported project uses Vinext, Cloudflare bindings and Sites helper scripts. A fresh clone must work outside the original workspace.\n\n## Acceptance criteria\n\n- [ ] Verify locked installation, dev server, local D1 migration, practice mode and two-client multiplayer on a fresh machine.\n- [ ] Provide working setup/config examples with no production secrets.\n- [ ] Run engine/presentation tests, TypeScript and production build on pull requests; add API tests once its fixture is ready.\n- [ ] Document contribution, review and release process and how to run the full checks.\n- [ ] Format dense source consistently and split the main page into bounded components without changing game behavior.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W13",
+    "title": "P1: Deploy the client independently and evaluate GitHub Pages demo",
+    "body": "## Problem\n\nGitHub Pages is static hosting. It can serve a browser client but cannot execute the current poker API or database.\n\n## Acceptance criteria\n\n- [ ] Choose static client hosting after the client/server separation; GitHub Pages is optional, not a multiplayer backend.\n- [ ] If Pages is used, support its project subpath, assets, service worker scope, refresh navigation and configured HTTPS/WSS backend.\n- [ ] Make practice-only builds explicitly disable multiplayer controls when no backend is configured.\n- [ ] Test iOS/Android PWA installation, updates, persistent auth and cache handling; do not cache private game responses.\n- [ ] Confirm Pages plan/access requirements before publishing; do not change repository or website visibility silently.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W14",
+    "title": "P1: Review access controls, privacy and release secrets",
+    "body": "## Problem\n\nThis is a private friends-only app. Repository access does not grant game-server administration.\n\n## Acceptance criteria\n\n- [ ] Scan tracked files and history for secrets before importing and every release; keep all deployed credentials in secret storage.\n- [ ] Audit membership, seat ownership, host/admin operations, HTTP and WebSocket authorization and hidden-information views.\n- [ ] Validate action schemas, payload sizes and rates; prevent unauthenticated room enumeration and abusive creation.\n- [ ] Keep sensitive cards/tokens out of logs and browser responses; record safe security/operational events.\n- [ ] Define deployment permissions and backups independently from collaborator code access.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  },
+  {
+    "key": "W15",
+    "title": "P1: Add operational diagnostics, backup verification and rollback",
+    "body": "## Problem\n\nThe group needs to recover a session and reconcile chips when something fails.\n\n## Acceptance criteria\n\n- [ ] Track safe action IDs, state versions, reconnect/error counts and deadline failures without hidden cards or credentials.\n- [ ] Provide documented backup/restore and a tested deployment rollback procedure.\n- [ ] Separate staging and live sessions; never let automated tests mutate real ledger data.\n- [ ] Document incident handling and reconcile state/ledger invariants after recovery.\n\n## Scope\n\nOne private group, one active session at a time. Retain completed sessions for cross-session settlement.\n"
+  }
+]

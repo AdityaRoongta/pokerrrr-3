@@ -20,7 +20,7 @@ for(let i=0;i<7;i++){
 assert.equal(games.size,3);assert.equal(r.history.length,7);
 const exportUrl=`${base}/api/poker?code=${code}&export=hands&format=`;
 let exported=await fetch(`${exportUrl}json`,{headers:{Authorization:`Bearer ${host}`}});assert.equal(exported.status,200);const archive=await exported.json();assert.equal(archive.schemaVersion,1);assert.equal(archive.hands.length,7);assert.ok(archive.hands.every(h=>!JSON.stringify(h).includes(host)));
-exported=await fetch(`${exportUrl}csv`,{headers:{Authorization:`Bearer ${host}`}});assert.equal(exported.status,200);assert.match(await exported.text(),/"Hand ID","Date","Session","Street","Seq","Player","Pos","Action","Size","Stack After"/);
+exported=await fetch(`${exportUrl}csv`,{headers:{Authorization:`Bearer ${host}`}});assert.equal(exported.status,200);assert.match(await exported.text(),/"Hand ID","Date","Session","Street","Seq","Player","Hole Cards","Pos","Action","Size","Stack After"/);
 exported=await fetch(`${exportUrl}json`,{headers:{Authorization:`Bearer ${friend}`}});assert.equal(exported.status,200);assert.equal((await exported.json()).hands.length,7);
 const denied=await fetch(`${exportUrl}json`,{headers:{Authorization:`Bearer ${stranger}`}});assert.equal(denied.status,403);
 r=await api(host,{type:'end',code});assert.equal(r.phase,'closed');assert.equal(r.players.reduce((s,p)=>s+p.cashout,0),2750);
@@ -38,4 +38,17 @@ for(let turns=0;['preflop','flop','turn','river'].includes(four.phase);turns++){
 assert.equal(four.phase,'showdown');const fourExportUrl=`${base}/api/poker?code=${fourCode}&export=hands&format=json`;
 for(const player of [fourHost,...fourPlayers]){const exportedFour=await fetch(fourExportUrl,{headers:{Authorization:`Bearer ${player}`}});assert.equal(exportedFour.status,200);const playerArchive=await exportedFour.json();assert.equal(playerArchive.hands.length,1);assert.ok(!JSON.stringify(playerArchive).includes(player));}
 await api(latePlayer,{type:'join',code:fourCode,name:'Late Player',buyin:1000});const lateExport=await fetch(fourExportUrl,{headers:{Authorization:`Bearer ${latePlayer}`}});assert.equal(lateExport.status,200);assert.equal((await lateExport.json()).hands.length,0);
+
+const privateHost=crypto.randomUUID(),privateFriend=crypto.randomUUID();
+let privateRoom=await api(privateHost,{type:'create',name:'Private Host',seats:2,sb:5,bb:10,buyin:1000});const privateCode=privateRoom.code;
+await api(privateFriend,{type:'join',code:privateCode,name:'Private Friend',buyin:1000});privateRoom=await api(privateHost,undefined,privateCode);await api(privateHost,{type:'deal',code:privateCode,version:privateRoom.version});
+let privateHostView=await api(privateHost,undefined,privateCode),privateCards=privateHostView.players.find(p=>p.id===privateHost).cards;assert.equal(privateCards.length,2);
+if(privateHostView.turn!==privateHost){const friendView=await api(privateFriend,undefined,privateCode);await api(privateFriend,{type:friendView.legal.call?'call':'check',code:privateCode,version:friendView.version});privateHostView=await api(privateHost,undefined,privateCode)}
+assert.equal(privateHostView.turn,privateHost);await api(privateHost,{type:'fold',code:privateCode,version:privateHostView.version});
+const privateExportUrl=`${base}/api/poker?code=${privateCode}&export=hands&format=`;
+let privateExport=await fetch(`${privateExportUrl}json`,{headers:{Authorization:`Bearer ${privateHost}`}});const privateArchive=await privateExport.json(),ownCards=privateArchive.hands[0].visibleHoleCards.find(p=>p.name==='Private Host');assert.deepEqual(ownCards.cards,privateCards);assert.equal(ownCards.source,'self');assert.equal(privateArchive.hands[0].visibleHoleCards.some(p=>p.name==='Private Friend'),false,'The table creator must not receive an opponent’s unrevealed cards');
+privateExport=await fetch(`${privateExportUrl}json`,{headers:{Authorization:`Bearer ${privateFriend}`}});const opponentArchive=await privateExport.json();assert.equal(opponentArchive.hands[0].visibleHoleCards.some(p=>p.name==='Private Host'),false);
+const ranks='23456789TJQKA',suits='cdhs',privateCardsText=privateCards.map(card=>`${ranks[card%13]}${suits[Math.floor(card/13)]}`).join(' ');
+privateExport=await fetch(`${privateExportUrl}csv`,{headers:{Authorization:`Bearer ${privateHost}`}});assert.ok((await privateExport.text()).includes(privateCardsText));
+privateExport=await fetch(`${privateExportUrl}csv`,{headers:{Authorization:`Bearer ${privateFriend}`}});assert.equal((await privateExport.text()).includes(privateCardsText),false);
 console.log('API integration passed: two-player exports plus a four-player hand, player-scoped exports, late-join filtering, private cards, rotations, showdown and settlement.');

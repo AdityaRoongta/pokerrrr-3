@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { newRoom, command, view, tick, resolveAlias } from '../../../lib/poker.mjs';
-import { publicHandRecord, handHistoryCsv, handHistoryJson } from '../../../lib/hand-history.mjs';
+import { publicHandRecord, viewerHandRecord, handHistoryCsv, handHistoryJson } from '../../../lib/hand-history.mjs';
 export const dynamic = 'force-dynamic';
 const response=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store, private','Vary':'Authorization'}});
 export async function GET(request:Request){return handle(request,false)}
@@ -18,8 +18,9 @@ async function persistHand(db:any,r:any,hand:any){
   await db.prepare('INSERT INTO poker_hand_events(room_code,hand_number,event_index,event_type,happened_at,payload) VALUES(?,?,?,?,?,?) ON CONFLICT(room_code,hand_number,event_index) DO UPDATE SET event_type=excluded.event_type,happened_at=excluded.happened_at,payload=excluded.payload').bind(r.code,record.handNumber,eventIndex,event.type,event.at??null,JSON.stringify(event)).run();
  }
  for(const seat of record.seats||[]){
-  const player=r.players.find((candidate:any)=>candidate.seat===seat.seat&&candidate.name===seat.name);if(player)await db.prepare('INSERT OR IGNORE INTO poker_hand_participants(room_code,hand_number,player_key) VALUES(?,?,?)').bind(r.code,record.handNumber,await participantKey(player.id)).run();
+  const privateCard=(hand.privateCards||[]).find((candidate:any)=>candidate.seat===seat.seat&&candidate.name===seat.name),playerId=privateCard?.id||r.players.find((candidate:any)=>candidate.seat===seat.seat&&candidate.name===seat.name)?.id;if(playerId)await db.prepare('INSERT OR IGNORE INTO poker_hand_participants(room_code,hand_number,player_key) VALUES(?,?,?)').bind(r.code,record.handNumber,await participantKey(playerId)).run();
  }
+ for(const privateCard of hand.privateCards||[])await db.prepare('INSERT INTO poker_hand_private_cards(room_code,hand_number,player_key,seat,name,cards) VALUES(?,?,?,?,?,?) ON CONFLICT(room_code,hand_number,player_key) DO UPDATE SET seat=excluded.seat,name=excluded.name,cards=excluded.cards').bind(r.code,record.handNumber,await participantKey(privateCard.id),privateCard.seat,privateCard.name,JSON.stringify(privateCard.cards)).run();
 }
 async function persistHistory(db:any,r:any){await ensureSession(db,r);for(const hand of r.history||[])await persistHand(db,r,hand)}
 function exportResponse(records:any[],format:string,code:string){
@@ -46,8 +47,9 @@ async function handle(request:Request,write:boolean){
    if(exportFormat){
     if(!r.players.some((player:any)=>player.id===token))return response({error:'Join this table before exporting your hands.'},403);
     await persistHistory(db,r);
-    const saved=await db.prepare('SELECT h.payload FROM poker_hand_history h INNER JOIN poker_hand_participants p ON p.room_code=h.room_code AND p.hand_number=h.hand_number WHERE h.room_code=? AND p.player_key=? ORDER BY h.hand_number ASC').bind(code,await participantKey(token)).all();
-    return exportResponse(saved.results.map((row:any)=>JSON.parse(row.payload)),exportFormat,code);
+    const key=await participantKey(token),saved=await db.prepare('SELECT h.payload, own.seat AS private_seat, own.name AS private_name, own.cards AS private_cards FROM poker_hand_history h INNER JOIN poker_hand_participants p ON p.room_code=h.room_code AND p.hand_number=h.hand_number LEFT JOIN poker_hand_private_cards own ON own.room_code=h.room_code AND own.hand_number=h.hand_number AND own.player_key=p.player_key WHERE h.room_code=? AND p.player_key=? ORDER BY h.hand_number ASC').bind(code,key).all();
+    const records=saved.results.map((row:any)=>viewerHandRecord(JSON.parse(row.payload),row.private_cards?{seat:row.private_seat,name:row.private_name,cards:JSON.parse(row.private_cards)}:null));
+    return exportResponse(records,exportFormat,code);
    }
    if(write){if(input.version!==undefined&&input.version!==row.version&&['fold','call','check','raise','deal'].includes(input.type))return response({error:'The table changed. Review your turn and try again.'},409);if(input.player)input.player=resolveAlias(r,input.player);command(r,token,input)}
    if(write||changed){r.version=row.version+1;const update=await db.prepare('UPDATE poker_rooms SET state=?, version=?, updated_at=? WHERE code=? AND version=?').bind(JSON.stringify(r),r.version,Date.now(),code,row.version).run();if(!update.meta.changes)continue;await persistHistory(db,r);if(r.phase==='closed')await db.prepare('UPDATE poker_sessions SET ended_at=? WHERE code=?').bind(Date.now(),code).run();}

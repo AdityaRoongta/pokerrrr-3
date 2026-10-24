@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {newRoom,command,startHand,legal,act,evaluate,rank5,view,settlement,resolveAlias,tick,finish,resolveRunout,runoutCardsNeeded} from '../lib/poker.mjs';
-import {publicHandRecord,handHistoryCsv,handHistoryJson} from '../lib/hand-history.mjs';
+import {cardText,publicHandRecord,viewerHandRecord,handHistoryCsv,handHistoryJson} from '../lib/hand-history.mjs';
 const token='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const card=s=>{const ranks='23456789TJQKA',suits='cdhs';return suits.indexOf(s[1])*13+ranks.indexOf(s[0])};
 const cs=s=>s.split(' ').map(card);
@@ -44,7 +44,8 @@ test('hand-history exports include only public card disclosures',()=>{
  const r=room(2);startHand(r);const folder=r.turn,foldedCards=[...r.players.find(p=>p.id===folder).cards];act(r,folder,'fold');
  // Simulate a future internal-only field: the exporter must not copy it through.
  r.history[0].privateCards=[{playerId:folder,cards:foldedCards}];let record=publicHandRecord(r.code,r.history[0]);
- assert.equal(record.showdown.length,0);assert.equal(record.reveals.length,0);assert.equal('privateCards' in record,false);assert.equal(handHistoryJson([record]).includes(`"cards":${JSON.stringify(foldedCards)}`),false);assert.equal(handHistoryCsv([record]).includes('cards'),false);
+ assert.equal(record.showdown.length,0);assert.equal(record.reveals.length,0);assert.equal('privateCards' in record,false);assert.equal(JSON.stringify(record).includes(JSON.stringify(foldedCards)),false);assert.equal(handHistoryCsv([record]).includes(foldedCards.map(cardText).join(' ')),false);
+ const privateRecord=viewerHandRecord(record,{seat:r.players.find(p=>p.id===folder).seat,name:r.players.find(p=>p.id===folder).name,cards:foldedCards});assert.deepEqual(privateRecord.visibleHoleCards.map(player=>player.cards),[foldedCards]);assert.match(handHistoryCsv([privateRecord]),new RegExp(foldedCards.map(cardText).join(' ')));
  command(r,folder,{type:'voluntary_reveal'});record=publicHandRecord(r.code,r.history[0]);assert.deepEqual(record.reveals[0].cards,foldedCards);
 });
 test('voluntary reveals and any seated player’s Rabbit Hunt are recorded as public completed-hand events',()=>{
@@ -59,7 +60,7 @@ test('voluntary reveals and any seated player’s Rabbit Hunt are recorded as pu
 test('completed hand exports are structured and never include player bearer tokens',()=>{
  const r=room(2);startHand(r,1000);act(r,token,'fold',0,2000);command(r,token,{type:'voluntary_reveal'},2100);command(r,token,{type:'rabbit_hunt'},2200);
  const record=publicHandRecord(r.code,r.history[0]),json=handHistoryJson([record]),csv=handHistoryCsv([record]);
- assert.equal(record.sessionCode,r.code);assert.equal(record.handNumber,1);assert.ok(!json.includes(token));assert.ok(!json.includes('player-1'));assert.match(csv,/"Hand ID","Date","Session","Street","Seq","Player","Pos","Action","Size","Stack After"/);assert.match(csv,/rabbit_hunt/);assert.match(csv,/voluntary_reveal/);assert.ok(csv.split('\n').length>2,'Each action should receive its own CSV row');
+ assert.equal(record.sessionCode,r.code);assert.equal(record.handNumber,1);assert.ok(!json.includes(token));assert.ok(!json.includes('player-1'));assert.match(csv,/"Hand ID","Date","Session","Street","Seq","Player","Hole Cards","Pos","Action","Size","Stack After"/);assert.match(csv,/rabbit_hunt/);assert.match(csv,/voluntary_reveal/);assert.ok(csv.split('\n').length>2,'Each action should receive its own CSV row');
 });
 test('deal animation goes clockwise card by card, including all forty PLO5 cards',async()=>{
  const {dealPlan,boardPlan}=await import('../lib/table-presentation.mjs');const r=room(8);r.completed=4;startHand(r,1000);const plan=dealPlan(r);assert.equal(plan.flights.length,40);assert.deepEqual(plan.flights.slice(0,8).map(f=>f.seat),[1,2,3,4,5,6,7,0]);assert.deepEqual(plan.flights.slice(8,16).map(f=>f.round),Array(8).fill(1));assert.ok(plan.flights.every((f,i)=>!i||f.at>plan.flights[i-1].at));assert.equal(r.deadline,1000+plan.duration+30000);assert.deepEqual(boardPlan(0,5).map(e=>e.index),[0,1,2,3,4]);assert.deepEqual(boardPlan(3,5).map(e=>e.index),[3,4]);

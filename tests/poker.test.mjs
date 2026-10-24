@@ -40,11 +40,11 @@ test('pot awards distinguish winners, side pots and returned uncalled money',()=
 test('fold win does not expose the winner’s private cards or invent a five-card hand',()=>{
  const r=room(2);startHand(r);const folder=r.turn;act(r,folder,'fold');const v=view(r,folder),w=v.result[0];assert.equal(w.description,'Everyone else folded');assert.deepEqual(w.winningCards,[]);assert.equal(v.players.find(p=>p.id!==folder).cards,undefined);assert.equal(v.history[0].showdown.length,0);assert.equal(w.amount,w.wonAmount+w.returnedAmount);
 });
-test('voluntary reveals and any in-hand player’s Rabbit Hunt are recorded as public completed-hand events',()=>{
+test('voluntary reveals and any seated player’s Rabbit Hunt are recorded as public completed-hand events',()=>{
  const r=room(2);startHand(r,1000);const cards=[...r.players.find(p=>p.id===token).cards];
  act(r,token,'fold',0,2000);assert.equal(r.phase,'showdown');
  command(r,token,{type:'voluntary_reveal'},2100);assert.deepEqual(r.history[0].reveals,[{seat:0,name:'Host',cards,at:2100,source:'voluntary'}]);
- command(r,'player-1',{type:'rabbit_hunt'},2200);const hunt=r.history[0].rabbitHunt;
+ r.players.find(p=>p.id==='player-1').inHand=false;command(r,'player-1',{type:'rabbit_hunt'},2200);const hunt=r.history[0].rabbitHunt;
  assert.equal(hunt.fromBoard.length,0);assert.equal(hunt.cards.length,5);assert.equal(hunt.burnCards.length,3);assert.equal(new Set([...r.players.flatMap(p=>p.cards),...hunt.cards,...hunt.burnCards,...r.deck]).size,52);
  assert.ok(r.history[0].actionLog.some(e=>e.type==='voluntary_reveal'));assert.ok(r.history[0].actionLog.some(e=>e.type==='rabbit_hunt'));
  assert.equal(hunt.requestedBy.name,'Player 1');assert.throws(()=>command(r,token,{type:'rabbit_hunt'}),/already been run/);

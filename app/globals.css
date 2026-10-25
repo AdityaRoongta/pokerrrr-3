@@ -68,3 +68,5 @@ html:has(.app.in-game),body:has(.app.in-game){height:100%;overflow:hidden;oversc
 @media(max-width:620px){.history-toolbar{gap:10px}.history-toolbar h2{font-size:23px}.history-toolbar .primary{padding:11px 14px}.game-history{margin-top:28px}.history-table-scroll table{font-size:11px}}
 
 .settlement-result .payment{padding:10px 0;font-size:12px}.settlement-totals{margin-top:24px;border-top:1px solid var(--line);padding-top:16px}.settlement-totals summary{cursor:pointer;color:var(--gold);font-size:12px}.settlement-result>h3{margin-top:18px}.simple-lobby .setup form>label{margin-bottom:22px}
+
+.game-history textarea{width:100%;background:var(--bg);color:var(--text);padding:12px;border:1px solid var(--line);border-radius:8px}.game-history label>small{display:block;margin-top:8px}.settlement-result>details{margin-top:16px}.settlement-result>details button{margin:12px 12px 12px 0}.history-table-scroll .text-button{text-align:left}

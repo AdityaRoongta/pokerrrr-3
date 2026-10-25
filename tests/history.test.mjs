@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {historyRange,indiaDate,aggregateGames,suggestedPayments,householdPair,publicHistory} from '../lib/game-history.mjs';
+import {currentSettlementWeek,settlementDate,settlementText,historyViewerKey,historyPlayerKey,historyRange,indiaDate,aggregateGames,suggestedPayments,householdPair,publicHistory} from '../lib/game-history.mjs';
 import {historyExamples} from './history-fixtures.mjs';
 import {TableService} from '../server/table-service.mjs';
 const now=Date.parse('2026-10-25T12:00:00Z');
@@ -47,4 +47,22 @@ test('seed helper inserts all eight examples and cleanup preserves unrelated row
   execFileSync(process.execPath,['scripts/create-history-examples.mjs','--database',path]);db=new DatabaseSync(path);assert.equal(db.prepare("SELECT COUNT(*) AS n FROM history_examples WHERE id LIKE 'demo-%'").get().n,8);db.close();
   execFileSync(process.execPath,['scripts/create-history-examples.mjs','--clear','--database',path]);db=new DatabaseSync(path);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM history_examples').get().n,1);assert.equal(db.prepare('SELECT id FROM history_examples').get().id,'unrelated');db.close();
  }finally{rmSync(root,{recursive:true,force:true})}
+});
+
+test('settlement week follows India Monday boundaries, including Sunday and year rollover',()=>{
+ assert.deepEqual(currentSettlementWeek(Date.parse('2026-10-25T18:29:59Z')),{from:'2026-10-19',to:'2026-10-25'});
+ assert.deepEqual(currentSettlementWeek(Date.parse('2026-10-25T18:30:00Z')),{from:'2026-10-26',to:'2026-10-26'});
+ assert.deepEqual(currentSettlementWeek(Date.parse('2027-01-01T00:00:00Z')),{from:'2026-12-28',to:'2027-01-01'});
+ assert.match(settlementDate('2026-10-19'),/Mon/);
+});
+test('viewer keys use authenticated identity and map only isolated examples by name',async()=>{
+ const player={id:'real-dunzo',name:'Dunzo'},examples=historyExamples(now);
+ assert.equal(await historyViewerKey(player),await historyPlayerKey(player.id));
+ assert.equal(await historyViewerKey(player,examples),await historyPlayerKey(examples[0].players[0].id));
+ assert.equal(await historyViewerKey({...player,name:'Unknown'},examples),null);
+ assert.equal(await historyViewerKey(player,[...examples,{players:[{id:'duplicate',name:'Dunzo'}]}]),null);
+});
+test('share text includes date weekdays, totals before suggestions and simulated label',async()=>{
+ const result=await new TableService(storage(historyExamples(now))).settlement({from:'2026-10-19',to:'2026-10-25'});
+ const text=settlementText({...result,demo:true});assert.match(text,/SIMULATED/);assert.match(text,/Mon.*Sun/);assert.ok(text.indexOf('Player Win / Loss')<text.indexOf('Suggested Payments'));assert.match(text,/Nothing is marked paid/);
 });

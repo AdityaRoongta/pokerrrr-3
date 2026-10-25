@@ -1,3 +1,4 @@
+import { historyViewerKey } from '../lib/game-history.mjs';
 import { DurableObject } from 'cloudflare:workers';
 import { TableService, TableError } from './table-service.mjs';
 import { PlayerAuth, sessionCookie } from './player-auth.mjs';
@@ -78,7 +79,7 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
           const examples=demo?this.ctx.storage.sql.exec('SELECT record FROM history_examples ORDER BY id').toArray().map(row=>JSON.parse(String(row.record))):undefined;
           const options={from:url.searchParams.get('from')||undefined,to:url.searchParams.get('to')||undefined,cursor:url.searchParams.get('cursor')||undefined,examples,roster:this.auth.players()};
           const data=url.pathname==='/api/history'?await this.service.history(options):await this.service.settlement(options);
-          return json({...data,demo,demoAvailable:available,timeZone:'Asia/Kolkata'});
+          return json({...data,viewerKey:await historyViewerKey(player,examples),demo,demoAvailable:available,timeZone:'Asia/Kolkata'});
         }
         if(url.pathname==='/api/logout' && request.method==='POST') {
           if(request.body)await this.body(request);

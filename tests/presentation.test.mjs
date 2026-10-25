@@ -24,3 +24,7 @@ test('two different winners get separate sequential chip transfers',()=>{
  const p=showdownTiming(4,5,2,2,[1,1],true),events=payoutEvents({runCount:2,result:[{id:'x',name:'X',runHands:[{run:1,wonAmount:2500}]},{id:'y',name:'Y',runHands:[{run:2,wonAmount:2500}]}]},0,p);
  assert.deepEqual(events.map(e=>[e.id,e.run,e.amount]),[['x',1,2500],['y',2,2500]]);assert.ok(events[1].at>events[0].at+events[0].duration);
 });
+
+test('uncalled chips share the winning transfer with no separate return animation',()=>{
+ const plan=showdownTiming(0,0,1),room={runCount:1,result:[{id:'winner',name:'Winner',amount:150,wonAmount:100,returnedAmount:50}]},events=payoutEvents(room,0,plan);assert.equal(events.length,1);assert.equal(events[0].amount,150);assert.equal(events[0].returned,false);assert.equal(visibleStack({id:'winner',stack:300},events,0),150);assert.equal(visibleStack({id:'winner',stack:300},events,events[0].at+events[0].duration),300);
+});

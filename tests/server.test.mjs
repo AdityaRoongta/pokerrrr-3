@@ -7,6 +7,7 @@ class MemoryStorage {
   values = new Map(); alarm = null; queue = Promise.resolve();
   async get(key) { return structuredClone(this.values.get(key)); }
   async put(key, value) { this.values.set(key, structuredClone(value)); }
+  async list({prefix='',limit=1000,startAfter}={}) {return new Map([...this.values].filter(([key])=>key.startsWith(prefix)&&(!startAfter||key>startAfter)).sort(([a],[b])=>a.localeCompare(b)).slice(0,limit).map(([k,v])=>[k,structuredClone(v)]));}
   async delete(key) { this.values.delete(key); }
   async setAlarm(at) { this.alarm = at; }
   async deleteAlarm() { this.alarm = null; }
@@ -32,6 +33,9 @@ async function fixture(count = 2) {
 test('wire protocol rejects unknown actions, extra fields and missing concurrency guards', () => {
   assert.throws(() => parseCommand({ type: 'create' }));
   assert.throws(() => parseCommand(commandEnvelope({ type: 'steal', code: 'ABC234' })));
+  assert.throws(() => parseCommand(commandEnvelope({ type: 'leave', code: 'ABC234' })));
+  assert.throws(() => parseCommand(commandEnvelope({ type: 'create', name:'Host',games:[] })));
+  assert.throws(() => parseCommand(commandEnvelope({ type: 'create', name:'Host',bb:25 })));
   assert.throws(() => parseCommand(commandEnvelope({ type: 'create', name: 'Host', player: 'another-player' })));
   assert.throws(() => parseCommand(commandEnvelope({ type: 'rebuy', code: 'ABC234', amount: 20 })));
 });
@@ -157,7 +161,8 @@ test('concurrent claims for the same chosen seat have one winner and idempotent 
  const winner=results.findIndex(r=>r.status==='fulfilled');await service.execute(ids[winner],claims[winner]);const saved=await storage.get(`room:${r.code}`);assert.equal(saved.players.length,1);assert.equal(saved.players[0].buyins,1500);assert.equal(saved.players[0].seat,4);
 });
 test('termination and pending seat actions survive restart, alarm closes and archives once',async()=>{
- const f=await fixture(3);await f.send(f.players[0],'deal');await f.send(f.players[0],'leave');await f.send(f.players[1],'ready');const spectator=crypto.randomUUID();
+ const f=await fixture(3);await f.send(f.players[0],'deal');// A departure queued by a v3 client must still recover safely after upgrading.
+ const legacy=await f.storage.get(`room:${f.code}`);legacy.players[0].pendingSeatAction='leave';await f.storage.put(`room:${f.code}`,legacy);await f.send(f.players[1],'ready');const spectator=crypto.randomUUID();
  const r=await f.service.snapshot(spectator,f.code);const end=commandEnvelope({type:'end',code:f.code},r);await f.service.execute(spectator,end);
  const recovered=new TableService(f.storage);await recovered.execute(spectator,end);let saved=await f.storage.get(`room:${f.code}`);assert.equal(saved.terminationPending,true);assert.equal(saved.players[0].pendingSeatAction,'leave');
  while(saved.phase!=='showdown'){await recovered.advance(saved.phase==='runout_vote'?saved.runVote.deadline:saved.deadline);saved=await f.storage.get(`room:${f.code}`)}

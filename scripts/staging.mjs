@@ -1,3 +1,4 @@
+import {readFileSync,writeFileSync} from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { validateStagingArtifact } from '../lib/staging-artifact.mjs';
 
@@ -20,6 +21,10 @@ if (command === 'build') {
   run(['node_modules/vinext/dist/cli.js', 'build'], {
     ...process.env, POKER_DEPLOY_TARGET: 'staging', CLOUDFLARE_ENV: 'staging',
   });
+  // Preview bindings are intentionally separate from the main Worker settings.
+  const path='dist/server/wrangler.json',config=JSON.parse(readFileSync(path,'utf8'));
+  config.previews={vars:{APP_ENV:'staging'},durable_objects:{bindings:[{name:'CLUB_TABLE',class_name:'ClubTable'}]}};
+  writeFileSync(path,JSON.stringify(config,null,2));
 }
 validateStagingArtifact();
 if (command === 'deploy') run(['node_modules/wrangler/bin/wrangler.js', 'deploy', '--config', 'dist/server/wrangler.json']);

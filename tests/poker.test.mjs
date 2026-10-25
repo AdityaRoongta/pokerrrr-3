@@ -136,3 +136,11 @@ test('any player can terminate during a hand; payout finishes before closure and
 test('termination waits for a pending runout vote and closes even while auto-deal is paused',()=>{
  const r=room(2);r.paused=true;startHand(r);act(r,r.turn,'raise',legal(r,r.turn).max);act(r,r.turn,'call');assert.equal(r.phase,'runout_vote');command(r,token,{type:'end'});assert.equal(r.phase,'runout_vote');tick(r,r.runVote.deadline);assert.equal(r.phase,'showdown');tick(r,r.payoutFinishedAt);assert.equal(r.phase,'closed');conservation(r);
 });
+
+test('selected games rotate in canonical order; BB alone determines half-size SB',()=>{
+ const r=room(2,{games:['PLO5','NLH'],bb:40,sb:99});assert.equal(r.settings.sb,20);assert.deepEqual(r.settings.games,['NLH','PLO5']);
+ for(const expected of ['NLH','NLH','PLO5','PLO5','NLH']){startHand(r);assert.equal(r.game,expected);auto(r,()=>.9)}
+ const single=room(2,{games:['PLO4']});for(let i=0;i<3;i++){startHand(single);assert.equal(single.game,'PLO4');auto(single,()=>.9)}
+ for(const games of [[],['BAD'],['NLH','NLH']])assert.throws(()=>newRoom('ABC234',token,{name:'Host',games}),/valid game/);assert.throws(()=>newRoom('ABC234',token,{name:'Host',bb:25}),/even/);
+ const high=newRoom('ABC234',token,{name:'Host',bb:2000,takeSeat:false});assert.equal(high.settings.sb,1000);assert.ok(high.settings.buyin>=4000);
+});

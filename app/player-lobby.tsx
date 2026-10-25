@@ -5,7 +5,7 @@ export function PlayerLobby({player,players,activeGame,loading,busy,error,onLogi
  player:Player|null;players:Player[];activeGame:any;loading:boolean;busy:boolean;error:string;
  onLogin:(id:string,pin:string)=>Promise<void>;onOpen:(settings:any)=>Promise<void>;onPractice:()=>void;onRetry:()=>void;hasPending:boolean;
 }) {
- const [selected,setSelected]=useState(''),[pin,setPin]=useState(''),[sb,setSb]=useState(25),[bb,setBb]=useState(50),[rotation,setRotation]=useState(3);
+ const [selected,setSelected]=useState(''),[pin,setPin]=useState(''),[bb,setBb]=useState(50),[rotation,setRotation]=useState(3),[games,setGames]=useState(['NLH','PLO4','PLO5']);
  async function login(event:FormEvent){event.preventDefault();const entered=pin;setPin('');await onLogin(selected,entered)}
  return <section className="setup">
   {loading?<p role="status">Loading your table…</p>:!player?<>
@@ -18,10 +18,11 @@ export function PlayerLobby({player,players,activeGame,loading,busy,error,onLogi
   </>:<>
    <h2>{activeGame?'A game is running right now':'Start Game'}</h2>
    {activeGame?<p>{activeGame.players.map((p:any)=>p.name).join(' · ')||'Waiting for players'}<br/>{activeGame.settings.sb} / {activeGame.settings.bb} blinds</p>:null}
-   <form onSubmit={async e=>{e.preventDefault();await onOpen({sb,bb,rotation})}}>
-    {!activeGame&&<><div className="field-row"><label>Small blind<input type="number" min={1} max={100000} value={sb} onChange={e=>setSb(Number(e.target.value))} required/></label><label>Big blind<input type="number" min={sb} max={100000} value={bb} onChange={e=>setBb(Number(e.target.value))} required/></label></div>
+   <form onSubmit={async e=>{e.preventDefault();await onOpen({bb,rotation,games})}}>
+    {!activeGame&&<><fieldset className="game-options"><legend>Games</legend>{['NLH','PLO4','PLO5'].map(game=><label key={game}><input type="checkbox" checked={games.includes(game)} onChange={e=>setGames(old=>e.target.checked?[...old,game]:old.filter(g=>g!==game))}/>{game}</label>)}</fieldset>
+    <label>Big Blind<input type="number" min={2} max={100000} step={2} value={bb} onChange={e=>setBb(Number(e.target.value))} required/><small>Small Blind: {bb>0?bb/2:0}</small></label>
     <label>Switch game every<select value={rotation} onChange={e=>setRotation(Number(e.target.value))}>{[2,3,4].map(n=><option key={n} value={n}>{n} completed hands</option>)}</select></label></>}
-    <button className="primary full" disabled={busy}>{busy?'Opening…':activeGame?'Join Now':'Start Game'}</button>
+    <button className="primary full" disabled={busy||(!activeGame&&games.length===0)}>{busy?'Opening…':activeGame?'Join Now':'Start Game'}</button>
    </form>
   </>}
   {error&&<div className="error" role="alert">{error}{hasPending&&<button type="button" onClick={onRetry}>Retry last action</button>}</div>}

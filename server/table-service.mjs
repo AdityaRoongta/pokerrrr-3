@@ -1,3 +1,4 @@
+import { historyRange, gameResults, aggregateGames, suggestedPayments, householdPair, historyPlayerKey, publicHistory } from '../lib/game-history.mjs';
 import { newRoom, command, view, tick } from '../lib/poker.mjs';
 import { parseCommand, playerToken, roomCode } from '../lib/protocol/poker.mjs';
 
@@ -44,6 +45,43 @@ export class TableService {
       if (deadline !== null) await tx.setAlarm(deadline);
       else await tx.deleteAlarm();
     }
+  }
+
+  async completedGames({from,to,examples} = {}) {
+    const {start,end}=historyRange(from,to);
+    let records=[];
+    if(examples)records=examples;
+    else {
+      let startAfter;
+      for(;;){
+        const page=await this.storage.list({prefix:'session:',limit:128,...(startAfter&&{startAfter})});
+        records.push(...page.values());
+        if(page.size<128)break;
+        startAfter=[...page.keys()].at(-1);
+      }
+    }
+    return records.filter(r=>r.closedAt>=start&&r.closedAt<end).sort((a,b)=>b.closedAt-a.closedAt||b.code.localeCompare(a.code));
+  }
+
+  async history({from,to,cursor,examples} = {}) {
+    let records=await this.completedGames({from,to,examples});
+    if(cursor){
+      const match=/^(\d+):([A-Z0-9-]+)$/.exec(cursor);
+      if(!match)throw new TableError('Invalid history page');
+      const time=Number(match[1]),code=match[2];
+      records=records.filter(r=>r.closedAt<time||(r.closedAt===time&&r.code.localeCompare(code)<0));
+    }
+    const page=records.slice(0,20),last=page.at(-1);
+    return {games:await publicHistory(page),nextCursor:records.length>20?`${last.closedAt}:${last.code}`:null};
+  }
+
+  async settlement({from,to,examples,roster=[]} = {}) {
+    historyRange(from,to,true);
+    const records=await this.completedGames({from,to,examples}),totals=aggregateGames(records);
+    const payments=suggestedPayments(totals,householdPair(totals,roster));
+    return {from,to,gameCount:records.length,unit:'chips',suggestionsOnly:true,
+      totals:await Promise.all(totals.map(async({id,...p})=>({...p,key:await historyPlayerKey(id)}))),
+      payments:await Promise.all(payments.map(async({from,to,...p})=>({...p,from:await historyPlayerKey(from),to:await historyPlayerKey(to)})))};
   }
 
   async snapshot(token, code) {

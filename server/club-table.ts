@@ -1,3 +1,4 @@
+import { historyViewerKey } from '../lib/game-history.mjs';
 import { DurableObject } from 'cloudflare:workers';
 import { TableService, TableError } from './table-service.mjs';
 import { PlayerAuth, sessionCookie } from './player-auth.mjs';
@@ -16,6 +17,7 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
     super(ctx, env);
     this.service = new TableService(ctx.storage);
     this.auth = new PlayerAuth(ctx.storage.sql, work => ctx.storage.transactionSync(work));
+    if(env.APP_ENV==='staging')ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS history_examples (id TEXT PRIMARY KEY, record TEXT NOT NULL)');
   }
 
   // Serialize fetches, alarms and socket callbacks across asynchronous awaits.
@@ -69,6 +71,16 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
         if(url.pathname==='/api/session' && request.method==='GET')return json({player});
         if(!player)return json({error:'Please sign in with your name and PIN',code:'LOGIN_REQUIRED'},401);
         const token=player.id;
+        if(['/api/history','/api/settlement'].includes(url.pathname)&&request.method==='GET'){
+          this.limit(`history:${token}`,60);
+          const demo=url.searchParams.get('demo')==='1';
+          if(demo&&this.env.APP_ENV!=='staging')throw new TableError('Simulated history is only available in staging',403);
+          const available=this.env.APP_ENV==='staging'&&this.ctx.storage.sql.exec('SELECT id FROM history_examples LIMIT 1').toArray().length>0;
+          const examples=demo?this.ctx.storage.sql.exec('SELECT record FROM history_examples ORDER BY id').toArray().map(row=>JSON.parse(String(row.record))):undefined;
+          const options={from:url.searchParams.get('from')||undefined,to:url.searchParams.get('to')||undefined,cursor:url.searchParams.get('cursor')||undefined,examples,roster:this.auth.players()};
+          const data=url.pathname==='/api/history'?await this.service.history(options):await this.service.settlement(options);
+          return json({...data,viewerKey:await historyViewerKey(player,examples),demo,demoAvailable:available,timeZone:'Asia/Kolkata'});
+        }
         if(url.pathname==='/api/logout' && request.method==='POST') {
           if(request.body)await this.body(request);
           await this.auth.logout(request);await this.broadcast();

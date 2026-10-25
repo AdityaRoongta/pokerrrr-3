@@ -4655,7 +4655,8 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .in-game .your-seat .card.small {width: 48px; height: 68px; padding: 5px;}
 .in-game .your-seat .card.small b {font-size: 22px;}
 .in-game .your-seat .card.small>span {font-size: 26px;}
-.in-game .seat .hole-cards .card {margin-left: -12px;}
+.in-game .seat .hole-cards>span {margin-left: 0;}
+.in-game .seat .hole-cards .card {margin-left: -8px;}
 .in-game .your-seat .hole-cards .card {margin-left: -9px;}
 .in-game .board-cards>.board-card-wrap>.card {width: 46px; height: 65px;}
 .in-game .board-cards .card b {font-size: 21px;}
@@ -4676,7 +4677,8 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .in-game .betting-main {display: contents;}
 .in-game .betting-main .quick-bets {order: 0; flex-wrap: nowrap; margin: 0; gap: 8px; justify-content: flex-start;}
 .in-game .quick-bets>button {min-height: 38px; padding: 8px 12px; font-size: 12px;}
-.in-game .quick-bets>label {margin-left: auto; font-size: 11px; gap: 6px;}
+.in-game .quick-bets>.bet-shortcut {min-width: 0;}
+.in-game .quick-bets>label {flex: 0 0 auto; margin-left: auto; font-size: 11px; gap: 6px;}
 .in-game .quick-bets input {height: 38px; width: 88px; font-size: 18px; padding: 6px 8px;}
 .in-game .raise-slider-control {order: 1; min-height: 32px; height: 32px; width: 100%;}
 .in-game .raise-slider-control input[type=range] {writing-mode: horizontal-tb; direction: ltr; width: 100%; height: 32px; cursor: ew-resize;}

@@ -1,6 +1,8 @@
 # Verification and staged implementation plan
 
 Baseline inspected: `82227b55ee5197259cb3c23aa3539e792ef95a96`.
+Updated against main `804c4f5` after its practice-only staging changes landed
+during verification. The staging source and documentation were also inspected.
 Scope: one private group of 6–8 friends, one active session, retained completed
 sessions and settlement across sessions (usually weekly). This is a proposal,
 not a claim that the architecture below has been implemented.
@@ -20,6 +22,14 @@ Verified from an empty macOS checkout using Node 24.22.1 and pnpm 11.25.0:
 | `POKER_TEST_URL=http://127.0.0.1:8787 pnpm test:api` | Passed |
 | `pnpm dev` | Ready on `http://127.0.0.1:5173/` |
 | Browser practice smoke check | Home loaded; practice opened a six-player local hand |
+
+After incorporating main `804c4f5`, reran the 39 engine/presentation tests,
+TypeScript and standard production build successfully; the three new staging unit
+tests also passed. Local API and browser smoke results above were obtained before
+that merge. They are not proof of the staging deployment's behavior.
+The new `build:staging`, `check:staging` and local `test:staging:smoke` also passed:
+health/version, blocked multiplayer GET/POST, rendered lobby and PWA assets.
+No deploy command was run.
 
 The machine initially had pnpm but no Node on PATH; dependency lifecycle scripts
 failed until Node was supplied. Registry access and loopback listeners required
@@ -55,6 +65,15 @@ documentation alone is not completion evidence.
 | Retry safety | Some actions check state version; there is no persisted command deduplication. `paid` toggles a per-session payment index, so retrying it can reverse the effect. |
 | History | `finish` truncates history to 100 hands in room JSON. Only `poker_rooms` exists in the migration. Closed rooms remain stored, but there is no normalized history or cross-session ledger. |
 | Client/CI | Service worker caches only named install assets. CI runs locked install, unit tests, types and build; API integration is absent. |
+
+Main now also includes a standalone practice-only staging target
+(`vite.staging.ts`, `worker/staging.ts`, `lib/staging-handler.mjs`) and staging CI
+checks. It disables multiplayer and returns 503 for `/api/poker`; it is evidence
+of client packaging progress, not an implemented independent multiplayer server.
+The existing staging name/configuration is preserved. No remote deployment was
+inspected or changed. `docs/CLOUDFLARE_STAGING.md` mentions future PIN sessions;
+this is still a proposal, with no PIN authentication implementation in the code.
+Resolve that direction alongside the login-provider decision below.
 
 ## Stages and review gates
 

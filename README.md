@@ -23,11 +23,9 @@ See [player administration](docs/PLAYERS.md) for safe INSERT/reset instructions.
 No new database, login provider or shared access secret is required.
 
 Completed sessions remain stored when another session starts. Completed hands
-are archived separately from the live room's latest-100-hand view. Closed-session
-data remains stored under its internal session ID. The lobby shows per-game win/loss history. Date-range settlement sums completed
-games and suggests transfers, preferring Dunzo/Ishita offsets first. Actual payment
-recording, host handover and full history export remain backlog work.
-Settlement is a calculation only; it does not mark games or transfers paid.
+are archived separately from the live room's latest-100-hand view. The lobby shows per-game win/loss history. Date-range settlement sums completed
+games and suggests transfers, preferring Dunzo/Ishita offsets first. Settlement
+is a calculation only; it does not mark games or transfers paid.
 
 The Cloudflare target is `dunzo-club-staging`:
 https://dunzo-club-staging.arun-devanathan.workers.dev/.
@@ -63,7 +61,7 @@ pnpm build:staging
 pnpm preview:staging
 ```
 
-Legacy `pnpm dev` / `pnpm build` framework entry points remain available and route
+The `pnpm dev` / `pnpm build` framework entry points route
 poker traffic through the same coordinator; login uses the same static player
 records. The original Site hosting identity remains in `.openai/hosting.json`.
 
@@ -85,7 +83,8 @@ independent alarm and retained sessions, and cleans up. It does not use deployed
 storage. It needs a free loopback port 8787. To test another **disposable local**
 server, explicitly set `POKER_TEST_URL`, then run
 `pnpm test:api`. Both API test paths reject remote URLs. Never point tests at a
-live group. Physical 6–8-device/PWA/network-loss acceptance remains required.
+live group. For manual verification, use separate browser profiles or phones to check
+PWA installation, background/resume and recovery after network loss.
 
 ## Code map
 
@@ -100,7 +99,7 @@ live group. Physical 6–8-device/PWA/network-loss acceptance remains required.
 | `server/table-service.mjs` | Transactional state, idempotency, session/hand archive |
 | `server/player-auth.mjs` | Fixed roster, hashed PINs and revocable player sessions |
 | `lib/poker.mjs` | Shared tested pure poker rules, secure shuffle and private views |
-| `docs/ISSUES.md`, `docs/BACKLOG.md` | Remaining work and acceptance criteria |
+| `docs/ARCHITECTURE.md` | Runtime flow, storage and game invariants |
 
 Use feature branches and reviewed PRs. A merge can trigger Cloudflare's configured
 Git build: review that external automation before merging. Preserve existing

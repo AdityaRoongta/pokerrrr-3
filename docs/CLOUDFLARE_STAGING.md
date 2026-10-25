@@ -36,7 +36,7 @@ local database, waits for a server alarm without client requests, then cleans up
 It refuses remote URLs. Use `pnpm dev:staging` for HMR or `pnpm preview:staging`
 for the built Worker. Local testing does not provision or migrate remote storage.
 
-## Deployment preparation (separate from local implementation)
+## Deployment configuration
 
 The existing `ClubTable` namespace was introduced by the `dunzo-club-v1`
 `new_sqlite_classes` migration. Keep that namespace and migration unchanged.
@@ -47,11 +47,8 @@ repurpose a real player's historical balance as staging test data.
 Player authentication uses the existing namespace, with additive `players` and
 `player_sessions` SQL tables initialized when the object starts. There is no new
 namespace or binding migration for PIN login. Existing game/history keys stay
-unchanged. `CLUB_ACCESS_KEY` is no longer read; an old configured value can be
-removed later. Legacy access cookies and browser bearer IDs no longer authorize
-requests. Provision player records before inviting anyone to sign in. If an old
-game exists, follow the identity-mapping notes in [PLAYERS.md](PLAYERS.md) before
-creating fresh player IDs. No live records are modified by a local build.
+unchanged. Provision player records before signing in. When mapping an existing game to
+player accounts, follow [PLAYERS.md](PLAYERS.md). Local builds do not modify live records.
 
 Cloudflare build configuration:
 
@@ -86,18 +83,14 @@ must be separately provisioned; never rename this staging namespace to productio
 - Test phones backgrounded, offline/reconnected and a server restart before real
   use. Confirm all chips and final cash-outs reconcile.
 
-Deployments now contain persistent state. Do not delete/recreate the namespace or
-cross a migration boundary as a casual rollback. Stop automatic builds and rehearse
-code rollback with schema-compatible state in isolated staging; snapshot/export and
-restoration procedures remain issue #15. Keep the immutable source history bundle.
+## Persistent state
 
-## Remaining limits
+Preserve the existing Durable Object namespace and SQLite migration when deploying
+or rolling back code. Deleting or recreating the namespace changes the app's data
+store. Use schema-compatible code for rollback and keep the source history bundle
+for provenance.
 
-There is no public registration or admin API. The owner adds/enables/disables
-players directly in the database. PIN recovery/reset is an owner database operation.
-Host transfer and a one-active-device policy remain future work. Multiple devices
-signed into the same player currently share control of that player's seat.
-The current UI shows the latest 100 hands; the server archives every completed hand.
-Weekly cross-session aggregation, partial external payments, audited corrections
-and archive export/reconciliation remain follow-up work. No claim of full production
-acceptance is made by a passing local smoke suite.
+The owner manages the roster and PIN resets directly in the database. Multiple
+devices signed into one player share that seat. The table displays the latest
+100 hands while the server separately archives every completed hand. Settlement
+calculates suggested transfers across completed games; it does not record payments.

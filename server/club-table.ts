@@ -155,7 +155,7 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
     let room=null;
     if(code){
       const raw=await this.ctx.storage.get<any>(`room:${code}`);
-      if(raw?.players.some((p:any)=>p.id===player.id))room=await this.service.snapshot(player.id,code);
+      if(raw)room=await this.service.snapshot(player.id,code);
     }
     socket.send(JSON.stringify({protocol:PROTOCOL_VERSION,type:'state',lobby,room}));
   }

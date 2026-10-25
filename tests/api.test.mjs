@@ -37,12 +37,13 @@ export async function runApiSuite(base, restart) {
     if (!res.ok) throw Object.assign(new Error(`${res.status}: ${data.error}`), {status:res.status});
     return data;
   }
-  const create = commandEnvelope({type:'create',name:'Integration Host',rotation:2,seats:8,sb:5,bb:10,buyin:1000});
+  const create = commandEnvelope({type:'create',name:'Integration Host',takeSeat:false,rotation:2,seats:8,sb:5,bb:10,buyin:1000});
   let room = await api(host, create), code = room.code;
-  assert.equal((await api(host,create)).code,code);
+  assert.equal((await api(host,create)).code,code);assert.equal(room.players.length,0);
+  room=await api(host,commandEnvelope({type:'join',code,name:'Integration Host',seat:6,buyin:1000}));assert.equal(room.players[0].seat,6);
   await assert.rejects(api(friend,commandEnvelope({type:'create',name:'Duplicate'})),/already running/);
-  await assert.rejects(api(observer,null,code),/Join/);
-  await api(friend, commandEnvelope({type:'join',code,name:'Integration Friend',buyin:1750}));
+  const watching=await api(observer,null,code);assert.equal(watching.legal,null);assert.ok(watching.players.every(p=>p.cards===undefined));
+  await api(friend, commandEnvelope({type:'join',code,name:'Integration Friend',seat:2,buyin:1750}));
   room = await api(host,null,code);
   const peers=[];
   async function peer(token) {
@@ -59,7 +60,7 @@ export async function runApiSuite(base, restart) {
   }
   try {
     const unseated=await peer(observer);
-    assert.equal(unseated.messages[0].room,null);assert.equal(unseated.messages[0].lobby.activeGame.code,code);
+    assert.equal(unseated.messages[0].room.code,code);assert.ok(unseated.messages[0].room.players.every(p=>p.cards===undefined));assert.equal(unseated.messages[0].lobby.activeGame.code,code);
     const h=await peer(host), f=await peer(friend);
     console.log('Verified player login, shared lobby and private socket snapshots.');
     const reload=commandEnvelope({type:'rebuy',code,amount:100},room);
@@ -109,7 +110,9 @@ export async function runApiSuite(base, restart) {
     const timed=await waitFor(()=>liveHost.messages.find(m=>m.room?.version>dealtVersion&&m.room?.phase==='showdown'),45_000);
     assert.equal(timed.room.completed,8);
     room=await api(host,null,code);
-    room=await api(host,commandEnvelope({type:'end',code},room));assert.equal(room.phase,'closed');
+    room=await api(observer,commandEnvelope({type:'end',code},room));
+    if(room.phase!=='closed'){assert.equal(room.terminationPending,true);await sleep(Math.max(0,room.payoutFinishedAt-Date.now())+300);room=await api(host,null,code)}
+    assert.equal(room.phase,'closed');
     assert.equal(room.players.reduce((n,p)=>n+p.cashout,0),2850);
     for(const message of liveHost.messages) assert.ok(!JSON.stringify(message).includes(friend));
     for(const message of liveFriend.messages) assert.ok(!JSON.stringify(message).includes(host));

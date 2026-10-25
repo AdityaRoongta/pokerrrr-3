@@ -5,7 +5,7 @@ export function PlayerLobby({player,players,activeGame,loading,busy,error,onLogi
  player:Player|null;players:Player[];activeGame:any;loading:boolean;busy:boolean;error:string;
  onLogin:(id:string,pin:string)=>Promise<void>;onOpen:(settings:any)=>Promise<void>;onPractice:()=>void;onRetry:()=>void;hasPending:boolean;
 }) {
- const [selected,setSelected]=useState(''),[pin,setPin]=useState(''),[buyin,setBuyin]=useState(2500),[sb,setSb]=useState(25),[bb,setBb]=useState(50),[rotation,setRotation]=useState(3);
+ const [selected,setSelected]=useState(''),[pin,setPin]=useState(''),[sb,setSb]=useState(25),[bb,setBb]=useState(50),[rotation,setRotation]=useState(3);
  async function login(event:FormEvent){event.preventDefault();const entered=pin;setPin('');await onLogin(selected,entered)}
  return <section className="setup">
   {loading?<p role="status">Loading your table…</p>:!player?<>
@@ -16,13 +16,12 @@ export function PlayerLobby({player,players,activeGame,loading,busy,error,onLogi
     <button className="primary full" disabled={busy||!players.length}>Sign in</button>
    </form>{!players.length&&<p>No players have been added yet. Ask the owner to add your player record.</p>}
   </>:<>
-   <h2>{activeGame?'A game is running.':'Start the next game.'}</h2>
-   {activeGame?<p>{activeGame.players.map((p:any)=>p.name).join(' · ')||'Waiting for players'}<br/>{activeGame.settings.sb} / {activeGame.settings.bb} blinds</p>:<p>Welcome, {player.name}. Anyone can start the game.</p>}
-   <form onSubmit={async e=>{e.preventDefault();await onOpen({buyin,sb,bb,rotation})}}>
+   <h2>{activeGame?'A game is running right now':'Start Game'}</h2>
+   {activeGame?<p>{activeGame.players.map((p:any)=>p.name).join(' · ')||'Waiting for players'}<br/>{activeGame.settings.sb} / {activeGame.settings.bb} blinds</p>:null}
+   <form onSubmit={async e=>{e.preventDefault();await onOpen({sb,bb,rotation})}}>
     {!activeGame&&<><div className="field-row"><label>Small blind<input type="number" min={1} max={100000} value={sb} onChange={e=>setSb(Number(e.target.value))} required/></label><label>Big blind<input type="number" min={sb} max={100000} value={bb} onChange={e=>setBb(Number(e.target.value))} required/></label></div>
     <label>Switch game every<select value={rotation} onChange={e=>setRotation(Number(e.target.value))}>{[2,3,4].map(n=><option key={n} value={n}>{n} completed hands</option>)}</select></label></>}
-    {!activeGame?.joined&&<label>Your starting chips<input type="number" min={(activeGame?.settings.bb||bb)*2} max={100000000} value={buyin} onChange={e=>setBuyin(Number(e.target.value))} required/></label>}
-    <button className="primary full" disabled={busy}>{busy?'Opening…':activeGame?(activeGame.joined?'Resume game':'Join game'):'Start game'}</button>
+    <button className="primary full" disabled={busy}>{busy?'Opening…':activeGame?'Join Now':'Start Game'}</button>
    </form>
   </>}
   {error&&<div className="error" role="alert">{error}{hasPending&&<button type="button" onClick={onRetry}>Retry last action</button>}</div>}

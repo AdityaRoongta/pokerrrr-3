@@ -7,7 +7,7 @@ export class TableError extends Error {
 const requireState = (condition, message, status = 409) => { if (!condition) throw new TableError(message, status); };
 export function nextDeadline(room) {
   if (!room || room.phase === 'closed') return null;
-  const deadlines = [room.deadline, room.phase === 'runout_vote' ? room.runVote?.deadline : null, room.phase === 'showdown' && !room.paused ? room.nextDealAt : null].filter(Number.isFinite);
+  const deadlines = [room.deadline, room.phase === 'runout_vote' ? room.runVote?.deadline : null, room.phase === 'showdown' ? (room.terminationPending ? room.payoutFinishedAt : !room.paused ? room.nextDealAt : null) : null].filter(Number.isFinite);
   return deadlines.length ? Math.min(...deadlines) : null;
 }
 async function digest(value) {
@@ -50,7 +50,7 @@ export class TableService {
     playerToken.parse(token); roomCode.parse(code);
     const room = await this.storage.get(`room:${code}`);
     requireState(room, 'Table not found. Check your code.', 404);
-    return view(room, token);
+    return view(room, token, Date.now(), true);
   }
 
   async execute(token, raw, now = Date.now()) {
@@ -63,7 +63,7 @@ export class TableService {
       if (receipt) {
         requireState(receipt.signature === signature, 'Command ID already used with different content');
         const room = await tx.get(`room:${receipt.code}`);
-        return { snapshot: view(room, token, now), ack: receipt.ack, replayed: true };
+        return { snapshot: view(room, token, now, true), ack: receipt.ack, replayed: true };
       }
       let room, previous;
       if (input.type === 'create') {
@@ -79,10 +79,10 @@ export class TableService {
           requireState(room.players.some(p => p.id === token), 'Only session participants can reopen its history', 403);
           const ack = { commandId: input.commandId, version: room.version, code: room.code };
           await tx.put(receiptKey, { signature, code: room.code, ack });
-          return { snapshot: view(room, token, now), ack, replayed: false };
+          return { snapshot: view(room, token, now, true), ack, replayed: false };
         }
         if (input.type !== 'join') {
-          requireState(room.players.some(p => p.id === token), 'Join this table first', 403);
+          requireState(input.type==='end'||room.host===token||room.players.some(p => p.id === token), 'Join this table first', 403);
           requireState(input.version === room.version, 'The table changed. Review your turn and try again.');
           requireState(input.handId === (room.handStartedAt || 0), 'This hand has changed. Review the table.');
         }
@@ -95,7 +95,7 @@ export class TableService {
       await this.save(tx, previous, room);
       const ack = { commandId: input.commandId, version: room.version, code: room.code };
       await tx.put(receiptKey, { signature, code: room.code, ack });
-      return { snapshot: view(room, token, now), ack, replayed: false };
+      return { snapshot: view(room, token, now, true), ack, replayed: false };
     });
   }
 

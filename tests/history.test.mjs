@@ -38,3 +38,13 @@ test('simulated history is isolated from real archives for history and settlemen
  const examples=historyExamples(now),service=new TableService(storage([examples[0]]));assert.equal((await service.history()).games.length,1);assert.equal((await service.history({examples:[]})).games.length,0);assert.equal((await service.history({examples})).games.length,8);
  const result=await service.settlement({from:'2026-01-01',to:'2026-12-31',examples});assert.equal(result.gameCount,8);
 });
+
+test('seed helper inserts all eight examples and cleanup preserves unrelated rows',async()=>{
+ const {mkdtempSync,mkdirSync,rmSync}=await import('node:fs'),{join}=await import('node:path'),{execFileSync}=await import('node:child_process'),{DatabaseSync}=await import('node:sqlite');
+ const root=mkdtempSync('/tmp/dunzo-history-seed-'),dir=join(root,'v3/do/TestClubTable');mkdirSync(dir,{recursive:true});const path=join(dir,`${'a'.repeat(64)}.sqlite`);
+ try{
+  let db=new DatabaseSync(path);db.exec("CREATE TABLE history_examples(id TEXT PRIMARY KEY,record TEXT NOT NULL); INSERT INTO history_examples VALUES('unrelated','{}')");db.close();
+  execFileSync(process.execPath,['scripts/create-history-examples.mjs','--database',path]);db=new DatabaseSync(path);assert.equal(db.prepare("SELECT COUNT(*) AS n FROM history_examples WHERE id LIKE 'demo-%'").get().n,8);db.close();
+  execFileSync(process.execPath,['scripts/create-history-examples.mjs','--clear','--database',path]);db=new DatabaseSync(path);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM history_examples').get().n,1);assert.equal(db.prepare('SELECT id FROM history_examples').get().id,'unrelated');db.close();
+ }finally{rmSync(root,{recursive:true,force:true})}
+});

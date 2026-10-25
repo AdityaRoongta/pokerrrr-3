@@ -54,7 +54,7 @@ test('eight-player views exclude deck, other bearer IDs and hidden cards', async
     for (const other of f.players.filter(p => p !== token)) assert.equal(JSON.stringify(room).includes(other), false);
     assert.ok(room.players.filter(p => p.id !== token).every(p => p.cards === undefined));
   }
-  await assert.rejects(f.service.snapshot(crypto.randomUUID(), f.code), /Join/);
+  const watching=await f.service.snapshot(crypto.randomUUID(),f.code);assert.equal(watching.legal,null);assert.equal(watching.deck,undefined);assert.ok(watching.players.every(p=>p.cards===undefined));for(const id of f.players)assert.ok(!JSON.stringify(watching).includes(id));
 });
 
 test('reload retry after lost response has one effect across coordinator restart', async () => {
@@ -102,7 +102,7 @@ test('alarms advance a disconnected table, persist hand history, respect payouts
 test('closed session remains accessible after the next one starts, old payments do not cancel live alarms', async () => {
   const f = await fixture(); await f.send(f.players[0], 'deal');
   const running = await f.storage.get(`room:${f.code}`); await f.service.advance(running.deadline + 1);
-  await f.send(f.players[0], 'end');
+  await f.send(f.players[0], 'end',{},(await f.storage.get(`room:${f.code}`)).payoutFinishedAt);
   const closed = await f.service.snapshot(f.players[0], f.code);
   const { snapshot: next } = await f.service.execute(f.players[0], commandEnvelope({ type: 'create', name: 'Next week' }));
   await f.service.execute(f.players[1], commandEnvelope({ type: 'join', code: next.code, name: 'Friend', buyin: 1000 }));
@@ -147,4 +147,20 @@ test('a failed receipt save rolls back chips, state version and alarm atomically
   assert.equal(unchanged.version,before.version);assert.deepEqual(unchanged.players,before.players);
   f.storage.put=put;
   const accepted=await f.service.execute(token,input);assert.equal(accepted.snapshot.players.find(p=>p.id===token).buyins,1200);
+});
+
+test('concurrent claims for the same chosen seat have one winner and idempotent buy-in',async()=>{
+ const storage=new MemoryStorage(),service=new TableService(storage),host=crypto.randomUUID();
+ const {snapshot:r}=await service.execute(host,commandEnvelope({type:'create',name:'Host',takeSeat:false}));assert.equal(r.players.length,0);
+ const ids=[crypto.randomUUID(),crypto.randomUUID()];const claims=ids.map((id,i)=>commandEnvelope({type:'join',code:r.code,name:`Friend ${i}`,seat:4,buyin:1500}));
+ const results=await Promise.allSettled(ids.map((id,i)=>service.execute(id,claims[i])));assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.match(results.find(r=>r.status==='rejected').reason.message,/seat is taken/);
+ const winner=results.findIndex(r=>r.status==='fulfilled');await service.execute(ids[winner],claims[winner]);const saved=await storage.get(`room:${r.code}`);assert.equal(saved.players.length,1);assert.equal(saved.players[0].buyins,1500);assert.equal(saved.players[0].seat,4);
+});
+test('termination and pending seat actions survive restart, alarm closes and archives once',async()=>{
+ const f=await fixture(3);await f.send(f.players[0],'deal');await f.send(f.players[0],'leave');await f.send(f.players[1],'ready');const spectator=crypto.randomUUID();
+ const r=await f.service.snapshot(spectator,f.code);const end=commandEnvelope({type:'end',code:f.code},r);await f.service.execute(spectator,end);
+ const recovered=new TableService(f.storage);await recovered.execute(spectator,end);let saved=await f.storage.get(`room:${f.code}`);assert.equal(saved.terminationPending,true);assert.equal(saved.players[0].pendingSeatAction,'leave');
+ while(saved.phase!=='showdown'){await recovered.advance(saved.phase==='runout_vote'?saved.runVote.deadline:saved.deadline);saved=await f.storage.get(`room:${f.code}`)}
+ assert.equal(f.storage.alarm,saved.payoutFinishedAt);assert.equal(saved.players[0].left,true);assert.equal(saved.players[1].away,true);
+ await recovered.advance(saved.payoutFinishedAt);assert.equal(await f.storage.get('active'),undefined);const archived=await f.storage.get(`session:${f.code}`);assert.equal(archived.completed,1);assert.equal(archived.players.reduce((n,p)=>n+p.cashout-p.buyins,0),0);assert.ok(await f.storage.get(`hand:${f.code}:0000000001`));await recovered.advance(saved.payoutFinishedAt+1);assert.deepEqual(await f.storage.get(`session:${f.code}`),archived);
 });

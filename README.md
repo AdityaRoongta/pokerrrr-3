@@ -106,3 +106,26 @@ Use feature branches and reviewed PRs. A merge can trigger Cloudflare's configur
 Git build: review that external automation before merging. Preserve existing
 hosting/data until a deliberate release is approved. Never commit secrets or real
 player balances. See CONTRIBUTING.md and MIGRATION.md for workflow and provenance.
+
+## Joining and game controls
+
+Start Game opens an empty table; it does not buy chips or assign the creator a
+seat. When a game is active, Join Now opens its public table view. Select an
+empty seat and confirm Load Chips to claim that seat and record the buy-in in one
+transaction. Another player's simultaneous claim can win; a rejected claim adds
+no chips. New seats join from the next hand if a hand is already running.
+
+Sit Out retains the seat and stack; Sit In returns for a future deal. Get Up
+cashes out the stack and releases the seat while retaining the player's session
+accounting. Both actions wait until the current hand is paid out by the engine.
+A queued Sit Out can be canceled before it applies. An unapplied reload is canceled
+when its player gets up, without recording another buy-in.
+
+Any signed-in player can Terminate Game, including a player viewing the table
+before taking a seat. A running hand and any runout vote finish normally; the
+server completes the payout presentation, cashes out stacks, archives the session
+and prevents the next deal. Between hands the game terminates immediately unless
+payout presentation is still in progress. Pending actions and termination survive
+server restarts. Signed-in viewers receive the same filtered public table and
+history, never other players' hidden cards or the deck. Protocol v3 clients are
+required for this flow; refresh older open clients after release.

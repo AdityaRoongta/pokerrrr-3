@@ -146,3 +146,11 @@ The group needs to recover a session and reconcile chips when something fails.
 - [ ] Provide documented backup/restore and a tested deployment rollback procedure.
 - [ ] Separate staging and live sessions; never let automated tests mutate real ledger data.
 - [ ] Document incident handling and reconcile state/ledger invariants after recovery.
+
+## Seat selection and hand-boundary controls
+
+Implemented on the feature branch for review: explicit seat selection with atomic
+chip loading, filtered authenticated table previews, queued Sit Out/Get Up, and
+any-player termination after the current hand and payout presentation. Engine,
+transactional race/restart/privacy, and local Worker API tests cover these paths.
+Physical multi-phone acceptance remains open; no live game data is changed by tests.

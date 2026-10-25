@@ -22,13 +22,11 @@ export function RunoutVote({
         <span className="eyebrow">BETTING IS COMPLETE</span>
         <h3>Once or twice?</h3>
       </div>
-      <b className="vote-timer" role="timer" aria-label={`${seconds} seconds remaining`}>
-        {seconds}
-      </b>
+      <svg className="vote-timer" viewBox="0 0 40 40" role="timer" aria-label={`${seconds} seconds remaining`}>
+        <circle cx="20" cy="20" r="16" pathLength="100" strokeDasharray={`${Math.max(0, Math.min(1, (vote.deadline - now) / 5000)) * 100} 100`} transform="rotate(-90 20 20)" />
+      </svg>
     </div>
-    <p>
-      {now < vote.opensAt ? 'Voting opens in a moment…' : 'Choices stay private until the timer ends.'}
-    </p>
+
     {mine ? <>
       <div className="runout-buttons">
         {[1, 2].map(n => <button key={n} aria-pressed={mine.choice === n} disabled={busy || !open || n === 2 && !vote.canTwice} onClick={() => send('runout_vote', {
@@ -40,7 +38,7 @@ export function RunoutVote({
       <small>
         {mine.choice ? `${mine.choice === 2 ? 'Twice' : 'Once'} saved. You can change it before time runs out.` : 'No selection means Once.'}
       </small>
-    </> : <p className="vote-spectator">Waiting for the players in this hand.</p>}
+    </> : null}
     {!vote.canTwice && <p className="vote-deck-note">Twice unavailable: not enough undealt cards remain.</p>}
     <div className="voter-list">
       {vote.voters.map((p: any) => <div key={p.id}>
@@ -49,7 +47,7 @@ export function RunoutVote({
           {p.id === room.me ? ' (you)' : ''}
         </span>
         <small>
-          {p.id === room.me && p.choice ? p.choice === 2 ? 'Twice' : 'Once' : p.hasVoted ? 'Choice saved' : 'Choosing…'}
+          {p.id === room.me && p.choice ? p.choice === 2 ? 'Twice' : 'Once' : p.hasVoted ? '✓' : '—'}
         </small>
       </div>)}
     </div>

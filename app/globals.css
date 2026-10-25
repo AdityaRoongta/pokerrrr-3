@@ -4626,3 +4626,125 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .history-table-scroll .text-button {
   text-align: left;
 }
+
+/* The table owns the available viewport; secondary navigation lives in the menu. */
+.in-game .game-layout {
+  flex: 1 1 0;
+  margin: 0 auto;
+  padding: 6px max(6px,env(safe-area-inset-right)) max(4px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
+  max-width: 1200px;
+}
+.in-game .game-main {display: flex; flex: 1 1 0; width: 100%;}
+.in-game .play-area {flex: 1; height: 100%; grid-template-rows: 36px minmax(0,1fr) 172px;}
+.in-game .rotation-bar {height: 36px; gap: 16px; padding: 0 12px;}
+.in-game .rotation-bar>div {font-size: 12px;}
+.in-game .rotation-bar>div>small {font-size: 10px;}
+.table-stakes {font-size: 12px; color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums;}
+.in-game .table-stage {--seat-edge-x: 64px; --seat-edge-y: 66px;}
+.in-game .seat {width: 100px;}
+.in-game .your-seat {width: 112px; --seat-edge-y: 86px;}
+.in-game .seat-top {height: 48px;}
+.in-game .your-seat .seat-top {height: 70px;}
+.in-game .seat-info {min-height: 48px; padding: 7px 5px;}
+.in-game .seat-info>span {font-size: 12px;}
+.in-game .seat-info strong {font-size: 17px; margin-top: 3px;}
+.in-game .hole-cards {flex-shrink: 0; width: max-content;}
+.in-game .seat .card.small {width: 32px; height: 46px; padding: 4px;}
+.in-game .seat .card.small b {font-size: 15px;}
+.in-game .seat .card.small>span {font-size: 18px;}
+.in-game .your-seat .card.small {width: 48px; height: 68px; padding: 5px;}
+.in-game .your-seat .card.small b {font-size: 22px;}
+.in-game .your-seat .card.small>span {font-size: 26px;}
+.in-game .seat .hole-cards .card {margin-left: -12px;}
+.in-game .your-seat .hole-cards .card {margin-left: -9px;}
+.in-game .board-cards>.board-card-wrap>.card {width: 46px; height: 65px;}
+.in-game .board-cards .card b {font-size: 21px;}
+.in-game .board-cards .card>span {font-size: 25px;}
+.in-game .pot-amount {font-size: 32px; margin: 3px 0 12px;}
+.in-game .board-zone {padding-top: 0;}
+.in-game .seat-bet {font-size: 12px; margin-top: 4px;}
+.in-game .seat.open:has(.seat-choice:disabled) {visibility: hidden;}
+.in-game .seat-choice {min-width: 44px; min-height: 44px; padding: 0; margin: auto;}
+.in-game .empty-seat {width: 40px; height: 40px; margin: 0;}
+.seat-state {font-size: 10px; color: var(--gold);}
+.seat-timer {position: absolute; inset: -3px; width: calc(100% + 6px); height: calc(100% + 6px); pointer-events: none; overflow: visible;}
+.seat-timer rect {fill: none; stroke: var(--gold); stroke-width: 3; vector-effect: non-scaling-stroke; transition: stroke-dasharray .5s linear;}
+.seat-timer.urgent rect {stroke: #ef967d;}
+.in-game .acting .seat-info {border-color: transparent; box-shadow: 0 0 18px #d9bb8224;}
+.in-game .action-zone {height: 172px; min-height: 0; padding: 10px 14px; display: flex; flex-direction: column; justify-content: center; overflow-y: auto;}
+.in-game .betting-controls {display: flex; flex-direction: column; gap: 6px; margin: 0;}
+.in-game .betting-main {display: contents;}
+.in-game .betting-main .quick-bets {order: 0; flex-wrap: nowrap; margin: 0; gap: 8px; justify-content: flex-start;}
+.in-game .quick-bets>button {min-height: 38px; padding: 8px 12px; font-size: 12px;}
+.in-game .quick-bets>label {margin-left: auto; font-size: 11px; gap: 6px;}
+.in-game .quick-bets input {height: 38px; width: 88px; font-size: 18px; padding: 6px 8px;}
+.in-game .raise-slider-control {order: 1; min-height: 32px; height: 32px; width: 100%;}
+.in-game .raise-slider-control input[type=range] {writing-mode: horizontal-tb; direction: ltr; width: 100%; height: 32px; cursor: ew-resize;}
+.in-game .raise-slider-control input[type=range]::-webkit-slider-runnable-track {width: 100%; height: 6px; background: linear-gradient(to right,var(--gold) var(--range-fill),#ffffff19 var(--range-fill));}
+.in-game .raise-slider-control input[type=range]::-webkit-slider-thumb {margin: -10px 0 0; cursor: ew-resize;}
+.in-game .raise-slider-control input[type=range]::-moz-range-track {width: 100%; height: 6px;}
+.in-game .raise-slider-control input[type=range]::-moz-range-progress {height: 6px;}
+.in-game .action-buttons {order: 2; gap: 8px; width: 100%;}
+.in-game .action-buttons>button {min-height: 56px; font-size: 18px; font-weight: 600; padding: 12px 8px; border-radius: 10px;}
+.in-game .between-hands {width: 100%; min-height: 0; justify-content: center;}
+.in-game .auto-deal-status {width: 100%; justify-content: center;}
+.next-hand-timer {height: 4px; width: min(180px,60%); background: #ffffff0d; border-radius: 4px; overflow: hidden;}
+.next-hand-timer i {display: block; height: 100%; background: var(--gold); transform-origin: left; transition: transform .5s linear;}
+.paused-state {font-size: 12px; color: var(--muted);}
+.in-game .action-zone>.error {position: static; font-size: 12px; margin: 0 0 6px; padding: 7px 10px;}
+.in-game .action-zone:has(>.error) .quick-bets {display: none;}
+.vote-timer circle {fill: none; stroke: var(--gold); stroke-width: 3; transition: stroke-dasharray .1s linear;}
+
+@media(max-width:620px) {
+  .in-game .topbar {padding-bottom: 0;}
+  .in-game .game-main {border-radius: 10px;}
+  .in-game .play-area {grid-template-rows: 34px minmax(0,1fr) 164px;}
+  .in-game .rotation-bar {height: 34px; gap: 10px; padding: 0 10px;}
+  .in-game .rotation-bar>div {gap: 5px; font-size: 11px;}
+  .in-game .table-stage {--seat-edge-x: 54px; --seat-edge-y: 60px;}
+  .in-game .seat {width: 84px;}
+  .in-game .your-seat {width: 96px; --seat-edge-y: 80px;}
+  .in-game .seat-top {height: 44px;}
+  .in-game .your-seat .seat-top {height: 62px;}
+  .in-game .seat-info {min-height: 44px; padding: 6px 4px;}
+  .in-game .seat-info>span {font-size: 11px;}
+  .in-game .seat-info strong {font-size: 15px;}
+  .in-game .seat .card.small {width: 30px; height: 42px;}
+  .in-game .seat .card.small b {font-size: 14px;}
+  .in-game .seat .card.small>span {font-size: 17px;}
+  .in-game .your-seat .card.small {width: 42px; height: 60px;}
+  .in-game .your-seat .card.small b {font-size: 20px;}
+  .in-game .your-seat .card.small>span {font-size: 24px;}
+  .in-game .board-cards>.board-card-wrap>.card {width: 40px; height: 56px;}
+  .in-game .board-cards .card b {font-size: 18px;}
+  .in-game .board-cards .card>span {font-size: 22px;}
+  .in-game .felt {left: 12%; right: 12%;}
+  .in-game .action-zone {height: 164px; padding: 8px;}
+  .in-game .quick-bets>button {padding: 8px 10px; font-size: 11px;}
+  .in-game .quick-bets>label {font-size: 10px;}
+  .in-game .quick-bets input {width: 76px;}
+  .in-game .action-buttons>button {font-size: 16px;}
+}
+@media(max-height:700px) {
+  .in-game .table-stage {--seat-edge-y: 48px;}
+  .in-game .your-seat {--seat-edge-y: 66px;}
+  .in-game .seat-top {height: 36px;}
+  .in-game .your-seat .seat-top {height: 50px;}
+  .in-game .seat .card.small {width: 26px; height: 36px;}
+  .in-game .your-seat .card.small {width: 36px; height: 50px;}
+  .in-game .your-seat .card.small b {font-size: 17px;}
+  .in-game .your-seat .card.small>span {font-size: 20px;}
+  .in-game .board-cards>.board-card-wrap>.card {width: 34px; height: 48px;}
+  .in-game .pot-amount {font-size: 24px; margin-bottom: 6px;}
+}
+@media(max-height:500px) {
+  .in-game .play-area {grid-template-rows: 28px minmax(0,1fr) 126px;}
+  .in-game .rotation-bar {height: 28px;}
+  .in-game .action-zone {height: 126px; padding: 4px 8px;}
+  .in-game .quick-bets>button,.in-game .quick-bets input {min-height: 30px; height: 30px;}
+  .in-game .action-buttons>button {min-height: 44px; padding: 8px;}
+  .in-game .betting-controls {gap: 2px;}
+}
+@media(prefers-reduced-motion:reduce) {
+  .seat-timer rect,.next-hand-timer i,.vote-timer circle {transition: none;}
+}

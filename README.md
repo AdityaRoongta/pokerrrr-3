@@ -143,7 +143,7 @@ pages that have not been loaded. Active games are excluded. Balances aggregate b
 stable player ID, and the server verifies each game balances before suggesting
 payments. Dunzo is Arun; if Dunzo and Ishita have opposing net balances, offset
 them first, then match the remaining debtors and creditors. Individual results are
-not merged or changed. Amounts are chips; no money conversion is assumed.
+not merged or changed. One chip equals one rupee; suggested payments display rupees (for example, Rs.300).
 
 See [simulated staging history](docs/HISTORY_TEST_DATA.md) for isolated example
 records, provisioning and removal. Simulations never enter real game totals.

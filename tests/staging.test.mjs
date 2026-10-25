@@ -25,7 +25,11 @@ test('deploy guard requires the intended coordinator and rejects other persisten
       {...valid,durable_objects:{bindings:[{name:'CLUB_TABLE',class_name:'Other'}]}},
       {...valid,durable_objects:{bindings:[{name:'CLUB_TABLE',class_name:'ClubTable',script_name:'production'}]}},
       {...valid,migrations:[]},
+      {...valid,previews:{vars:{APP_ENV:'production'},durable_objects:valid.durable_objects}},
+      {...valid,previews:{vars:{APP_ENV:'staging'},durable_objects:{bindings:[{name:'CLUB_TABLE',class_name:'ClubTable',script_name:'production'}]}}},
+      {...valid,previews:{vars:{APP_ENV:'staging'},durable_objects:valid.durable_objects,services:[{}]}},
     ]) { writeFileSync(path,JSON.stringify(invalid)); assert.throws(()=>validateStagingArtifact(path)); }
     writeFileSync(path,JSON.stringify(valid));assert.equal(validateStagingArtifact(path).name,valid.name);
+    writeFileSync(path,JSON.stringify({...valid,previews:{vars:{APP_ENV:'staging'},durable_objects:valid.durable_objects}}));assert.equal(validateStagingArtifact(path).previews.durable_objects.bindings[0].class_name,'ClubTable');
   } finally { rmSync(directory,{recursive:true,force:true}); }
 });

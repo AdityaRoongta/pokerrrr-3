@@ -31,7 +31,20 @@ seed time, so recent examples appear in the default last-30-day range.
 
 ## Cloudflare staging preview
 
-Open the **feature branch preview** once to initialize its schema. In Cloudflare
+Worker Previews require Wrangler 4.135 or newer. The staging build writes a
+`previews` block containing APP_ENV=staging and the local ClubTable binding into
+the generated artifact. Its top-level main settings are unchanged. See the
+[Cloudflare Preview configuration](https://developers.cloudflare.com/workers/previews/configuration/).
+
+In the **individual feature preview's** Settings → Builds, use:
+
+- Build command: `pnpm run build:staging`
+- Preview command: `npx wrangler preview --config dist/server/wrangler.json`
+
+These are branch-preview settings, not the Worker's main/production build settings.
+After the preview build completes, `/api/health` must report `environment: staging`
+and `multiplayerReady: true` before provisioning. Open the **feature branch preview**
+once to initialize its schema. In Cloudflare
 Durable Objects, choose that branch's `ClubTable` namespace, then the existing
 `dunzo-club` instance → Data Studio. Verify the preview namespace before writing.
 Do not select the main namespace or change real session archives.

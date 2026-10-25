@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { commandEnvelope, PROTOCOL_VERSION } from '../lib/protocol/poker.mjs';
 import { indiaDate } from '../lib/game-history.mjs';
 import { testPlayers } from './player-fixtures.mjs';
-const request=(url,options={})=>fetch(url,{...options,headers:{...options.headers,Connection:'close'},signal:AbortSignal.timeout(10_000)});
+const request=async(url,options={})=>{try{const response=await fetch(url,{...options,headers:{...options.headers,Connection:'close'},signal:AbortSignal.timeout(10_000)});const bytes=await response.arrayBuffer();return new Response(bytes,{status:response.status,headers:response.headers})}catch(error){throw new Error(`${options.method||'GET'} ${new URL(url).pathname} failed`,{cause:error})}};
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 export function localTarget(base) {
   const url = new URL(base);

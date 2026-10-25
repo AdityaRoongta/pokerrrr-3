@@ -124,6 +124,44 @@ try {
     await stop();
     await start();
   });
+  if (!external) {
+    await stop();
+    const files = readdirSync(directory, {recursive: true}).filter(path => /v3\/do\/.*ClubTable\/[a-f0-9]{64}\.sqlite$/.test(path));
+    const database = new DatabaseSync(join(directory, files[0]));
+    const names = ['Dunzo', 'Ishita', 'Varun', 'Doshi', 'Panda', 'Saboo', 'Roongta'];
+    try {
+      const {salt, hash} = await hashPin('6789');
+      for (const [i, name] of names.entries()) database.prepare('INSERT INTO players(id,name,pin_salt,pin_hash) VALUES(?,?,?,?)').run(`reset-player-${i}`, name, salt, hash);
+      database.prepare('INSERT INTO staging_history_resets(id,requested_at) VALUES(?,?)').run('local-smoke-reset', Date.now());
+      database.prepare('INSERT INTO history_examples(id,record) VALUES(?,?)').run('old-example', '{}');
+    } finally {database.close()}
+    await start();
+    const login = await request(new URL('/api/login', base), {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({playerId: 'reset-player-0', pin: '6789'})});
+    assert.equal(login.status, 200);
+    const headers = {Cookie: login.headers.get('set-cookie').split(';')[0]};
+    await login.arrayBuffer();
+    const readHistory = async () => {
+      const response = await request(new URL('/api/history', base), {headers});
+      assert.equal(response.status, 200);
+      return response.json();
+    };
+    const history = await readHistory();
+    assert.equal(history.games.length, 4);
+    assert.equal(history.demoAvailable, false);
+    assert.ok(history.games.every(game => game.players.length === 7 && game.players.some(p => p.key === history.viewerKey)));
+    await stop();
+    await start();
+    assert.deepEqual((await readHistory()).games, history.games);
+    await stop();
+    const verified = new DatabaseSync(join(directory, files[0]));
+    try {
+      const reset = verified.prepare('SELECT completed_at,seeded_games FROM staging_history_resets WHERE id=?').get('local-smoke-reset');
+      assert.ok(reset.completed_at);
+      assert.equal(reset.seeded_games, 4);
+      assert.equal(verified.prepare('SELECT COUNT(*) AS n FROM history_examples').get().n, 0);
+    } finally {verified.close()}
+    console.log('Verified console-triggered staging reset, four ordinary games, current player IDs and restart idempotency.');
+  }
   console.log('Built multiplayer Worker smoke passed; no remote resources used.');
 } catch (error) {
   console.error(logs.slice(-12000));

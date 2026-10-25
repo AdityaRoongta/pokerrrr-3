@@ -1,3 +1,4 @@
+import { resetStagingHistory } from '../lib/staging-history.mjs';
 import { historyViewerKey } from '../lib/game-history.mjs';
 import { DurableObject } from 'cloudflare:workers';
 import { TableService, TableError } from './table-service.mjs';
@@ -27,7 +28,10 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
     super(ctx, env);
     this.service = new TableService(ctx.storage);
     this.auth = new PlayerAuth(ctx.storage.sql, work => ctx.storage.transactionSync(work));
-    if (env.APP_ENV === 'staging') ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS history_examples (id TEXT PRIMARY KEY, record TEXT NOT NULL)');
+    if (env.APP_ENV === 'staging') {
+      ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS history_examples (id TEXT PRIMARY KEY, record TEXT NOT NULL)');
+      ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS staging_history_resets (id TEXT PRIMARY KEY, requested_at INTEGER NOT NULL, completed_at INTEGER, removed_games INTEGER, seeded_games INTEGER)');
+    }
   }
 
   // Serialize fetches, alarms and socket callbacks across asynchronous awaits.
@@ -108,6 +112,19 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
         const token = player.id;
         if (['/api/history', '/api/settlement'].includes(url.pathname) && request.method === 'GET') {
           this.limit(`history:${token}`, 60);
+          if (this.env.APP_ENV === 'staging') {
+            const requests = this.ctx.storage.sql.exec('SELECT id,requested_at FROM staging_history_resets WHERE completed_at IS NULL ORDER BY requested_at').toArray();
+            for (const pending of requests) {
+              const reset = await resetStagingHistory(this.ctx.storage, {
+                environment: this.env.APP_ENV, requestId: String(pending.id), roster: this.auth.players(), now: Number(pending.requested_at)
+              });
+              // Retrying after a process exit uses the receipt and never reseeds.
+              this.ctx.storage.transactionSync(() => {
+                this.ctx.storage.sql.exec('DELETE FROM history_examples');
+                this.ctx.storage.sql.exec('UPDATE staging_history_resets SET completed_at=?,removed_games=?,seeded_games=? WHERE id=?', reset.completedAt, reset.removedGames, reset.seededGames, pending.id);
+              });
+            }
+          }
           const demo = url.searchParams.get('demo') === '1';
           if (demo && this.env.APP_ENV !== 'staging') throw new TableError('Simulated history is only available in staging', 403);
           const available = this.env.APP_ENV === 'staging' && this.ctx.storage.sql.exec('SELECT id FROM history_examples LIMIT 1').toArray().length > 0;

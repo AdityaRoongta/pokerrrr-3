@@ -249,3 +249,51 @@ test('share text includes date weekdays, totals before suggestions and simulated
   assert.ok(text.indexOf('Player Win / Loss') < text.indexOf('Suggested Payments'));
   assert.match(text, /Nothing is marked paid/);
 });
+
+test('staging reset replaces all closed history once, preserving active play and other storage', async () => {
+  const {resetStagingHistory, stagingHistoryGames} = await import('../lib/staging-history.mjs');
+  const roster = ['Dunzo', 'Ishita', 'Varun', 'Doshi', 'Panda', 'Saboo', 'Roongta'].map((name, i) => ({id: `current-${i}`, name}));
+  let values = new Map([
+    ['session:OLD', {code: 'OLD'}], ['room:OLD', {phase: 'closed'}],
+    ['hand:OLD:0001', {}], ['command:old', {code: 'OLD'}],
+    ['active', 'LIVE'], ['room:LIVE', {phase: 'playing'}],
+    ['hand:LIVE:0001', {private: true}], ['command:live', {code: 'LIVE'}], ['other-setting', 7]
+  ]);
+  // More than one storage page, including closed rooms that lost their session row.
+  for (let i = 0; i < 150; i++) values.set(`room:CLOSED${i}`, {phase: 'closed'});
+  const store = {async transaction(work) {
+    const draft = structuredClone(values);
+    const result = await work({
+      async get(key) {return draft.get(key)}, async put(key, value) {draft.set(key, value)}, async delete(key) {draft.delete(key)},
+      async list({limit, startAfter}) {return new Map([...draft].sort(([a], [b]) => a.localeCompare(b)).filter(([k]) => !startAfter || k > startAfter).slice(0, limit))}
+    });
+    values = draft;
+    return result;
+  }};
+  const args = {environment: 'staging', requestId: 'reset-test', roster, now};
+  const before = structuredClone(values);
+  await assert.rejects(resetStagingHistory(store, {...args, environment: 'production'}), /staging-only/);
+  await assert.rejects(resetStagingHistory(store, {...args, roster: roster.slice(1)}), /Expected one staging account/);
+  assert.deepEqual(values, before);
+  const result = await resetStagingHistory(store, args);
+  assert.equal(result.removedGames, 151);
+  assert.equal(result.seededGames, 4);
+  assert.equal(values.has('room:OLD'), false);
+  assert.equal(values.has('hand:OLD:0001'), false);
+  assert.equal(values.has('command:old'), false);
+  for (const key of ['active', 'room:LIVE', 'hand:LIVE:0001', 'command:live', 'other-setting']) assert.deepEqual(values.get(key), before.get(key));
+  const games = [...values].filter(([k]) => k.startsWith('session:')).map(([, game]) => game);
+  assert.equal(games.length, 4);
+  for (const game of games) {
+    assert.equal(game.players.length, 7);
+    assert.equal(game.players.reduce((sum, p) => sum + p.net, 0), 0);
+    assert.ok(game.players.every(p => roster.some(account => account.id === p.id)));
+    assert.ok(game.closedAt >= historyRange('2026-10-19', '2026-10-25').start && game.closedAt <= now);
+  }
+  const totals = aggregateGames(games), payments = suggestedPayments(totals, householdPair(totals, roster));
+  for (const p of totals) assert.equal(payments.reduce((sum, t) => sum + (t.to === p.id ? t.amount : 0) - (t.from === p.id ? t.amount : 0), 0), p.net);
+  values.set('session:NEW', {code: 'NEW'});
+  assert.deepEqual(await resetStagingHistory(store, {...args, now: now + 86400000}), result);
+  assert.ok(values.has('session:NEW'), 'a retry must not erase games played after the reset');
+  assert.equal(stagingHistoryGames(roster.map(p => p.name === 'Dunzo' ? {...p, name: 'Arun'} : p), now)[0].players[0].name, 'Dunzo');
+});

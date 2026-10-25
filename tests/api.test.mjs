@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import WebSocket from 'ws';
 import { pathToFileURL } from 'node:url';
 import { commandEnvelope, PROTOCOL_VERSION } from '../lib/protocol/poker.mjs';
+import { indiaDate } from '../lib/game-history.mjs';
 import { testPlayers } from './player-fixtures.mjs';
 const request=(url,options={})=>fetch(url,{...options,headers:{...options.headers,Connection:'close'},signal:AbortSignal.timeout(10_000)});
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -13,6 +14,7 @@ export function localTarget(base) {
 export async function runApiSuite(base, restart) {
   localTarget(base);
   const [host,friend,observer]=testPlayers.map(p=>p.id),cookies=new Map();
+  for(const path of ['/api/history','/api/settlement?from=2026-01-01&to=2026-12-31']){const deniedHistory=await request(new URL(path,base));assert.equal(deniedHistory.status,401);await deniedHistory.arrayBuffer()}
   const denied=await request(new URL('/api/poker',base));assert.equal(denied.status,401);await denied.arrayBuffer();
   const cross=await request(new URL('/api/login',base),{method:'POST',headers:{Origin:'https://other.test','Content-Type':'application/json'},body:JSON.stringify({playerId:host,pin:'0123'})});assert.equal(cross.status,403);await cross.arrayBuffer();
   const roster=await (await request(new URL('/api/players',base))).json();assert.equal(roster.players.length,3);assert.ok(!JSON.stringify(roster).includes('pin_hash'));
@@ -114,6 +116,15 @@ export async function runApiSuite(base, restart) {
     if(room.phase!=='closed'){assert.equal(room.terminationPending,true);await sleep(Math.max(0,room.payoutFinishedAt-Date.now())+300);room=await api(host,null,code)}
     assert.equal(room.phase,'closed');
     assert.equal(room.players.reduce((n,p)=>n+p.cashout,0),2850);
+    const headers={Cookie:cookies.get(observer)};
+    const history=await (await request(new URL('/api/history',base),{headers})).json();assert.equal(history.games.length,1);assert.equal(history.games[0].players.reduce((n,p)=>n+p.net,0),0);
+    for(const id of [host,friend])assert.ok(!JSON.stringify(history).includes(id));
+    const day=indiaDate(room.closedAt),settled=await (await request(new URL(`/api/settlement?from=${day}&to=${day}`,base),{headers})).json();assert.equal(settled.gameCount,1);assert.equal(settled.suggestionsOnly,true);assert.equal(settled.totals.reduce((n,p)=>n+p.net,0),0);
+    for(const p of settled.totals)assert.equal(settled.payments.reduce((n,t)=>n+(t.to===p.key?t.amount:0)-(t.from===p.key?t.amount:0),0),p.net);
+    const invalid=await request(new URL('/api/settlement?from=2026-02-30&to=2026-03-01',base),{headers});assert.equal(invalid.status,400);await invalid.arrayBuffer();
+    const demoHistory=await (await request(new URL('/api/history?demo=1',base),{headers})).json();assert.equal(demoHistory.demo,true);assert.equal(demoHistory.games.length,0);
+    console.log('Verified authenticated game history, inclusive date-range suggestions, reconciliation and demo isolation.');
+
     for(const message of liveHost.messages) assert.ok(!JSON.stringify(message).includes(friend));
     for(const message of liveFriend.messages) assert.ok(!JSON.stringify(message).includes(host));
     const next=await api(friend,commandEnvelope({type:'create',name:'Ignored name'}));

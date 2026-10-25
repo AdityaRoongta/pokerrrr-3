@@ -1,7 +1,7 @@
 # Dunzo Club
 
 Private mixed poker for one group of 6–8 friends. One active session at a time;
-NLH → PLO4 → PLO5, rotating every 2–4 completed hands. Defaults: 25/50 blinds and
+Choose NLH, PLO4 and/or PLO5, rotating through the selected games every 2–4 completed hands. Set an even big blind; the server calculates the small blind as half. Defaults: 25/50 blinds and
 2,500 starting chips, with player-selected starting stacks and automatic reloads.
 
 ## Current implementation
@@ -24,10 +24,10 @@ No new database, login provider or shared access secret is required.
 
 Completed sessions remain stored when another session starts. Completed hands
 are archived separately from the live room's latest-100-hand view. Closed-session
-data remains stored under its internal session ID. Cross-session balance aggregation,
-partial external payments, host handover and a full history browser/export remain
-backlog work.
-Do not treat per-session payment toggles as the planned weekly ledger.
+data remains stored under its internal session ID. The lobby shows per-game win/loss history. Date-range settlement sums completed
+games and suggests transfers, preferring Dunzo/Ishita offsets first. Actual payment
+recording, host handover and full history export remain backlog work.
+Settlement is a calculation only; it does not mark games or transfers paid.
 
 The Cloudflare target is `dunzo-club-staging`:
 https://dunzo-club-staging.arun-devanathan.workers.dev/.
@@ -115,11 +115,12 @@ empty seat and confirm Load Chips to claim that seat and record the buy-in in on
 transaction. Another player's simultaneous claim can win; a rejected claim adds
 no chips. New seats join from the next hand if a hand is already running.
 
-Sit Out retains the seat and stack; Sit In returns for a future deal. Get Up
-cashes out the stack and releases the seat while retaining the player's session
-accounting. Both actions wait until the current hand is paid out by the engine.
-A queued Sit Out can be canceled before it applies. An unapplied reload is canceled
-when its player gets up, without recording another buy-in.
+Sit Out retains the seat and stack; Sit In returns for a future deal. Sit Out
+waits until the current hand is paid out by the engine and can be canceled while
+pending. It is available from the three-dot menu, alongside Return to Lobby.
+Returning to the lobby is navigation: it retains the seat, chips and current-hand
+obligations. Use Sit Out to skip future hands. Get Up is no longer a public action;
+previously queued departures still recover after upgrading.
 
 Any signed-in player can Terminate Game, including a player viewing the table
 before taking a seat. A running hand and any runout vote finish normally; the
@@ -127,5 +128,20 @@ server completes the payout presentation, cashes out stacks, archives the sessio
 and prevents the next deal. Between hands the game terminates immediately unless
 payout presentation is still in progress. Pending actions and termination survive
 server restarts. Signed-in viewers receive the same filtered public table and
-history, never other players' hidden cards or the deck. Protocol v3 clients are
+history, never other players' hidden cards or the deck. Protocol v4 clients are
 required for this flow; refresh older open clients after release.
+
+## Game history and settlement
+
+Previous Games shows completed sessions and each participant’s net chips. Missing
+players are shown with a dash; zero means the player broke even. History pages
+contain 20 games; Load More reads the next page. Settle Up selects inclusive India
+calendar dates and calculates over **all** matching completed games, including
+pages that have not been loaded. Active games are excluded. Balances aggregate by
+stable player ID, and the server verifies each game balances before suggesting
+payments. Dunzo is Arun; if Dunzo and Ishita have opposing net balances, offset
+them first, then match the remaining debtors and creditors. Individual results are
+not merged or changed. Amounts are chips; no money conversion is assumed.
+
+See [simulated staging history](docs/HISTORY_TEST_DATA.md) for isolated example
+records, provisioning and removal. Simulations never enter real game totals.

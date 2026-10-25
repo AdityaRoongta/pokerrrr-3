@@ -5,7 +5,7 @@ import { ArrowUpRight, Download, History, Layers3, MoreHorizontal, Plus, Smartph
 import { PokerAudio } from '../lib/poker-audio';
 import { useTableEffects } from '../lib/use-table-effects';
 import { seatPosition } from '../lib/table-presentation.mjs';
-import { RunoutVote, RunoutDecision } from './runout-vote';
+import { RunoutVote, RunoutDecision, RunoutAnnouncement } from './runout-vote';
 import { TableMotion } from './table-motion';
 import { newRoom, command, startHand, act, legal, view, resolveAlias, tick, shortcutRaiseTo } from '../lib/client/practice.mjs';
 import { PokerClient, type Connection } from '../lib/client/poker-client';
@@ -642,10 +642,8 @@ export default function Home() {
                     {p.seat === room.dealer && <b className="dealer-chip">D</b>}
                   </div>
                   {p.away && <span className="seat-state">Sit out</span>}
-                  {p.inHand && p.action && !effects.dealing && room.phase !== 'closed' && <span className={`player-action ${p.folded ? 'is-fold' : ''}`}>
-                    {p.action.startsWith('Raise to ') && p.actionAmount != null ? `Raise to ${fmt(p.actionAmount)}` : p.action}{p.actionAmount != null && !/to /.test(p.action) ? ` ${fmt(p.actionAmount)}` : ''}
-                  </span>}
-                  {handActive && p.bet > 0 && <div className="seat-bet">● {fmt(p.bet)}</div>}
+                  {p.inHand && !p.away && p.action === 'Check' && !effects.dealing && room.phase !== 'closed' && <span className="player-action">Check</span>}
+                  {handActive && p.bet > 0 && p.action !== 'Check' && <div className="seat-bet">● {fmt(p.bet)}</div>}
                 </> : <button className="seat-choice" aria-label={`Choose seat ${s + 1}`} disabled={controlsBusy || seated || room.phase === 'closed' || room.terminationPending} onClick={() => chooseSeat(s)}>
                   <span className="empty-seat">
                     <Plus size={15} />
@@ -657,6 +655,7 @@ export default function Home() {
             <TableMotion room={room} mySeat={me?.seat || 0} effects={effects} />
 
             <RunoutVote room={room} now={clock + offset.current} busy={busy} send={send} />
+            <RunoutAnnouncement room={room} effects={effects} />
 
             {room.phase === 'showdown' && effects.resultReady && focusedWinner && <section className="showdown-result table-win-card" aria-label="Hand result" aria-live="polite">
               <div className="result-heading">
@@ -709,9 +708,6 @@ export default function Home() {
               <button className="text-button" onClick={() => setPanel('info')}>Game Info</button>
               <button className="text-button" onClick={() => setPanel('ledger')}>Rankings</button>
             </div>
-            {me?.inHand && me.cards?.length > 0 && room.phase !== 'closed' && <div className={`private-hand ${me.folded ? 'hand-folded' : ''}`} aria-label="Your private cards">
-              {me.cards.slice(0, effects.visibleHoleCards(me.seat, me.cards.length)).map((c: number, i: number) => <Card key={i} value={c} highlight={Boolean(focusedWinner?.id === room.me && focusedHand?.holeCards?.includes(c))} dim={Boolean(focusedWinner?.id === room.me && focusedHand?.holeCards?.length && !focusedHand.holeCards.includes(c))} />)}
-            </div>}
             {room.terminationPending && <p className="game-status" role="status">Game will terminate after this hand.</p>}
             {!seated && room.phase !== 'closed' ? <>
               <p className="game-status">

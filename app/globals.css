@@ -4809,3 +4809,28 @@ html:has(.app.in-game),body:has(.app.in-game) {
   .in-game .game-layout {overflow-y: auto;}
   .in-game .play-area {min-height: 580px;}
 }
+
+/* Omaha fans stay within their name tag, including a full five-card hand. */
+.in-game .omaha-seat {--hole-card-width: 28px;}
+.in-game .omaha-seat.your-seat {--hole-card-width: 36px;}
+.in-game .omaha-seat .hole-cards {display: grid; width: 100%; padding-left: 0; justify-content: normal;}
+.in-game .omaha-seat[data-card-count="4"] .hole-cards {grid-template-columns: repeat(3,minmax(0,1fr)) var(--hole-card-width);}
+.in-game .omaha-seat[data-card-count="5"] .hole-cards {grid-template-columns: repeat(4,minmax(0,1fr)) var(--hole-card-width);}
+.in-game .omaha-seat .hole-cards>span {min-width: 0;}
+.in-game .omaha-seat .hole-cards .card.small {width: var(--hole-card-width); height: 40px; margin-left: 0; padding: 2px;}
+.in-game .omaha-seat .hole-cards .card.small b {font-size: 11px;}
+.in-game .omaha-seat .hole-cards .card.small:not(.back)>span {align-self: flex-start; font-size: 14px; margin-top: 0;}
+.in-game .omaha-seat.your-seat .hole-cards .card.small {height: 52px;}
+.in-game .omaha-seat.your-seat .hole-cards .card.small b {font-size: 14px;}
+.in-game .omaha-seat.your-seat .hole-cards .card.small>span {font-size: 19px;}
+@media(max-width:620px) {
+  .in-game .omaha-seat {--hole-card-width: 26px;}
+  .in-game .omaha-seat.your-seat {--hole-card-width: 32px;}
+  .in-game .omaha-seat.your-seat .hole-cards .card.small {height: 46px;}
+  .in-game .omaha-seat.your-seat .hole-cards .card.small b {font-size: 12px;}
+  .in-game .omaha-seat.your-seat .hole-cards .card.small>span {font-size: 17px;}
+}
+@media(max-height:700px) {
+  .in-game .omaha-seat .hole-cards .card.small {height: 34px;}
+  .in-game .omaha-seat.your-seat .hole-cards .card.small {height: 42px;}
+}

@@ -5,7 +5,7 @@ import { ArrowUpRight, Download, History, Layers3, MoreHorizontal, Plus, Smartph
 import { PokerAudio } from '../lib/poker-audio';
 import { useTableEffects } from '../lib/use-table-effects';
 import { seatPosition } from '../lib/table-presentation.mjs';
-import { RunoutVote, RunoutDecision, RunoutAnnouncement } from './runout-vote';
+import { RunoutVote, RunoutAnnouncement } from './runout-vote';
 import { TableMotion } from './table-motion';
 import { TableAwards } from './table-awards';
 import { newRoom, command, startHand, act, legal, view, resolveAlias, tick, shortcutRaiseTo } from '../lib/client/practice.mjs';
@@ -577,14 +577,9 @@ export default function Home() {
                   <div className="pot-amount">
                     {fmt(awardRun && currentPayment ? currentPot.reduce((sum: number, p: { wonAmount: number; amount: number }) => sum + (p.wonAmount || p.amount), 0) : room.phase === 'showdown' ? room.lastPot : room.players.reduce((s: number, p: any) => s + (p.inHand ? p.total : 0), 0))}
                   </div>
-                  {room.runCount === 2 && <div className="runout-review" aria-label="Run results">
-                    {[1, 2].map(run => <button key={run} aria-pressed={displayedRun === run} disabled={!effects.settled} onClick={() => {
-                      setSelectedRun(run);
-                      setSelectedWinner('');
-                    }}>Run {run}</button>)}
-                  </div>}
                   <div className="runout-boards">
-                    {(room.runCount === 2 ? room.runBoards : [room.board]).map((board: number[], runIndex: number) => <div className={`runout-board ${effects.activeRun === runIndex + 1 ? 'active-run' : ''}`} hidden={room.runCount === 2 && displayedRun !== runIndex + 1} key={runIndex}>
+                    {(room.runCount === 2 ? room.runBoards : [room.board]).map((board: number[], runIndex: number) => <div className={`runout-board ${effects.activeRun === runIndex + 1 ? 'active-run' : ''}`} key={runIndex}>
+                      {room.runCount === 2 && <span className="run-board-label">RUN {runIndex + 1}</span>}
                       <div className="board-cards">
                         {Array.from({
                           length: 5
@@ -598,10 +593,6 @@ export default function Home() {
                           </div>;
                         })}
                       </div>
-                      <TableAwards key={`${room.handStartedAt}:${runIndex}`} room={room} effects={effects} run={runIndex + 1} onFocus={(id, run) => {
-                        setSelectedWinner(id);
-                        setSelectedRun(run);
-                      }} />
                     </div>)}
                   </div>
                 </>}
@@ -684,9 +675,17 @@ export default function Home() {
               <span className={`turn-status ${myTurn && live && !effects.presentationBusy ? 'is-your-turn' : ''}`} role="status">
                 {myTurn && live && !effects.presentationBusy ? `Your turn · ${seconds}s` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : room.game}
               </span>
-              <button className="text-button" onClick={() => setPanel('info')}>Game Info</button>
               <button className="text-button" onClick={() => setPanel('ledger')}>Rankings</button>
             </div>
+            {room.phase === 'showdown' && <section className={`showdown-summary ${room.runCount === 2 ? 'two-run-summary' : ''}`} aria-label="Showdown results">
+              {Array.from({length: room.runCount || 1}, (_, i) => <div className="run-summary" key={`${room.handStartedAt}:${i}`}>
+                {room.runCount === 2 && <h3>Run {i + 1}</h3>}
+                <TableAwards room={room} effects={effects} run={i + 1} onFocus={(id, run) => {
+                  setSelectedWinner(id);
+                  setSelectedRun(run);
+                }} />
+              </div>)}
+            </section>}
             {room.terminationPending && <p className="game-status" role="status">Game will terminate after this hand.</p>}
             {!seated && room.phase !== 'closed' ? <>
               <p className="game-status">
@@ -697,7 +696,6 @@ export default function Home() {
               </p>}
               {room.host && room.phase === 'lobby' && <button className="primary" disabled={controlsBusy || readyPlayers < 2} onClick={() => send('deal')}>Deal Hand</button>}
             </> : <>
-              <RunoutDecision room={room} />
               {room.requests.some((q: any) => q.id === room.me) && <button className="pending-buyins" onClick={openReload}><Plus size={14} /> Your reload will be added automatically after this hand.</button>}
               {error && <div className="error" role="alert">
                 {error}

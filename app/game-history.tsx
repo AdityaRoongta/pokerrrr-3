@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { showTestTools } from '../lib/client/environment';
 import { currentSettlementWeek, settlementDate, settlementText } from '../lib/game-history.mjs';
 const fmt = (n: number) => new Intl.NumberFormat('en-IN', {
   signDisplay: 'exceptZero'
@@ -52,7 +53,7 @@ export function GameHistory({
     setError('');
     try {
       const query = new URLSearchParams({
-        ...(demo && {
+        ...(showTestTools && demo && {
           demo: '1'
         }),
         ...(next && {
@@ -63,7 +64,7 @@ export function GameHistory({
       if (controller.signal.aborted) return;
       setGames(old => next ? [...old, ...data.games] : data.games);
       setCursor(data.nextCursor);
-      setDemoAvailable(data.demoAvailable);
+      setDemoAvailable(showTestTools && data.demoAvailable);
       setViewerKey(data.viewerKey);
     } catch (e: any) {
       if (!controller.signal.aborted) setError(e.message);
@@ -99,7 +100,7 @@ export function GameHistory({
       const query = new URLSearchParams({
         from,
         to,
-        ...(demo && {
+        ...(showTestTools && demo && {
           demo: '1'
         })
       }),
@@ -146,7 +147,7 @@ export function GameHistory({
       <button className="primary" onClick={() => setOpen(true)}>Settle Up</button>
     </div>
 
-    {demoAvailable && <label className="demo-history-toggle"><input type="checkbox" checked={demo} onChange={e => setDemo(e.target.checked)} />Show Simulated History</label>}
+    {showTestTools && demoAvailable && <label className="demo-history-toggle"><input type="checkbox" checked={demo} onChange={e => setDemo(e.target.checked)} />Show Simulated History</label>}
 
     {demo && <p className="demo-notice" role="status">Simulated data only. Real games are excluded from this view and its settlement.</p>}
 

@@ -12,6 +12,7 @@ import { newRoom, command, startHand, act, legal, view, resolveAlias, tick, shor
 import { PokerClient, type Connection } from '../lib/client/poker-client';
 import { GameHistory } from './game-history';
 import { PlayerLobby, PinSettings } from './player-lobby';
+import { showTestTools } from '../lib/client/environment';
 import { nextRaise } from '../lib/client/raise-selection.mjs';
 type Room = any;
 // Temporary identities for local practice; multiplayer identity comes from the server.
@@ -298,6 +299,7 @@ export default function Home() {
     }
   }
   function previewShowdown() {
+    if (!showTestTools) return;
     const r = demo.current;
     if (!r || r.phase === 'showdown') return;
     let steps = 0;
@@ -369,6 +371,7 @@ export default function Home() {
   }
   // Practice is isolated in demo.current and never sends multiplayer commands.
   function practice() {
+    if (!showTestTools) return;
     setError('');
     const r = newRoom('DEMO', token.current, {
       name: name.trim() || 'You',
@@ -391,6 +394,7 @@ export default function Home() {
     update(view(r, token.current));
   }
   function previewAllIn() {
+    if (!showTestTools) return;
     const r: Room = newRoom('DEMO', token.current, {
       name: name.trim() || 'You',
       sb,
@@ -538,7 +542,7 @@ export default function Home() {
 
     {!room ? <main className="lobby simple-lobby">
 
-      <PlayerLobby player={player} players={players} activeGame={lobby.activeGame} loading={authLoading} busy={busy} error={error} onLogin={login} onOpen={openTable} onPractice={practice} onRetry={retryLastAction} hasPending={transport.current?.hasPending() || false} />
+      <PlayerLobby player={player} players={players} activeGame={lobby.activeGame} loading={authLoading} busy={busy} error={error} onLogin={login} onOpen={openTable} onPractice={showTestTools ? practice : undefined} onRetry={retryLastAction} hasPending={transport.current?.hasPending() || false} />
 
       {player && <GameHistory key={player.id} refreshKey={lobby.activeGame?.code || ''} />}
 
@@ -860,7 +864,7 @@ export default function Home() {
         {panel === 'menu' && <>
           <h2>Table Menu</h2>
           <div className="menu-list">
-            {demo.current && <button onClick={previewAllIn}><Layers3 size={18} /> Preview all-in vote</button>}
+            {showTestTools && demo.current && <button onClick={previewAllIn}><Layers3 size={18} /> Preview all-in vote</button>}
             {room.host && room.phase !== 'closed' && <button disabled={room.terminationPending} onClick={() => send('pause')}>{room.paused ? <Play size={18} /> : <Pause size={18} />} {room.paused ? 'Resume Auto-deal' : 'Pause Auto-deal'}</button>}
             {seated && room.phase !== 'closed' && <>
               <button onClick={openReload} disabled={room.terminationPending || me.pendingSeatAction === 'leave'}>Load Chips</button>
@@ -871,7 +875,7 @@ export default function Home() {
             <button onClick={() => setPanel('ledger')}>Current Game Rankings</button>
             <button onClick={() => setPanel('history')}>Game History</button>
             <button onClick={() => setPanel('info')}>Game Info</button>
-            {demo.current && live && <button disabled={effects.presentationBusy} onClick={previewShowdown}>Preview showdown</button>}
+            {showTestTools && demo.current && live && <button disabled={effects.presentationBusy} onClick={previewShowdown}>Preview showdown</button>}
             {room.phase !== 'closed' && <button className="danger" disabled={controlsBusy || room.terminationPending} onClick={() => setConfirm('end')}>
               {room.terminationPending ? 'Termination Pending' : 'Terminate Game'}
             </button>}

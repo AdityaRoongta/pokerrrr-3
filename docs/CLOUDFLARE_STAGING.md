@@ -94,3 +94,18 @@ The owner manages the roster and PIN resets directly in the database. Multiple
 devices signed into one player share that seat. The table displays the latest
 100 hands while the server separately archives every completed hand. Settlement
 calculates suggested transfers across completed games; it does not record payments.
+
+## Test controls and production visibility
+
+The shared client exposes practice, all-in previews and showdown previews only
+when `NEXT_PUBLIC_APP_ENV` is `staging` or `local`. Unconfigured development also
+allows these controls; unconfigured builds and unknown environment names hide them.
+Production must define `NEXT_PUBLIC_APP_ENV=production` at build time and
+`APP_ENV=production` on the Worker. Client visibility is compiled into the build;
+changing the runtime variable alone does not change the UI.
+
+Simulated history controls also require the client test flag and server-reported
+availability. The server independently rejects simulated history/settlement outside
+staging and only processes history reset requests in staging. Practice and preview
+hands run entirely in local browser state; they have no multiplayer endpoint.
+This does not provision production or change the staging deployment configuration.

@@ -26,7 +26,7 @@ export function PlayerLobby({
   error: string;
   onLogin: (id: string, pin: string) => Promise<void>;
   onOpen: (settings: any) => Promise<void>;
-  onPractice: () => void;
+  onPractice?: () => void;
   onRetry: () => void;
   hasPending: boolean;
 }) {
@@ -109,9 +109,9 @@ export function PlayerLobby({
       {hasPending && <button type="button" onClick={onRetry}>Retry last action</button>}
     </div>}
 
-    <div className="practice-row">
+    {onPractice && <div className="practice-row">
       <button onClick={onPractice}>Practice locally</button>
-    </div>
+    </div>}
 
   </section>;
 }

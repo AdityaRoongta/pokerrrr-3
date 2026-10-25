@@ -5,7 +5,7 @@ import { ArrowUpRight, Download, History, Layers3, MoreHorizontal, Plus, Smartph
 import { PokerAudio } from '../lib/poker-audio';
 import { useTableEffects } from '../lib/use-table-effects';
 import { seatPosition } from '../lib/table-presentation.mjs';
-import { RunoutVote, RunoutDecision, RunoutAnnouncement } from './runout-vote';
+import { RunoutVote, RunoutDecision } from './runout-vote';
 import { TableMotion } from './table-motion';
 import { newRoom, command, startHand, act, legal, view, resolveAlias, tick, shortcutRaiseTo } from '../lib/client/practice.mjs';
 import { PokerClient, type Connection } from '../lib/client/poker-client';
@@ -646,7 +646,6 @@ export default function Home() {
                     {p.seat === room.dealer && <b className="dealer-chip">D</b>}
                   </div>
                   {p.away && <span className="seat-state">Sit out</span>}
-                  {p.inHand && !p.folded && p.stack === 0 && <span className="seat-state">All-in</span>}
                   {handActive && p.bet > 0 && <div className="seat-bet">● {fmt(p.bet)}</div>}
                 </> : <button className="seat-choice" aria-label={`Choose seat ${s + 1}`} disabled={controlsBusy || seated || room.phase === 'closed' || room.terminationPending} onClick={() => chooseSeat(s)}>
                   <span className="empty-seat">
@@ -658,7 +657,6 @@ export default function Home() {
 
             <TableMotion room={room} mySeat={me?.seat || 0} effects={effects} />
 
-            <RunoutAnnouncement room={room} effects={effects} />
             <RunoutVote room={room} now={clock + offset.current} busy={busy} send={send} />
 
             {room.phase === 'showdown' && effects.resultReady && focusedWinner && <section className="showdown-result table-win-card" aria-label="Hand result" aria-live="polite">

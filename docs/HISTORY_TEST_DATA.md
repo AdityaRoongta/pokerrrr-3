@@ -1,75 +1,54 @@
-# Simulated history for staging
+# Staging history reset
 
-The staging Worker creates a separate SQLite `history_examples` table. Real
-completed sessions remain in Durable Object storage under `session:` keys. The
-normal history and settlement endpoints read those real archives only.
+The owner has approved resetting both `dunzo-club-staging` and the isolated
+`feat-history-and-settlement` preview. These are disposable staging environments;
+production must use separately provisioned storage and never copy these balances.
 
-After signing in, **Show Simulated History** appears only if example rows exist.
-It switches both the table and Settle Up to the examples exclusively, with a
-visible warning. The two data sets are never combined. No simulated buy-ins,
-player stacks, hands, payments or active-game pointers are written to real rooms.
-Production refuses `demo=1` and does not create or query the example table.
+The reset replaces closed session archives, their room/hand records and command
+receipts with four ordinary history records. All seven existing roster accounts
+participate, using their actual login IDs. Dates span the current India calendar
+week. Each game balances to zero. The separate `history_examples` table is cleared,
+so the simulated-history switch disappears. The sample games appear in the usual
+Previous Games and Settle Up screens with no separate labels.
 
-## Local preview
+Player accounts, PINs, login sessions, active rooms, active hands and their command
+receipts are preserved. No namespace recreation, binding change or migration is
+needed. The reset code refuses any environment other than `APP_ENV=staging`.
+There is no public reset endpoint and no automatic reset on deployment or restart.
 
-1. Build/start the staging preview, open it once, then **stop** the preview.
-2. Find its existing object database under the disposable persist directory:
-   `v3/do/*ClubTable/<64-character-object-id>.sqlite`.
-3. Seed the stopped local database:
+## Apply to each approved staging database
 
-   ```sh
-   node scripts/create-history-examples.mjs --database /absolute/path/to/.wrangler/state/v3/do/dunzo-club-staging-ClubTable/OBJECT.sqlite
+1. Deploy the tested code to the intended staging Worker or branch preview.
+2. Open its app, then open **Durable Objects → the matching namespace → Data
+   Studio → the existing `dunzo-club` instance**. Verify the namespace name:
+   - Main staging: `dunzo-club-staging_ClubTable`.
+   - Feature preview: `dunzo-club-staging_feat-history-and-settlement_ClubTable`.
+3. The existing object must have exactly one enabled account for each of Dunzo
+   (or Arun), Ishita, Varun, Doshi, Panda, Saboo and Roongta. Keep all account IDs.
+4. Insert the one-time reset request using SQL:
+
+   ```sql
+   INSERT INTO staging_history_resets(id, requested_at)
+   VALUES('history-reset-2026-10-25', CAST(strftime('%s','now') AS INTEGER) * 1000)
+   ON CONFLICT(id) DO NOTHING;
    ```
 
-4. Restart the preview, sign in and select Show Simulated History.
+5. Refresh Previous Games while signed in. The authenticated history request
+   processes the reset through the normal serialized Durable Object transaction.
+6. Verify completion in Data Studio:
 
-The script accepts only local Wrangler database paths under `.wrangler` or a
-system temporary directory. Never edit a running local SQLite file. It adds eight
-weekly synthetic games for the named group with stable **synthetic** IDs, unequal
-results, missing participants and break-even results. Dates are relative to the
-seed time, so recent examples appear in the default last-30-day range.
+   ```sql
+   SELECT id,completed_at,removed_games,seeded_games FROM staging_history_resets;
+   SELECT COUNT(*) AS separate_examples FROM history_examples;
+   ```
 
-## Cloudflare staging preview
+   `completed_at` must be non-null, `seeded_games` must be 4, and
+   `separate_examples` must be 0. Verify four games and all seven totals in the UI.
 
-Worker Previews require Wrangler 4.135 or newer. The staging build writes a
-`previews` block containing APP_ENV=staging and the local ClubTable binding into
-the generated artifact. Its top-level main settings are unchanged. See the
-[Cloudflare Preview configuration](https://developers.cloudflare.com/workers/previews/configuration/).
+A durable receipt commits with the new archives. Repeating the same SQL request
+or restarting the object cannot reset history again or erase later games. A new
+reset requires a new explicit console request ID. If roster validation fails, no
+history changes commit. Never run this operation against production.
 
-In the **individual feature preview's** Settings → Builds, use:
-
-- Build command: `pnpm run build:staging`
-- Preview command: `npx wrangler preview --config dist/server/wrangler.json`
-
-These are branch-preview settings, not the Worker's main/production build settings.
-After the preview build completes, `/api/health` must report `environment: staging`
-and `multiplayerReady: true` before provisioning. Open the **feature branch preview**
-once to initialize its schema. In Cloudflare
-Durable Objects, choose that branch's `ClubTable` namespace, then the existing
-`dunzo-club` instance → Data Studio. Verify the preview namespace before writing.
-Do not select the main namespace or change real session archives.
-
-Generate SQL locally and run it in that preview's SQL editor:
-
-```sh
-node scripts/create-history-examples.mjs
-```
-
-The generated INSERTs touch only `history_examples`. There is no public endpoint
-for seeding or deleting data. Player login provisioning is separate; the same
-static roster may be provisioned in the isolated preview using `docs/PLAYERS.md`.
-Synthetic history identities are not login credentials and cannot claim seats.
-
-## Cleanup before release
-
-For the stopped local database, repeat the script with `--clear --database PATH`.
-For the Cloudflare preview, generate the cleanup SQL:
-
-```sh
-node scripts/create-history-examples.mjs --clear
-```
-
-It deletes only `demo-` rows in `history_examples`. Verify
-`SELECT COUNT(*) FROM history_examples;` returns zero afterward. The simulated
-history checkbox then disappears on refresh. Keep APP_ENV set to `production` for
-an eventual production target; the current staging target remains unchanged.
+The older `scripts/create-history-examples.mjs` helper is retained for isolated
+legacy tests only; do not use it to populate the ordinary staging history.

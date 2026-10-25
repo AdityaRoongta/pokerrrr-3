@@ -119,19 +119,14 @@ test('wire protocol rejects unknown actions, extra fields and missing concurrenc
   })));
 });
 test('one active table is enforced under simultaneous creates, retry returns original acknowledgement', async () => {
-  const service = new TableService(new MemoryStorage()),
-    token = crypto.randomUUID();
-  const input = commandEnvelope({
-    type: 'create',
-    name: 'Host'
-  });
-  const results = await Promise.allSettled([service.execute(token, input), service.execute(crypto.randomUUID(), commandEnvelope({
-    type: 'create',
-    name: 'Other'
-  }))]);
+  const service = new TableService(new MemoryStorage());
+  const attempts = ['Host', 'Other'].map(name => ({token: crypto.randomUUID(), input: commandEnvelope({type: 'create', name})}));
+  const results = await Promise.allSettled(attempts.map(({token, input}) => service.execute(token, input)));
   assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
-  const original = results[0].value,
-    retry = await service.execute(token, input);
+  // Either async digest may finish first; retry the actual winning command.
+  const winner = results.findIndex(r => r.status === 'fulfilled');
+  const {token, input} = attempts[winner], original = results[winner].value;
+  const retry = await service.execute(token, input);
   assert.deepEqual(retry.ack, original.ack);
   assert.equal(retry.replayed, true);
   await assert.rejects(service.execute(token, {

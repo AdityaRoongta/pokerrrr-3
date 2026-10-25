@@ -84,4 +84,4 @@ All 15 development issues are published. Start with [the issue index and suggest
 
 ## Standalone Cloudflare staging
 
-The practice-only Cloudflare target builds with `pnpm run build:staging` and deploys with `pnpm run deploy:staging`. It serves the existing UI with shared multiplayer disabled, requires no database/secrets, and targets **pokerrr-3-staging**. The original Sites build remains separate. See [staging setup, checks and dashboard commands](docs/CLOUDFLARE_STAGING.md).
+The practice-only Cloudflare target builds with `pnpm run build:staging` and deploys with `pnpm run deploy:staging`. It serves the existing UI with shared multiplayer disabled, requires no database/secrets, and targets **dunzo-club-staging**. The original Sites build remains separate. See [staging setup, checks and dashboard commands](docs/CLOUDFLARE_STAGING.md).

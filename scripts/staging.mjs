@@ -24,4 +24,4 @@ if (command === 'build') {
 validateStagingArtifact();
 if (command === 'deploy') run(['node_modules/wrangler/bin/wrangler.js', 'deploy', '--config', 'dist/server/wrangler.json']);
 else if (command === 'preview') run(['node_modules/wrangler/bin/wrangler.js', 'dev', '--config', 'dist/server/wrangler.json', '--local', '--ip', '127.0.0.1', '--port', '8787', '--inspector-port', '0']);
-else console.log('Verified practice-only artifact for pokerrr-3-staging.');
+else console.log('Verified practice-only artifact for dunzo-club-staging.');

@@ -21,7 +21,7 @@ test('every existing multiplayer method is blocked at the Worker boundary', asyn
 });
 test('deploy guard rejects another environment or any persistent game/service binding', () => {
   const directory = mkdtempSync(join(tmpdir(), 'poker-staging-')), path = join(directory, 'wrangler.json');
-  const valid = {name:'pokerrr-3-staging',vars:{APP_ENV:'staging'}};
+  const valid = {name:'dunzo-club-staging',vars:{APP_ENV:'staging'}};
   try {
     for (const invalid of [
       {...valid,name:'pokerrr-3-prod'}, {...valid,vars:{APP_ENV:'production'}},

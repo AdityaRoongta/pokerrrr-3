@@ -2,9 +2,9 @@
 
 ## What this target does
 
-Deploys the existing UI and browser-local practice simulation to **pokerrr-3-staging** in your own Cloudflare account. It does not provision the future shared game server or player login. The Worker returns HTTP 503 for every `/api/poker` request, and the UI disables shared create/join controls. Practice balances are not saved.
+Deploys the existing UI and browser-local practice simulation to **dunzo-club-staging** in your own Cloudflare account. It does not provision the future shared game server or player login. The Worker returns HTTP 503 for every `/api/poker` request, and the UI disables shared create/join controls. Practice balances are not saved.
 
-The GitHub repository is **arundevanathan/pokerrrr-3** (four trailing r's). The Cloudflare Worker is **pokerrr-3-staging** (three trailing r's). Preserve these exact names.
+The GitHub repository is **arundevanathan/pokerrrr-3** (four trailing r's). The Cloudflare Worker is **dunzo-club-staging** at `https://dunzo-club-staging.arun-devanathan.workers.dev`. Preserve these exact names.
 
 ## Build and verify locally
 
@@ -36,7 +36,7 @@ No database or secrets are required for this practice-only release. Do not add t
 
 ## Cloudflare dashboard
 
-1. Select the existing **pokerrr-3-staging** Worker, then Settings → Builds.
+1. Select the existing **dunzo-club-staging** Worker, then Settings → Builds.
 2. Connect only **arundevanathan/pokerrrr-3**. Keep automatic builds disabled until this PR is merged and its GitHub checks pass.
 3. Set the production branch to `main`. This is Cloudflare's label for the branch published to this staging Worker; it does not make it the live player environment.
 4. Project root: repository root (`/`).

@@ -58,7 +58,7 @@ export function TableMotion({
       const p = room.players.find((p: any) => p.id === payment.id);
       if (!p || now > payment.at + payment.duration) return null;
       const pos = seatPosition(p.seat, mySeat, room.settings.seats);
-      return <Motion key={`${room.handStartedAt}:${payment.run}:${payment.id}`} at={payment.at} kind="pot-transfer" style={{
+      return <Motion key={`${room.handStartedAt}:${payment.run}:${payment.label}:${payment.id}`} at={payment.at} kind="pot-transfer" style={{
         '--target-x': `clamp(var(--seat-edge-x), ${pos.x}%, calc(100% - var(--seat-edge-x)))`,
         '--target-y': `clamp(var(--seat-edge-y), ${pos.y}%, calc(100% - var(--seat-edge-y)))`,
         animationDuration: `${payment.duration}ms`
@@ -69,7 +69,7 @@ export function TableMotion({
           <i />
           <i />
         </div>
-        <b>{room.runCount === 2 ? `Run ${payment.run}` : ''} +{new Intl.NumberFormat('en-IN').format(payment.amount)}</b>
+        <b>{room.runCount === 2 ? `Run ${payment.run} · ` : ''}{payment.label} +{new Intl.NumberFormat('en-IN').format(payment.amount)}</b>
       </Motion>;
     })}
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { dealPlan, boardPlan, showdownTiming, presentationAt, payoutEvents, visibleStack } from './table-presentation.mjs';
+import { dealPlan, boardPlan, showdownTiming, presentationAt, payoutAwards, payoutEvents, visibleStack } from './table-presentation.mjs';
 import { PokerAudio } from './poker-audio';
 export function useTableEffects(room: any, audio: PokerAudio | null) {
   const [flow, setFlow] = useState<any>({}),
@@ -47,7 +47,7 @@ export function useTableEffects(room: any, audio: PokerAudio | null) {
       const from = room.runVote?.sharedBoard.length ?? (newHand ? room.board.length : before.boardCount),
         counts = Array.from({
           length: room.runCount || 1
-        }, (_, i) => (room.result || []).filter((w: any) => w.runHands?.some((h: any) => h.run === i + 1)).length),
+        }, (_, i) => payoutAwards(room.result, room.runCount).filter((p: { run: number }) => p.run === i + 1).length),
         plan = room.presentation || showdownTiming(from, room.board.length, room.result?.length || 1, room.runCount || 1, counts, Boolean(room.runVote?.revealed)),
         startedAt = timestamp - Math.max(0, serverNow - (room.showdownAt || serverNow));
       next.showdown = {

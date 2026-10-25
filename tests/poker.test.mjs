@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {payoutEvents} from '../lib/table-presentation.mjs';
 import assert from 'node:assert/strict';
 import { newRoom, command, startHand, legal, act, evaluate, rank5, view, settlement, tick, finish, runoutCardsNeeded } from '../lib/poker.mjs';
 const token = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -295,6 +296,11 @@ test('pot awards distinguish winners, side pots and returned uncalled money', ()
   assert.equal(r.result[0].description, 'Pair of Aces');
   assert.equal(r.result[1].pots[0].label, 'Side pot 1');
   assert.equal(r.result[0].winningCards.length, 5);
+  const payments = payoutEvents(r, r.showdownAt, r.presentation);
+  assert.deepEqual(payments.map(p => p.label), ['Side pot 1', 'Main pot', 'Uncalled bet returned']);
+  assert.equal(payments.reduce((sum, p) => sum + p.amount, 0), r.lastPot);
+  assert.ok(payments.every(p => p.at + p.duration <= r.payoutFinishedAt));
+  assert.equal(r.nextDealAt, r.payoutFinishedAt + 3000);
 });
 test('fold win does not expose the winner’s private cards or invent a five-card hand', () => {
   const r = room(2);

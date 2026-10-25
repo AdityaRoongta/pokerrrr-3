@@ -7,6 +7,7 @@ import { useTableEffects } from '../lib/use-table-effects';
 import { seatPosition } from '../lib/table-presentation.mjs';
 import { RunoutVote, RunoutDecision, RunoutAnnouncement } from './runout-vote';
 import { TableMotion } from './table-motion';
+import { TableAwards } from './table-awards';
 import { newRoom, command, startHand, act, legal, view, resolveAlias, tick, shortcutRaiseTo } from '../lib/client/practice.mjs';
 import { PokerClient, type Connection } from '../lib/client/poker-client';
 import { GameHistory } from './game-history';
@@ -75,7 +76,7 @@ export default function Home() {
     [sound, setSound] = useState(true),
     [selectedWinner, setSelectedWinner] = useState(''),
     [selectedShortcut, setSelectedShortcut] = useState(''),
-    [selectedRun, setSelectedRun] = useState(1),
+    [selectedRun, setSelectedRun] = useState(0),
     [selectedSeat, setSelectedSeat] = useState<number | null>(null);
   const audio = useRef<PokerAudio | null>(null);
   if (!audio.current) audio.current = new PokerAudio();
@@ -104,6 +105,10 @@ export default function Home() {
   function update(r: Room) {
     if (current.current?.code === r.code && current.current.version > r.version) return;
     const selection = nextRaise(current.current, r, raiseRef.current);
+    if (current.current?.handStartedAt !== r.handStartedAt || current.current?.code !== r.code) {
+      setSelectedWinner('');
+      setSelectedRun(0);
+    }
     current.current = r;
     offset.current = (r.serverTime || Date.now()) - Date.now();
     setRoom(r);
@@ -468,19 +473,26 @@ export default function Home() {
   }
   const visiblePlayers = room?.players.filter((p: any) => !p.left) || [],
     gameIndex = room?.rotationIndex || 0;
+  const displayedRun = effects.activeRun || selectedRun || room?.runCount || 1;
   const awardRun = effects.activeAwardRun,
+    runPayments = effects.payouts.filter((p: { run: number }) => p.run === (awardRun || displayedRun)),
+    currentPayment = runPayments.filter((p: { at: number }) => p.at <= effects.now).at(-1) || runPayments[0],
+    currentPot = runPayments.filter((p: { label: string }) => p.label === currentPayment?.label),
     allWinners = room?.phase === 'showdown' ? (room.result || []).filter((w: any) => (w.wonAmount ?? w.amount) > 0) : [],
     winners = awardRun ? allWinners.flatMap((w: any) => {
-      const h = w.runHands?.find((h: any) => h.run === awardRun);
-      return h?.wonAmount > 0 ? [{
+      const h = w.runHands?.find((h: any) => h.run === awardRun),
+        payment = currentPot.find((p: { id: string }) => p.id === w.id);
+      return payment?.wonAmount > 0 ? [{
         ...w,
         ...h,
-        runHands: [h],
-        pots: w.pots?.filter((p: any) => p.run === awardRun)
+        wonAmount: payment.wonAmount,
+        runHands: h ? [h] : [],
+        pots: w.pots?.filter((p: any) => p.run === awardRun && p.label === payment.label)
       }] : [];
     }) : allWinners,
-    focusedWinner = winners.find((w: any) => w.id === selectedWinner) || winners[0],
-    focusedHand = focusedWinner?.runHands?.find((h: any) => h.run === (awardRun || selectedRun)) || focusedWinner?.runHands?.[0] || focusedWinner,
+    focusCandidates = awardRun ? winners : winners.filter((w: any) => w.runHands?.some((h: { run: number }) => h.run === displayedRun) || !w.runHands?.length && displayedRun === 1),
+    focusedWinner = focusCandidates.find((w: any) => w.id === (awardRun ? currentPayment?.id : selectedWinner)) || focusCandidates[0],
+    focusedHand = focusedWinner?.runHands?.find((h: any) => h.run === (awardRun || displayedRun)) || focusedWinner?.runHands?.[0] || focusedWinner,
     focusedRunNumber = focusedHand?.run || 1;
   const raiseMin = l ? Math.min(l.min, l.max) : 0,
     raiseMax = l?.max || 0,
@@ -560,14 +572,19 @@ export default function Home() {
                   <button className="secondary" onClick={() => setPanel('ledger')}>Current Game Rankings</button>
                 </div> : <>
                   <div className="pot-label">
-                    {room.phase === 'showdown' ? 'LAST POT' : 'POT'}
+                    {awardRun && currentPayment ? `${room.runCount === 2 ? `RUN ${awardRun} · ` : ''}${currentPayment.label}` : room.phase === 'showdown' ? 'LAST POT' : 'POT'}
                   </div>
                   <div className="pot-amount">
-                    {fmt(room.phase === 'showdown' ? room.lastPot : room.players.reduce((s: number, p: any) => s + (p.inHand ? p.total : 0), 0))}
+                    {fmt(awardRun && currentPayment ? currentPot.reduce((sum: number, p: { wonAmount: number; amount: number }) => sum + (p.wonAmount || p.amount), 0) : room.phase === 'showdown' ? room.lastPot : room.players.reduce((s: number, p: any) => s + (p.inHand ? p.total : 0), 0))}
                   </div>
+                  {room.runCount === 2 && <div className="runout-review" aria-label="Run results">
+                    {[1, 2].map(run => <button key={run} aria-pressed={displayedRun === run} disabled={!effects.settled} onClick={() => {
+                      setSelectedRun(run);
+                      setSelectedWinner('');
+                    }}>Run {run}</button>)}
+                  </div>}
                   <div className="runout-boards">
-                    {(room.runCount === 2 ? room.runBoards : [room.board]).map((board: number[], runIndex: number) => <div className={`runout-board ${effects.activeRun === runIndex + 1 ? 'active-run' : ''}`} key={runIndex}>
-                      {room.runCount === 2 && <span className="run-board-label">RUN {runIndex + 1}</span>}
+                    {(room.runCount === 2 ? room.runBoards : [room.board]).map((board: number[], runIndex: number) => <div className={`runout-board ${effects.activeRun === runIndex + 1 ? 'active-run' : ''}`} hidden={room.runCount === 2 && displayedRun !== runIndex + 1} key={runIndex}>
                       <div className="board-cards">
                         {Array.from({
                           length: 5
@@ -581,11 +598,12 @@ export default function Home() {
                           </div>;
                         })}
                       </div>
+                      <TableAwards key={`${room.handStartedAt}:${runIndex}`} room={room} effects={effects} run={runIndex + 1} onFocus={(id, run) => {
+                        setSelectedWinner(id);
+                        setSelectedRun(run);
+                      }} />
                     </div>)}
                   </div>
-                  {room.phase === 'showdown' && effects.resultReady && <div className="winner-line">
-                    {winners.map((w: any) => <span key={w.id}>♛ {w.name} +{fmt(w.wonAmount ?? w.amount)}</span>)}
-                  </div>}
                 </>}
               </div>
             </div>
@@ -657,46 +675,7 @@ export default function Home() {
             <RunoutVote room={room} now={clock + offset.current} busy={busy} send={send} />
             <RunoutAnnouncement room={room} effects={effects} />
 
-            {room.phase === 'showdown' && effects.resultReady && focusedWinner && <section className="showdown-result table-win-card" aria-label="Hand result" aria-live="polite">
-              <div className="result-heading">
-                <Trophy size={22} />
-                <div>
-                  <span className="eyebrow">
-                    {awardRun ? `RUN ${awardRun} · ${winners.length > 1 ? 'POT AWARDS' : 'WINNER'}` : room.runCount === 2 ? 'FINAL RESULT' : winners.length > 1 ? 'POT AWARDS' : 'WINNER'}
-                  </span>
-                  <h3>
-                    {focusedWinner.name}
-                    {focusedWinner.name === 'You' ? ' win ' : ' wins '}
-                    <strong>
-                      {fmt(focusedWinner.wonAmount ?? focusedWinner.amount)}
-                    </strong>
-                  </h3>
-                  <p>
-                    {focusedHand.description || focusedHand.hand}
-                  </p>
-                </div>
-              </div>
-              {winners.length > 1 && <div className="winner-choices">
-                {winners.map((w: any) => <button key={w.id} className={focusedWinner.id === w.id ? 'selected' : ''} onClick={() => setSelectedWinner(w.id)}>{w.name} +{fmt(w.wonAmount ?? w.amount)} <small>
-                  {w.pots?.map((p: any) => `${room.runCount === 2 ? `Run ${p.run} · ` : ''}${p.label}${p.tied ? ' · split' : ''}`).join(' / ')}
-                </small></button>)}
-              </div>}
-              {room.runCount === 2 && focusedWinner.runHands?.length > 0 && <div className="run-hand-tabs">
-                {focusedWinner.runHands.map((h: any) => <button key={h.run} aria-pressed={h.run === focusedRunNumber} onClick={() => setSelectedRun(h.run)}>Run {h.run} · +{fmt(h.wonAmount)}</button>)}
-              </div>}
-              {focusedHand.winningCards?.length > 0 && <div className="best-five">
-                <span>
-                  {room.runCount === 2 ? `RUN ${focusedRunNumber} · WINNING FIVE` : 'WINNING FIVE'}
-                </span>
-                <div>
-                  {focusedHand.winningCards.map((c: number) => <Card key={c} value={c} small highlight />)}
-                </div>
-              </div>}
-              <div className="pot-award-notes">
-                {focusedWinner.pots?.map((p: any, i: number) => <span key={i}>{room.runCount === 2 ? `Run ${p.run} · ` : ''}{p.label}{p.tied ? ' · split' : ''}: {fmt(p.amount)}</span>)}
-                {room.result?.filter((w: any) => w.returnedAmount > 0).map((w: any) => <span className="returned-note" key={w.id}>{fmt(w.returnedAmount)} uncalled returned to {w.name}</span>)}
-              </div>
-            </section>}
+
 
           </div>
 

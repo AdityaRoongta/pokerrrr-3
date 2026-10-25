@@ -486,9 +486,9 @@ export default function Home() {
     raiseMax = l?.max || 0,
     raiseValid = Boolean(l && Number.isSafeInteger(raise) && raise >= raiseMin && raise <= raiseMax),
     raiseValue = Math.min(raiseMax, Math.max(raiseMin, raise || raiseMin));
-  const autoSeconds = room?.nextDealAt ? Math.max(0, Math.min(3, Math.ceil((room.nextDealAt - clock - offset.current) / 1000))) : null;
   const readyPlayers = visiblePlayers.filter((p: any) => p.stack > 0 && !p.away).length;
-  const autoStatus = room?.terminationPending ? 'Terminating after payout' : room?.paused ? 'Auto-deal paused' : readyPlayers < 2 ? 'Waiting for two ready players' : room?.nextDealAt && clock + offset.current < room.nextDealAt - 3000 ? 'Winner reveal…' : autoSeconds !== null ? `Next hand in ${autoSeconds}…` : 'Preparing the next hand…';
+  const turnFraction = Math.max(0, Math.min(1, (room?.deadline - clock - offset.current) / ((room?.settings.timer || 30) * 1000)));
+  const nextHandFraction = Math.max(0, Math.min(1, (room?.nextDealAt - clock - offset.current) / 3000));
   const clampRaise = (v: number) => Math.min(raiseMax, Math.max(raiseMin, Math.round(v || raiseMin)));
   return <div className={`app ${room ? 'in-game' : ''}`} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
 
@@ -532,20 +532,7 @@ export default function Home() {
 
 
 
-    </main> : <main className="game-layout">
-
-      <div className="table-heading">
-        <div>
-          {demo.current && <div className="eyebrow">Practice</div>}
-          <h2>
-            {room.phase === 'closed' ? 'Game Ended' : 'Poker Table'}
-          </h2>
-        </div>
-        <div className="heading-actions">
-          {demo.current && live && <button className="secondary preview-showdown" disabled={effects.presentationBusy} onClick={previewShowdown}>Preview showdown <ArrowUpRight size={14} /></button>}
-          <span className="stakes">{fmt(room.settings.sb)} / {fmt(room.settings.bb)} <small>BLINDS</small></span>
-        </div>
-      </div>
+    </main> : <main className="game-layout" aria-label="Poker table">
 
       <div className="game-main">
         <section className="play-area">
@@ -555,16 +542,17 @@ export default function Home() {
                 {g}
               </span>
               {i === gameIndex && <small>
-                {room.phase === 'lobby' ? 'Up first' : `${room.handsIntoRotation + (['showdown', 'closed'].includes(room.phase) ? 0 : 1)} / ${room.settings.rotation} hands`}
+                {room.phase === 'lobby' ? '' : `${room.handsIntoRotation + (['showdown', 'closed'].includes(room.phase) ? 0 : 1)}/${room.settings.rotation}`}
               </small>}
               {i < (room.settings.games || ['NLH', 'PLO4', 'PLO5']).length - 1 && <ChevronRight size={13} />}
             </div>)}
+            <span className="table-stakes" aria-label={`Blinds ${room.settings.sb} / ${room.settings.bb}`}>{fmt(room.settings.sb)}/{fmt(room.settings.bb)}</span>
           </div>
 
           <div className={`table-stage ${room.runCount === 2 ? 'two-runouts' : ''} ${room.runVote ? 'has-run-vote' : ''}`}>
             <div className="felt">
               <div className="felt-inner" />
-              <div className="felt-brand">Dunzo Club</div>
+
               <div className="board-zone">
                 {room.phase === 'lobby' ? <div className="waiting">
                   <span>♠</span>
@@ -576,7 +564,7 @@ export default function Home() {
                   <button className="secondary" onClick={() => setPanel('ledger')}>Current Game Rankings</button>
                 </div> : <>
                   <div className="pot-label">
-                    {room.phase === 'showdown' ? 'LAST POT' : 'TOTAL POT'}
+                    {room.phase === 'showdown' ? 'LAST POT' : 'POT'}
                   </div>
                   <div className="pot-amount">
                     {fmt(room.phase === 'showdown' ? room.lastPot : room.players.reduce((s: number, p: any) => s + (p.inHand ? p.total : 0), 0))}
@@ -598,11 +586,6 @@ export default function Home() {
                         })}
                       </div>
                     </div>)}
-                  </div>
-                  <div className="street">
-                    {room.phase === 'showdown' ? effects.activeRun ? `RUN ${effects.activeRun} · ${effects.activeAwardRun ? 'WINNER' : 'DEALING'}` : 'HAND COMPLETE' : voting ? 'ALL-IN' : room.phase.toUpperCase()}
-                    <span> · </span>
-                    {gameName[room.game]}
                   </div>
                   {room.phase === 'showdown' && effects.resultReady && <div className="winner-line">
                     {winners.map((w: any) => <span key={w.id}>♛ {w.name} +{fmt(w.wonAmount ?? w.amount)}</span>)}
@@ -650,6 +633,9 @@ export default function Home() {
                       openReload();
                     }
                   } : undefined}>
+                    {live && !effects.dealing && p.id === room.turn && room.deadline && <svg className={`seat-timer ${seconds <= 5 ? 'urgent' : ''}`} viewBox="0 0 100 100" preserveAspectRatio="none" role="timer" aria-label={`${p.name}: ${seconds} seconds remaining`}>
+                      <rect x="2" y="2" width="96" height="96" rx="10" pathLength="100" strokeDasharray={`${turnFraction * 100} 100`} />
+                    </svg>}
                     <span>
                       {p.name}
                       {p.id === room.me && <small> YOU</small>}
@@ -659,15 +645,13 @@ export default function Home() {
                     </strong>
                     {p.seat === room.dealer && <b className="dealer-chip">D</b>}
                   </div>
-                  <div className="seat-caption">
-                    {win ? `WINNER · ${[...new Set(win.pots?.map((p: any) => room.runCount === 2 ? `Run ${p.run}` : p.label))].join(' / ') || 'Pot'}` : effects.dealing && p.inHand ? 'Dealing…' : p.id === room.turn ? `${seconds}s · Thinking` : room.phase === 'closed' ? '' : p.pendingSeatAction === 'leave' ? 'Getting up after hand' : p.pendingSeatAction === 'sit_out' ? 'Sitting out after hand' : p.away ? 'Sitting out' : p.stack === 0 && !p.inHand ? p.buyins > 0 ? 'Busted' : 'Buy-in pending' : p.inHand && handActive ? p.folded ? 'Folded' : p.stack === 0 ? 'All-in' : p.action || 'Ready' : 'Ready'}
-                  </div>
+                  {p.away && <span className="seat-state">Sit out</span>}
+                  {p.inHand && !p.folded && p.stack === 0 && <span className="seat-state">All-in</span>}
                   {handActive && p.bet > 0 && <div className="seat-bet">● {fmt(p.bet)}</div>}
                 </> : <button className="seat-choice" aria-label={`Choose seat ${s + 1}`} disabled={controlsBusy || seated || room.phase === 'closed' || room.terminationPending} onClick={() => chooseSeat(s)}>
                   <span className="empty-seat">
                     <Plus size={15} />
                   </span>
-                  <small>Seat {s + 1}</small>
                 </button>}
               </div>;
             })}
@@ -737,24 +721,7 @@ export default function Home() {
                 {error}
                 {transport.current?.hasPending() && <button type="button" onClick={retryLastAction}>Retry last action</button>}
               </div>}
-              {voting ? <div className="between-hands">
-                <div>
-                  <strong>Once / Twice vote</strong>
-                  <span>Private choices · five seconds · no choice means Once.</span>
-                </div>
-                <div className="auto-deal-status">
-                  <b>
-                    {Math.max(0, Math.min(5, Math.ceil((room.runVote.deadline - clock - offset.current) / 1000)))}
-                  </b>
-                </div>
-              </div> : live ? <>
-                <div className="turn-status">
-                  <i className={myTurn ? 'your-turn' : ''} />
-                  {effects.dealing ? 'Shuffling & dealing…' : myTurn ? 'Your turn' : `${room.players.find((p: any) => p.id === room.turn)?.name || 'Player'} is thinking…`}
-                  <span>
-                    {effects.dealing ? '' : `${seconds}s`}
-                  </span>
-                </div>
+              {voting ? null : live ? <>
                 {myTurn && l && !effects.presentationBusy ? <>
                   <div className="betting-controls">
                     <div className="betting-main">
@@ -782,43 +749,24 @@ export default function Home() {
                         <button className="primary" disabled={controlsBusy || !l.canRaise || !raiseValid} onClick={() => send('raise', {
                           amount: raise
                         })}>
-                          {l.canRaise ? `Raise to ${fmt(raise)}` : 'Raise unavailable'}
+                          {l.canRaise ? `Raise ${fmt(raise)}` : 'Raise'}
                         </button>
                       </div>
                     </div>
                     {l.canRaise && <div className="raise-slider-control">
-                      <span>
-                        {fmt(raiseMax)}
-                      </span>
-                      <input type="range" aria-label="Raise amount slider" aria-orientation="vertical" min={raiseMin} max={raiseMax} step={1} value={raiseValue} disabled={busy || raiseMin === raiseMax} onChange={e => {
+                      <input type="range" aria-label="Raise amount slider" aria-orientation="horizontal" min={raiseMin} max={raiseMax} step={1} value={raiseValue} disabled={busy || raiseMin === raiseMax} onChange={e => {
                         setSelectedShortcut('');
                         setRaise(Number(e.target.value));
                       }} style={{
                         '--range-fill': `${raiseMax > raiseMin ? (raiseValue - raiseMin) / (raiseMax - raiseMin) * 100 : 100}%`
                       } as React.CSSProperties} />
-                      <span>
-                        {fmt(raiseMin)}
-                      </span>
                     </div>}
                   </div>
-                </> : <div className="waiting-actions">
-                  <span>
-                    {effects.dealing ? 'Cards are being dealt clockwise.' : 'Waiting for your turn.'}
-                  </span>
-                </div>}
+                </> : null}
               </> : <div className="between-hands">
-                <div>
-                  <strong>
-                    {room.phase === 'closed' ? 'Session complete' : room.phase === 'showdown' ? autoStatus : 'Waiting for players'}
-                  </strong>
-                  <span>
-                    {room.phase === 'closed' ? 'Review the ledger and track payments.' : room.phase === 'showdown' ? room.terminationPending ? '' : 'Tap your player card to reload.' : room.host ? 'Two seated players with chips are required.' : 'Waiting for the first deal.'}
-                  </span>
-                </div>
+                {room.paused && <span className="paused-state">Auto-deal paused</span>}
                 {room.phase === 'closed' ? <button className="primary" onClick={() => setPanel('ledger')}>Current Game Rankings <ArrowUpRight size={16} /></button> : room.phase === 'showdown' ? <div className="auto-deal-status" role="status">
-                  {room.nextDealAt && clock + offset.current >= room.nextDealAt - 3000 ? <b>
-                    {autoSeconds}
-                  </b> : <span>↻</span>}
+                  {room.nextDealAt && <div className="next-hand-timer" role="timer" aria-label="Next hand countdown"><i style={{transform: `scaleX(${nextHandFraction})`}} /></div>}
                   {room.host && <button className="secondary pause-deal" disabled={controlsBusy} onClick={() => send('pause')} aria-label={room.paused ? 'Resume auto-deal' : 'Pause auto-deal'}>
                     {room.paused ? <Play size={16} /> : <Pause size={16} />}
                   </button>}
@@ -828,65 +776,7 @@ export default function Home() {
           </div>
 
         </section>
-        <aside className="sidebar">
-          <div className="side-tabs">
-            <button className="active">Players</button>
-            <button onClick={() => setPanel('history')}><History size={16} /> History</button>
-          </div>
-          <div className="side-section">
-            <div className="side-title">PLAYERS <span>{visiblePlayers.length}/{room.settings.seats}</span></div>
-            {visiblePlayers.map((p: any) => <div className="lineup" key={p.id}>
-              <div className="avatar tiny">
-                {p.name.slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <strong>
-                  {p.name}
-                  {p.id === room.me ? ' (you)' : ''}
-                </strong>
-                <small>
-                  {room.phase === 'closed' ? 'Cashed out' : p.away ? 'Sitting out' : effects.playerStack(p) > 0 ? 'At the table' : stackLabel(p)}
-                </small>
-              </div>
-              <span className={stackLabel(p) === 'Busted' ? 'busted-label' : ''}>
-                {stackLabel(p)}
-              </span>
-            </div>)}
-          </div>
-          {room.requests.length > 0 && <div className="side-section requests">
-            <div className="side-title">QUEUED RELOADS</div>
-            {room.requests.map((q: any) => <div className="request" key={q.id}>
-              <span>
-                {q.name}
-                <small>{fmt(q.amount)} chips · automatic after this hand</small>
-              </span>
-            </div>)}
-          </div>}
-          <div className="side-section">
-            <div className="side-title">ACTIVITY</div>
-            <div className="event-list">
-              {room.events.filter((e: string) => !(room.phase === 'showdown' && !effects.settled && e.startsWith(`Hand ${room.completed}:`))).slice(-7).reverse().map((e: string, i: number) => <div key={`${i}-${e}`}>
-                <span className="event-dot" />
-                {e}
-              </div>)}
-            </div>
-          </div>
-          <button className="ledger-button" onClick={() => setPanel('ledger')}>
-            <span>Current Game Rankings<small>Buy-ins, cash-outs & settlement</small></span>
-            <ArrowUpRight size={18} />
-          </button>
-        </aside>
       </div>
-
-      <footer className="table-footer">
-        {demo.current && <span>Practice</span>}
-        <div>
-          <button onClick={() => setPanel('ledger')}>Rankings</button>
-          <button onClick={() => setPanel('history')}>History</button>
-          {seated && room.phase !== 'closed' && !room.terminationPending && me.pendingSeatAction !== 'leave' && <button onClick={openReload}>Load Chips</button>}
-          <button onClick={installApp}>Install</button>
-        </div>
-      </footer>
 
     </main>}
 
@@ -999,6 +889,9 @@ export default function Home() {
               </button>
             </>}
             <button onClick={() => setPanel('ledger')}>Current Game Rankings</button>
+            <button onClick={() => setPanel('history')}>Game History</button>
+            <button onClick={installApp}>Install App</button>
+            {demo.current && live && <button disabled={effects.presentationBusy} onClick={previewShowdown}>Preview showdown</button>}
             {room.phase !== 'closed' && <button className="danger" disabled={controlsBusy || room.terminationPending} onClick={() => setConfirm('end')}>
               {room.terminationPending ? 'Termination Pending' : 'Terminate Game'}
             </button>}

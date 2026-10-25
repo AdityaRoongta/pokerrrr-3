@@ -48,7 +48,7 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 pnpm start
 ```
 
-Apply the migration once per fresh local database. These commands reflect the retained framework setup; fresh-machine verification outside the original workspace remains a tracked task. See `docs/SITES_STARTER.md` for platform profiles and bindings. Do not run integration tests against live storage.
+Apply the migration once per fresh local database. Fresh-clone installation, development startup, browser practice smoke check, local D1 migration and the built-server API suite have been verified on macOS with Node 24.22.1 and pnpm 11.25.0. Ensure `node` is on PATH before installation so dependency lifecycle scripts can run. Multi-device/PWA acceptance remains open. See [verification results and the staged implementation plan](docs/IMPLEMENTATION_PLAN.md) and `docs/SITES_STARTER.md` for platform profiles and bindings. Do not run integration tests against live storage.
 
 ## Checks
 

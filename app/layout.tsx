@@ -4,10 +4,10 @@ import "./globals.css";
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#101b19", viewportFit: "cover" };
 
 export const metadata: Metadata = {
-  title: "Home Game · Your people. Your table.",
+  title: "Dunzo Club · Your people. Your table.",
   description: "A private mixed poker table for your circle. Hold’em, PLO4 and PLO5.",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Home Game" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Dunzo Club" },
   icons: {
     icon: "/favicon.svg",
     apple: "/icon-192.png",

@@ -4,11 +4,14 @@
   "main": "worker/staging.ts",
   "compatibility_date": "2026-05-15",
   "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": { "bindings": [{ "name": "CLUB_TABLE", "class_name": "ClubTable" }] },
+  "migrations": [{ "tag": "dunzo-club-v1", "new_sqlite_classes": ["ClubTable"] }],
   "env": {
     "staging": {
       "name": "dunzo-club-staging",
       "workers_dev": true,
-      "vars": { "APP_ENV": "staging" }
+      "vars": { "APP_ENV": "staging" },
+      "durable_objects": { "bindings": [{ "name": "CLUB_TABLE", "class_name": "ClubTable" }] }
     }
   }
 }

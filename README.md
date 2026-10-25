@@ -1,87 +1,105 @@
-# pokerrrr-3
+# Dunzo Club
 
-Private mixed poker for one group of friends. One active table/session at a time; 7–8 seats, NLH → PLO4 → PLO5, rotating every 2–4 completed hands. Defaults: 25/50 blinds and 2,500 starting chips, with player-selected starting stacks and automatic reloads.
+Private mixed poker for one group of 6–8 friends. One active session at a time;
+NLH → PLO4 → PLO5, rotating every 2–4 completed hands. Defaults: 25/50 blinds and
+2,500 starting chips, with player-selected starting stacks and automatic reloads.
 
-## Status
+## Current implementation
 
-Working prototype imported from the existing Sites project, with the original Git history archived in `migration/source-history.bundle`. The last deployed baseline passed 39 engine/presentation tests, TypeScript checking and a production build. The latest API integration script has not yet been verified. Persistent account login, independent server/client deployment and cross-session weekly settlement are planned work, not completed features.
+One URL serves both the React/PWA client and the authoritative Cloudflare server.
+The Worker routes HTTP commands and WebSockets to one SQLite-backed `ClubTable`
+Durable Object. It serializes commands, saves state and command receipts before
+acknowledging, filters private player snapshots, and advances timers using alarms.
+The browser runs the engine only for explicitly local practice.
 
-Source location and hosting are separate. Importing this repository does not migrate production storage, authentication, hosting or existing sessions. The existing live app remains at https://home-game-poker.arundevanathan.chatgpt.site.
+Multiplayer requires a configured `CLUB_ACCESS_KEY` secret. Members enter this
+shared club access code once per browser; a signed HttpOnly cookie lasts 30 days.
+An independent browser-local player credential resumes a seat after refresh. This
+is prototype device identity, not individual account login: clearing browser data
+or switching devices does not recover the same player. Never share player tokens.
 
-## Product scope
+Completed sessions remain stored when another session starts. Completed hands
+are archived separately from the live room's latest-100-hand view. The UI can
+reopen a completed session with its room code on the same player identity.
+Cross-session balance aggregation, partial external payments, account recovery,
+host handover and a history browser/export for the full archive remain backlog work.
+Do not treat per-session payment toggles as the planned weekly ledger.
 
-- One private group and one active session. No public tables, matchmaking, tournaments or multi-group administration.
-- Keep completed sessions and hand history. Members settle balances across several sessions, typically weekly.
-- Persistent player identities and refreshable login sessions are required; repeated login on every app launch is not the intended experience.
-- All authoritative multiplayer decisions happen on the server. Practice mode runs a separate local simulation.
-- Money is transferred outside the app. The app records chip accounting and external settlement.
+The Cloudflare target is `dunzo-club-staging`:
+https://dunzo-club-staging.arun-devanathan.workers.dev/.
+The repository remains `arundevanathan/pokerrrr-3`; changing the app's name does not
+rename its GitHub URL. No deployment or live-data migration is performed by local
+builds. See [Cloudflare setup and release instructions](docs/CLOUDFLARE_STAGING.md).
 
-## Code map
+## Local setup
 
-| Path | Purpose |
-| --- | --- |
-| `lib/poker.mjs` | Pure poker engine: shuffle, betting, evaluation, pots, rotation and player-specific views |
-| `app/api/poker/route.ts` | Current authoritative HTTP API; D1 room state and optimistic version checking |
-| `app/page.tsx` | Current React UI, polling, local practice and session controls |
-| `lib/table-presentation.mjs` | Shared dealing, runout and payout timelines |
-| `lib/use-table-effects.ts`, `app/table-motion.tsx` | Client animations and sound scheduling |
-| `drizzle/` | Database schema migrations |
-| `tests/` | Engine, presentation and HTTP integration checks |
-| `docs/BACKLOG.md` | Published issue links and remaining work with acceptance criteria |
-| `docs/issues.json` | Published issue payloads and GitHub issue numbers |
-| `docs/SITES_STARTER.md` | Retained framework/platform setup reference |
-
-## Local development
-
-Prerequisites: Node.js >=22.13.0 and the pnpm version declared in `package.json`. Install that pnpm version using your normal package-manager setup, then:
+Use Node >=22.13.0 on PATH and pnpm 11.25.0:
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm dev
+cp .dev.vars.example .dev.vars
+# Edit .dev.vars with a long private local-only CLUB_ACCESS_KEY.
+pnpm dev:staging
 ```
 
-Use the URL printed by the development server. Practice mode is browser-local. Multiplayer also needs the local D1 schema. For a built local server:
+Open the printed local URL. Enter the local club access code and your name to
+create the sole table. Share its room code/invite with another browser profile or
+phone. That player enters the club access code and joins with their own stack.
+Both use the same app URL. Practice does not require an access code or server.
+Keep site data to retain a seat; use a different browser profile for a second player.
+
+No D1 migration is needed for this multiplayer implementation. The Durable Object
+SQLite migration is declared in `wrangler.staging.jsonc`. Local Wrangler manages
+a separate local database. Existing D1 migrations remain for provenance; they do
+not import original Site balances into the new coordinator.
+
+To preview the built Worker:
 
 ```sh
-pnpm build
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_public_cargill.sql
-pnpm start
+pnpm build:staging
+pnpm preview:staging
 ```
 
-Apply the migration once per fresh local database. Fresh-clone installation, development startup, browser practice smoke check, local D1 migration and the built-server API suite have been verified on macOS with Node 24.22.1 and pnpm 11.25.0. Ensure `node` is on PATH before installation so dependency lifecycle scripts can run. Multi-device/PWA acceptance remains open. See [verification results and the staged implementation plan](docs/IMPLEMENTATION_PLAN.md) and `docs/SITES_STARTER.md` for platform profiles and bindings. Do not run integration tests against live storage.
+Legacy `pnpm dev` / `pnpm build` framework entry points remain available and route
+poker traffic through the same coordinator; multiplayer still needs the local
+access secret. The original Site hosting identity is preserved in `.openai/hosting.json`.
 
 ## Checks
 
 ```sh
 pnpm test
+pnpm test:staging
 pnpm typecheck
 pnpm build
+pnpm build:staging
+pnpm check:staging
+pnpm test:staging:smoke
 ```
 
-With a disposable local API running, set its actual URL and run:
+The smoke runner creates an isolated temporary local database, starts the built
+Worker, exercises HTTP/WebSocket multiplayer, restarts the server, checks an
+independent alarm and retained sessions, and cleans up. It does not use deployed
+storage. It needs a free loopback port 8787. To test another **disposable local**
+server, explicitly set `POKER_TEST_URL` and `POKER_TEST_ACCESS_KEY`, then run
+`pnpm test:api`. Both API test paths reject remote URLs. Never point tests at a
+live group. Physical 6–8-device/PWA/network-loss acceptance remains required.
 
-```sh
-POKER_TEST_URL=http://127.0.0.1:8787 pnpm test:api
-```
+## Code map
 
-The URL is illustrative: replace it with the server's printed address. The integration script creates a test room and modifies it. Unit tests are the two explicit engine/presentation files; the API script is separate so it cannot accidentally run against an unspecified service.
+| Path | Responsibility |
+| --- | --- |
+| `app/page.tsx` | UI, sounds, animations and local practice controls |
+| `lib/client/poker-client.ts` | HTTP command retries, WebSocket snapshots and reconnects |
+| `lib/client/practice.mjs` | Explicitly local engine adapter |
+| `lib/protocol/poker.mjs` | Versioned, runtime-validated action contract |
+| `server/worker-router.ts` | Same-origin API/socket routing and readiness |
+| `server/club-table.ts` | Durable Object, serialization, access, private push, alarms |
+| `server/table-service.mjs` | Transactional state, idempotency, session/hand archive |
+| `server/access.mjs` | Signed club-access cookies |
+| `lib/poker.mjs` | Shared tested pure poker rules, secure shuffle and private views |
+| `docs/ISSUES.md`, `docs/BACKLOG.md` | Remaining work and acceptance criteria |
 
-## Architecture direction
-
-Extract a static React/PWA client and an authoritative server, reusing the poker engine and private-view filtering. Proposed server: Cloudflare Worker routing to one Durable Object for the group's active table, with authenticated WebSockets and persistent deadlines/state. Retain completed sessions and a separate ledger for cross-session settlement. This architecture has not yet been implemented.
-
-GitHub Pages can host a static practice demo or an extracted client connected to a separate backend. It cannot host the existing Worker API or D1 database. Pages publication is not configured in this import.
-
-## Collaboration and releases
-
-Use short feature branches and reviewed pull requests. Start from an issue with acceptance criteria. Do not change poker rules or chip accounting without focused tests. Protect `main` with checks/review if the repository's plan permits it. A merge does not currently publish the live Site. Preserve the current deployment until a separate release workflow is explicitly configured and verified.
-
-Never commit credentials, real session databases, private player data or deployment archives. `.openai/hosting.json` identifies the original Site; it is not a credential and must not be repointed casually. Keep the original Site deployment flow distinct from GitHub development until synchronization is deliberately configured.
-
-## Working backlog
-
-All 15 development issues are published. Start with [the issue index and suggested sequence](docs/ISSUES.md). Current priorities are server/client separation, persistent identity, reliable shared state, durable history and weekly settlement.
-
-## Standalone Cloudflare staging
-
-The practice-only Cloudflare target builds with `pnpm run build:staging` and deploys with `pnpm run deploy:staging`. It serves the existing UI with shared multiplayer disabled, requires no database/secrets, and targets **dunzo-club-staging**. The original Sites build remains separate. See [staging setup, checks and dashboard commands](docs/CLOUDFLARE_STAGING.md).
+Use feature branches and reviewed PRs. A merge can trigger Cloudflare's configured
+Git build: review that external automation before merging. Preserve existing
+hosting/data until a deliberate release is approved. Never commit secrets or real
+player balances. See CONTRIBUTING.md and MIGRATION.md for workflow and provenance.

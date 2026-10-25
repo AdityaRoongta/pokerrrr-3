@@ -9,7 +9,7 @@ export function stagingConfig() {
     server: { allowedHosts: ['terminal.local'] },
     define: {
       'process.env.NEXT_PUBLIC_APP_ENV': JSON.stringify('staging'),
-      'process.env.NEXT_PUBLIC_MULTIPLAYER_ENABLED': JSON.stringify('false'),
+      'process.env.NEXT_PUBLIC_MULTIPLAYER_ENABLED': JSON.stringify('true'),
       __STAGING_BUILD_COMMIT__: JSON.stringify(commit),
     },
     plugins: [

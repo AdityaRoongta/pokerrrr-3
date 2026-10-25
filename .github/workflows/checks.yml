@@ -18,3 +18,21 @@ jobs:
       - run: pnpm test
       - run: pnpm typecheck
       - run: pnpm build
+
+  staging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:staging
+      - run: pnpm run build:staging
+      - run: pnpm run check:staging
+      - run: pnpm exec wrangler deploy --config dist/server/wrangler.json --dry-run --outdir .wrangler/staging-dry-run
+      - run: pnpm run test:staging:smoke
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+          CLOUDFLARE_CF_FETCH_ENABLED: 'false'

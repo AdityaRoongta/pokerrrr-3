@@ -6,27 +6,25 @@ import { join } from 'node:path';
 import { stagingResponse } from '../lib/staging-handler.mjs';
 import { validateStagingArtifact } from '../lib/staging-artifact.mjs';
 
-test('health identifies practice-only staging without exposing environment secrets', async () => {
-  const r = stagingResponse(new Request('https://example.test/api/health'), 'staging', 'a'.repeat(40));
-  assert.equal(r.status, 200); assert.equal(r.headers.get('cache-control'), 'no-store');
-  assert.deepEqual(await r.json(), {app:'pokerrrr-3',environment:'staging',version:'a'.repeat(40),mode:'practice-only',multiplayerReady:false});
-});
-test('every existing multiplayer method is blocked at the Worker boundary', async () => {
-  for (const method of ['GET','POST','PUT','DELETE']) for (const path of ['/api/poker','/api/poker/','/api/poker/anything']) {
-    const r = stagingResponse(new Request(`https://example.test${path}?code=ABC234`, {method}), 'staging', 'commit');
-    assert.equal(r.status, 503); assert.equal((await r.json()).code, 'MULTIPLAYER_NOT_CONFIGURED');
+test('health identifies Dunzo Club and reports actual runtime readiness', async () => {
+  for (const ready of [true, false]) {
+    const r = stagingResponse(new Request('https://example.test/api/health'), 'staging', 'a'.repeat(40), ready);
+    assert.equal(r.status, 200); assert.equal(r.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await r.json(), {app:'Dunzo Club',environment:'staging',version:'a'.repeat(40),mode:'multiplayer',multiplayerReady:ready});
   }
-  assert.equal(stagingResponse(new Request('https://example.test/'), 'staging', 'commit'), null);
-  assert.equal(stagingResponse(new Request('https://example.test/api/poker-other'), 'staging', 'commit'), null);
+  assert.equal(stagingResponse(new Request('https://example.test/api/poker'), 'staging', 'commit'), null);
 });
-test('deploy guard rejects another environment or any persistent game/service binding', () => {
-  const directory = mkdtempSync(join(tmpdir(), 'poker-staging-')), path = join(directory, 'wrangler.json');
-  const valid = {name:'dunzo-club-staging',vars:{APP_ENV:'staging'}};
+test('deploy guard requires the intended coordinator and rejects other persistent/service bindings', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'dunzo-staging-')), path = join(directory, 'wrangler.json');
+  const valid = {name:'dunzo-club-staging',vars:{APP_ENV:'staging'},durable_objects:{bindings:[{name:'CLUB_TABLE',class_name:'ClubTable'}]},migrations:[{tag:'dunzo-club-v1',new_sqlite_classes:['ClubTable']}]};
   try {
     for (const invalid of [
-      {...valid,name:'pokerrr-3-prod'}, {...valid,vars:{APP_ENV:'production'}},
+      {...valid,name:'dunzo-club-prod'}, {...valid,vars:{APP_ENV:'production'}},
       ...['d1_databases','r2_buckets','services'].map(key=>({...valid,[key]:[{}]})),
-      {...valid,durable_objects:{bindings:[{}]}},
+      {...valid,durable_objects:{bindings:[]}},
+      {...valid,durable_objects:{bindings:[{name:'CLUB_TABLE',class_name:'Other'}]}},
+      {...valid,durable_objects:{bindings:[{name:'CLUB_TABLE',class_name:'ClubTable',script_name:'production'}]}},
+      {...valid,migrations:[]},
     ]) { writeFileSync(path,JSON.stringify(invalid)); assert.throws(()=>validateStagingArtifact(path)); }
     writeFileSync(path,JSON.stringify(valid));assert.equal(validateStagingArtifact(path).name,valid.name);
   } finally { rmSync(directory,{recursive:true,force:true}); }

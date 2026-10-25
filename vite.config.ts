@@ -18,6 +18,8 @@ const managedLinux = readExecutionProfile() === "managed-linux";
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
+  durable_objects: { bindings: [{ name: 'CLUB_TABLE', class_name: 'ClubTable' }] },
+  migrations: [{ tag: 'dunzo-club-v1', new_sqlite_classes: ['ClubTable'] }],
   d1_databases: d1
     ? [
         {

@@ -1,62 +1,101 @@
-# Cloudflare staging deployment
+# Dunzo Club on Cloudflare
 
-## What this target does
+## One app, one URL
 
-Deploys the existing UI and browser-local practice simulation to **dunzo-club-staging** in your own Cloudflare account. It does not provision the future shared game server or player login. The Worker returns HTTP 503 for every `/api/poker` request, and the UI disables shared create/join controls. Practice balances are not saved.
+`dunzo-club-staging` serves the browser client and the authoritative multiplayer
+server at https://dunzo-club-staging.arun-devanathan.workers.dev/.
+The GitHub repository remains **arundevanathan/pokerrrr-3**. Preserve both existing
+resource identifiers when changing the app's display name.
 
-The GitHub repository is **arundevanathan/pokerrrr-3** (four trailing r's). The Cloudflare Worker is **dunzo-club-staging** at `https://dunzo-club-staging.arun-devanathan.workers.dev`. Preserve these exact names.
+The Worker exports `ClubTable`, a SQLite-backed Durable Object. One fixed object
+name (`dunzo-club`) owns the group's active-session pointer, room snapshots,
+command receipts and archived hands/completed sessions. A single transaction saves
+an accepted action, its retry receipt and alarm. Alarms continue while every phone
+is disconnected. WebSockets receive individually filtered views; no raw deck or
+other player's bearer identity is broadcast. HTTP mutations carry protocol version,
+command ID, state version and hand ID. Writes are acknowledged only after storage.
 
-## Build and verify locally
+## Local verification
 
-With the locked dependencies installed:
+Use Node >=22.13.0 and the packageManager pnpm version. Copy `.dev.vars.example`
+to ignored `.dev.vars` and choose a long local club access code for manual testing.
 
 ```sh
-pnpm run test
-pnpm run test:staging
-pnpm run typecheck
-pnpm run build:staging
-pnpm run check:staging
-pnpm exec wrangler deploy --config dist/server/wrangler.json --dry-run --outdir .wrangler/staging-dry-run
-pnpm run test:staging:smoke
+pnpm test
+pnpm test:staging
+pnpm typecheck
+pnpm build:staging
+pnpm check:staging
+pnpm test:staging:smoke
 ```
 
-The smoke test starts the built Worker on loopback port 8787, verifies health, blocked multiplayer, server-rendered lobby and install assets, then stops it. Keep that port free. To test an already-running local preview, set `POKER_STAGING_TEST_URL` to its loopback address; the script refuses remote URLs.
+The automated smoke test supplies its own disposable access code and database,
+checks HTTP and private WebSocket updates, restarts the server against that same
+local database, waits for a server alarm without client requests, then cleans up.
+It refuses remote URLs. Use `pnpm dev:staging` for HMR or `pnpm preview:staging`
+for the built Worker. Local testing does not provision or migrate remote storage.
 
-For interactive preview use `pnpm run preview:staging` (built Worker, port 8787), or `pnpm run dev:staging` (hot-reload development). Neither touches Cloudflare resources.
+## Deployment preparation (separate from local implementation)
 
-## Configuration
+This change adds a **new** `ClubTable` namespace via the `dunzo-club-v1`
+`new_sqlite_classes` migration. Review namespace creation before publishing.
+There is no automatic import from the original Site/D1 database. No D1, R2,
+connector or production bindings are allowed in the staging artifact. Never
+repurpose a real player's historical balance as staging test data.
 
-`wrangler.staging.jsonc` declares the staging environment and Worker entry point. `scripts/staging.mjs` sets `CLOUDFLARE_ENV=staging` **before the build**, because Cloudflare's Vite plugin flattens the selected environment into the generated `dist/server/wrangler.json`. Do not pass `--env` to deployment of that flattened artifact.
+Before an approved staging release, configure a long, private `CLUB_ACCESS_KEY`
+Worker secret using the Cloudflare dashboard (Settings → Variables and Secrets).
+Do not place it in Git, public `NEXT_PUBLIC_*` values, build logs or ordinary vars.
+Without the secret, game/access endpoints fail closed with 503 and the health
+endpoint reports `multiplayerReady: false`; browser practice remains available.
+Share the access code only with the group. It grants group access, not an
+individual account. Rotate it to invalidate existing access cookies; existing
+player seat credentials should still be kept private.
 
-The build pins compatibility date **2026-05-15**, supported by the repository's installed Wrangler/workerd version. The date deliberately does not track today's calendar date. Review runtime/dependency changes together before advancing it.
+Cloudflare build configuration:
 
-The original `pnpm run build` and Sites configuration remain available. A build overwrites `dist/`; always run `build:staging` immediately before deploying staging. The staging deploy/preview scripts reject artifacts with a wrong Worker name/environment, D1, R2, Durable Object or service bindings. They accept no deployment overrides.
+- Repository: `arundevanathan/pokerrrr-3`, branch `main`, root `/`.
+- Build: `pnpm run build:staging`.
+- Deploy: `pnpm run deploy:staging`.
+- Runtime: Node 22 (>=22.13.0), pnpm 11.25.0.
 
-No database or secrets are required for this practice-only release. Do not add the original Site's placeholder D1 ID, production credentials, PINs or game balances. No mock ChatGPT sign-in or connector service is enabled in this build.
+The build selects `CLOUDFLARE_ENV=staging` before the Vite plugin runs. The generated
+`dist/server/wrangler.json` already contains the selected environment: do not pass
+`--env` or alternate binding overrides when deploying it. `dist/` is overwritten
+by each build; always rebuild staging before deploying staging. The artifact guard
+requires the expected Worker name/environment, one local `ClubTable` binding and
+its SQLite migration, and rejects D1, R2 and service bindings. Compatibility date
+remains 2026-05-15 for the pinned Wrangler/workerd runtime.
 
-## Cloudflare dashboard
+GitHub CI validates builds and performs a dry-run; it does not deploy. Cloudflare's
+Git integration may deploy automatically after merge and is an independent pipeline.
+Check its state before merging. A production environment, its secrets and storage
+must be separately provisioned; never rename this staging namespace to production.
 
-1. Select the existing **dunzo-club-staging** Worker, then Settings → Builds.
-2. Connect only **arundevanathan/pokerrrr-3**. Keep automatic builds disabled until this PR is merged and its GitHub checks pass.
-3. Set the production branch to `main`. This is Cloudflare's label for the branch published to this staging Worker; it does not make it the live player environment.
-4. Project root: repository root (`/`).
-5. Build command: `pnpm run build:staging`.
-6. Deploy command: `pnpm run deploy:staging`.
-7. Use Node 22 (at least 22.13.0) and the `packageManager` pnpm version in package.json; pin the build environment's Node version if its default differs.
-8. Leave optional branch preview deployment unconfigured for this initial target. Leave builds disabled until ready; enable and trigger a staging build deliberately after merge.
+## Release checks and recovery
 
-Cloudflare's Git integration provides deployment authorization. A separate GitHub Actions deployment API token is not required. GitHub Actions only validates and performs dry runs; it does not publish. Automatic Cloudflare deployments are a separate pipeline and are not gated by completion of GitHub checks: use a protected/reviewed `main` branch where supported and only merge verified changes.
+- `/api/health`: app `Dunzo Club`, environment `staging`, expected commit,
+  `mode: multiplayer`, and actual `multiplayerReady`.
+- Lobby/installed app show Dunzo Club. Create/join require the club access code;
+  unrelated origins and requests without a valid access cookie are rejected.
+- Two independent browser profiles can join, see only their own cards, act,
+  refresh/resume and see synchronized versioned state.
+- Only one session can be active. End it between hands, start a new one and reopen
+  the old room with its original member identity; its results must remain.
+- Test phones backgrounded, offline/reconnected and a server restart before real
+  use. Confirm all chips and final cash-outs reconcile.
 
-## Verify the actual deployment
+Deployments now contain persistent state. Do not delete/recreate the namespace or
+cross a migration boundary as a casual rollback. Stop automatic builds and rehearse
+code rollback with schema-compatible state in isolated staging; snapshot/export and
+restoration procedures remain issue #15. Keep the immutable source history bundle.
 
-- Open the Worker's `workers.dev` address: the home screen says **STAGING · PRACTICE ONLY**.
-- `/api/health` returns `environment: "staging"`, the checked-out Git commit as `version`, `mode: "practice-only"`, and `multiplayerReady: false`.
-- Shared create/join buttons are disabled; direct GET and POST `/api/poker` requests return 503 `MULTIPLAYER_NOT_CONFIGURED`.
-- Start a practice hand and verify dealing, actions, sound and the existing Once/Twice preview. Reloading must not imply a saved/shared practice session.
-- Confirm phone viewport and install assets. Staging is publicly reachable but contains no real player data; treat everything entered as disposable practice data.
+## Remaining limits
 
-## Recovery and next steps
-
-If a release is faulty, disable automatic builds first and use the Worker's deployment history to roll back a known-good version. Keep any fix in Git before enabling builds again. This first release has no persistent game storage to migrate or lose.
-
-Future work: authenticated WebSockets, one authoritative Durable Object with SQLite storage and persisted timers, persistent PIN sessions, durable history and the cross-session settlement ledger. Provision production separately with isolated storage/secrets. Do not repurpose staging test balances as real accounting.
+Browser-local bearer identity does not recover across cleared site data or new
+devices. Individual accounts, host transfer and a one-active-device policy are
+future work. The current UI shows the latest 100 hands; the server separately
+archives every completed hand. Weekly cross-session aggregation, partial external
+payments, audited corrections and archive export/reconciliation remain issues
+#4–#6, #10 and #15. No claim of full production acceptance is made by a passing
+local smoke suite.

@@ -1,4 +1,9 @@
-# Verification and staged implementation plan
+# Dunzo Club: verification and staged implementation plan
+
+Historical verification/proposal below describes the pre-multiplayer baseline.
+For the current same-origin implementation, see README.md and
+[CLOUDFLARE_STAGING.md](CLOUDFLARE_STAGING.md). Independent client deployment is
+not required. Persistent individual accounts and the weekly ledger remain open.
 
 Baseline inspected: `82227b55ee5197259cb3c23aa3539e792ef95a96`.
 Updated against main `804c4f5` after its practice-only staging changes landed

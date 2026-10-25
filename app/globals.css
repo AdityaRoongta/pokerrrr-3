@@ -4703,7 +4703,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
   .in-game .play-area {grid-template-rows: 34px minmax(0,1fr) 164px;}
   .in-game .rotation-bar {height: 34px; gap: 10px; padding: 0 10px;}
   .in-game .rotation-bar>div {gap: 5px; font-size: 11px;}
-  .in-game .table-stage {--seat-edge-x: 54px; --seat-edge-y: 60px;}
+  .in-game .table-stage {--seat-edge-x: 48px; --seat-edge-y: 60px;}
   .in-game .seat {width: 84px;}
   .in-game .your-seat {width: 96px; --seat-edge-y: 80px;}
   .in-game .seat-top {height: 44px;}
@@ -4717,7 +4717,8 @@ html:has(.app.in-game),body:has(.app.in-game) {
   .in-game .your-seat .card.small {width: 42px; height: 60px;}
   .in-game .your-seat .card.small b {font-size: 20px;}
   .in-game .your-seat .card.small>span {font-size: 24px;}
-  .in-game .board-cards>.board-card-wrap>.card {width: 40px; height: 56px;}
+  .in-game .board-cards {gap: 3px;}
+  .in-game .board-cards>.board-card-wrap>.card {width: 34px; height: 50px;}
   .in-game .board-cards .card b {font-size: 18px;}
   .in-game .board-cards .card>span {font-size: 22px;}
   .in-game .felt {left: 12%; right: 12%;}
@@ -4736,7 +4737,9 @@ html:has(.app.in-game),body:has(.app.in-game) {
   .in-game .your-seat .card.small {width: 36px; height: 50px;}
   .in-game .your-seat .card.small b {font-size: 17px;}
   .in-game .your-seat .card.small>span {font-size: 20px;}
-  .in-game .board-cards>.board-card-wrap>.card {width: 34px; height: 48px;}
+  .in-game .board-cards>.board-card-wrap>.card {width: 32px; height: 46px;}
+  .in-game .board-cards .card b {font-size: 16px;}
+  .in-game .board-cards .card>span {font-size: 20px;}
   .in-game .pot-amount {font-size: 24px; margin-bottom: 6px;}
 }
 @media(max-height:500px) {

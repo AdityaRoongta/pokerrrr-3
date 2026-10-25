@@ -4655,7 +4655,8 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .in-game .your-seat .card.small {width: 48px; height: 68px; padding: 5px;}
 .in-game .your-seat .card.small b {font-size: 22px;}
 .in-game .your-seat .card.small>span {font-size: 26px;}
-.in-game .seat .hole-cards .card {margin-left: -12px;}
+.in-game .seat .hole-cards>span {margin-left: 0;}
+.in-game .seat .hole-cards .card {margin-left: -8px;}
 .in-game .your-seat .hole-cards .card {margin-left: -9px;}
 .in-game .board-cards>.board-card-wrap>.card {width: 46px; height: 65px;}
 .in-game .board-cards .card b {font-size: 21px;}
@@ -4676,7 +4677,8 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .in-game .betting-main {display: contents;}
 .in-game .betting-main .quick-bets {order: 0; flex-wrap: nowrap; margin: 0; gap: 8px; justify-content: flex-start;}
 .in-game .quick-bets>button {min-height: 38px; padding: 8px 12px; font-size: 12px;}
-.in-game .quick-bets>label {margin-left: auto; font-size: 11px; gap: 6px;}
+.in-game .quick-bets>.bet-shortcut {min-width: 0;}
+.in-game .quick-bets>label {flex: 0 0 auto; margin-left: auto; font-size: 11px; gap: 6px;}
 .in-game .quick-bets input {height: 38px; width: 88px; font-size: 18px; padding: 6px 8px;}
 .in-game .raise-slider-control {order: 1; min-height: 32px; height: 32px; width: 100%;}
 .in-game .raise-slider-control input[type=range] {writing-mode: horizontal-tb; direction: ltr; width: 100%; height: 32px; cursor: ew-resize;}
@@ -4701,7 +4703,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
   .in-game .play-area {grid-template-rows: 34px minmax(0,1fr) 164px;}
   .in-game .rotation-bar {height: 34px; gap: 10px; padding: 0 10px;}
   .in-game .rotation-bar>div {gap: 5px; font-size: 11px;}
-  .in-game .table-stage {--seat-edge-x: 54px; --seat-edge-y: 60px;}
+  .in-game .table-stage {--seat-edge-x: 48px; --seat-edge-y: 60px;}
   .in-game .seat {width: 84px;}
   .in-game .your-seat {width: 96px; --seat-edge-y: 80px;}
   .in-game .seat-top {height: 44px;}
@@ -4715,7 +4717,8 @@ html:has(.app.in-game),body:has(.app.in-game) {
   .in-game .your-seat .card.small {width: 42px; height: 60px;}
   .in-game .your-seat .card.small b {font-size: 20px;}
   .in-game .your-seat .card.small>span {font-size: 24px;}
-  .in-game .board-cards>.board-card-wrap>.card {width: 40px; height: 56px;}
+  .in-game .board-cards {gap: 3px;}
+  .in-game .board-cards>.board-card-wrap>.card {width: 34px; height: 50px;}
   .in-game .board-cards .card b {font-size: 18px;}
   .in-game .board-cards .card>span {font-size: 22px;}
   .in-game .felt {left: 12%; right: 12%;}
@@ -4734,7 +4737,9 @@ html:has(.app.in-game),body:has(.app.in-game) {
   .in-game .your-seat .card.small {width: 36px; height: 50px;}
   .in-game .your-seat .card.small b {font-size: 17px;}
   .in-game .your-seat .card.small>span {font-size: 20px;}
-  .in-game .board-cards>.board-card-wrap>.card {width: 34px; height: 48px;}
+  .in-game .board-cards>.board-card-wrap>.card {width: 32px; height: 46px;}
+  .in-game .board-cards .card b {font-size: 16px;}
+  .in-game .board-cards .card>span {font-size: 20px;}
   .in-game .pot-amount {font-size: 24px; margin-bottom: 6px;}
 }
 @media(max-height:500px) {

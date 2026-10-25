@@ -19,7 +19,6 @@ export function RunoutVote({
   return <section className="runout-vote-card" aria-label="Choose runout count">
     <div className="vote-heading">
       <div>
-        <span className="eyebrow">BETTING IS COMPLETE</span>
         <h3>Once or twice?</h3>
       </div>
       <svg className="vote-timer" viewBox="0 0 40 40" role="timer" aria-label={`${seconds} seconds remaining`}>

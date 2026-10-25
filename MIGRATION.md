@@ -12,6 +12,6 @@ git clone migration/source-history.bundle ../pokerrrr-original-history
 
 The imported repository remains `arundevanathan/pokerrrr-3`. The current app display name is **Dunzo Club** and its package name is `dunzo-club`; historical commits and the source bundle remain unchanged.
 
-Source import does not move production data or hosting. The original Site is still the live application. No GitHub Pages deployment or production deployment credentials are configured here.
-
-All 15 backlog issues are published and linked from `docs/ISSUES.md`. The first GitHub Actions run passed locked dependency installation, all 39 engine/presentation tests, TypeScript checking and the production build. API integration and multi-device acceptance remain open work.
+The source bundle is provenance only; the current runtime and storage are described
+in [README.md](README.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Importing source or building locally does not move hosted data.

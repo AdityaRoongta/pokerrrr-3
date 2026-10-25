@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "dunzo-club-local",
+  "main": "worker/staging.ts",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "env": {
+    "staging": {
+      "name": "dunzo-club-staging",
+      "workers_dev": true,
+      "vars": { "APP_ENV": "staging" }
+    }
+  }
+}

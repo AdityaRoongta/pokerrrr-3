@@ -38,6 +38,10 @@ const localBindingConfig = {
 };
 
 export default defineConfig(async ({ command }) => {
+  if (process.env.POKER_DEPLOY_TARGET === "staging") {
+    const { stagingConfig } = await import("./vite.staging");
+    return stagingConfig();
+  }
   configureToolEnvironment(process.cwd());
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.

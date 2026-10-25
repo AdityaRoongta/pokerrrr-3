@@ -14,7 +14,14 @@
     "db:generate": "drizzle-kit generate",
     "test": "node --test tests/poker.test.mjs tests/presentation.test.mjs",
     "test:api": "node tests/api.test.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:staging": "node scripts/staging.mjs build",
+    "check:staging": "node scripts/staging.mjs check",
+    "preview:staging": "node scripts/staging.mjs preview",
+    "deploy:staging": "node scripts/staging.mjs deploy",
+    "test:staging": "node --test tests/staging.test.mjs",
+    "test:staging:smoke": "node scripts/staging-smoke.mjs",
+    "dev:staging": "node scripts/staging.mjs dev"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

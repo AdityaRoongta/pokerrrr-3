@@ -45,6 +45,10 @@ export default defineConfig(async ({ command }) => {
     const { stagingConfig } = await import("./vite.staging");
     return stagingConfig();
   }
+  if (process.env.POKER_DEPLOY_TARGET === "production") {
+    const { multiplayerConfig } = await import("./vite.multiplayer");
+    return multiplayerConfig("production");
+  }
   configureToolEnvironment(process.cwd());
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.

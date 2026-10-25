@@ -21,7 +21,13 @@
     "deploy:staging": "node scripts/staging.mjs deploy",
     "test:staging": "node --test tests/staging.test.mjs",
     "test:staging:smoke": "node scripts/staging-smoke.mjs",
-    "dev:staging": "node scripts/staging.mjs dev"
+    "dev:staging": "node scripts/staging.mjs dev",
+    "build:production": "node scripts/production.mjs build",
+    "check:production": "node scripts/production.mjs check",
+    "deploy:production": "node scripts/production.mjs deploy",
+    "upload:production": "node scripts/production.mjs upload",
+    "test:production": "node --test tests/production.test.mjs",
+    "test:production:smoke": "POKER_SMOKE_ENV=production node scripts/staging-smoke.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

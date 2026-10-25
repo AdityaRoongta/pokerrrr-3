@@ -8,11 +8,14 @@ import { mkdtempSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
+import { validateProductionArtifact } from '../lib/production-artifact.mjs';
 import { validateStagingArtifact } from '../lib/staging-artifact.mjs';
 import { runApiSuite, localTarget } from '../tests/api.test.mjs';
 const base = process.env.POKER_STAGING_TEST_URL || 'http://127.0.0.1:8787';
 localTarget(base);
-validateStagingArtifact();
+const environment = process.env.POKER_SMOKE_ENV || 'staging';
+if (!['staging', 'production'].includes(environment)) throw new Error('Unknown smoke environment');
+(environment === 'production' ? validateProductionArtifact : validateStagingArtifact)();
 // The preview is restarted on the same port; do not pool sockets across processes.
 const request = (url, options = {}) => fetch(url, {
   ...options,
@@ -106,7 +109,7 @@ try {
     data = await health.json();
   assert.equal(health.status, 200);
   assert.equal(data.app, 'Dunzo Club');
-  assert.equal(data.environment, 'staging');
+  assert.equal(data.environment, environment);
   assert.equal(data.mode, 'multiplayer');
   assert.equal(data.multiplayerReady, true);
   assert.match(data.version, /^[a-f0-9]{40}$/);
@@ -115,6 +118,8 @@ try {
   assert.equal(page.status, 200);
   assert.match(html, /Dunzo Club/);
   assert.doesNotMatch(html, /Club access code|Room code/);
+  if (environment === 'production') assert.doesNotMatch(html, /Practice locally|staging-badge/);
+  else assert.match(html, /Practice locally/);
   for (const asset of ['/manifest.webmanifest', '/sw.js', '/icon-192.png', '/icon-512.png']) {
     const response = await request(new URL(asset, base));
     await response.arrayBuffer();
@@ -123,8 +128,17 @@ try {
   await runApiSuite(base, external ? undefined : async () => {
     await stop();
     await start();
-  });
-  if (!external) {
+  }, environment);
+  if (!external && environment === 'production') {
+    await stop();
+    const files = readdirSync(directory, {recursive: true}).filter(path => /v3\/do\/.*ClubTable\/[a-f0-9]{64}\.sqlite$/.test(path));
+    const database = new DatabaseSync(join(directory, files[0]));
+    try {
+      assert.equal(database.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name IN ('history_examples','staging_history_resets')").get().n, 0);
+    } finally {database.close()}
+    console.log('Verified production does not initialize staging-only data tables.');
+  }
+  if (!external && environment === 'staging') {
     await stop();
     const files = readdirSync(directory, {recursive: true}).filter(path => /v3\/do\/.*ClubTable\/[a-f0-9]{64}\.sqlite$/.test(path));
     const database = new DatabaseSync(join(directory, files[0]));

@@ -31,7 +31,7 @@ export function localTarget(base) {
   if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || url.protocol !== 'http:') throw new Error('API tests require an explicit disposable loopback HTTP server. Never test live balances.');
   return url;
 }
-export async function runApiSuite(base, restart) {
+export async function runApiSuite(base, restart, environment = 'staging') {
   localTarget(base);
   const [host, friend, observer] = testPlayers.map(p => p.id),
     cookies = new Map();
@@ -337,11 +337,18 @@ export async function runApiSuite(base, restart) {
     });
     assert.equal(invalid.status, 400);
     await invalid.arrayBuffer();
-    const demoHistory = await (await request(new URL('/api/history?demo=1', base), {
-      headers
-    })).json();
-    assert.equal(demoHistory.demo, true);
-    assert.equal(demoHistory.games.length, 0);
+    for (const endpoint of ['history', 'settlement']) {
+      const response = await request(new URL(`/api/${endpoint}?demo=1&from=2020-01-01&to=2099-12-31`, base), {headers});
+      const body = await response.json();
+      if (environment === 'production') {
+        assert.equal(response.status, 403);
+        assert.match(body.error, /only available in staging/);
+      } else {
+        assert.equal(response.status, 200);
+        assert.equal(body.demo, true);
+        if (endpoint === 'history') assert.equal(body.games.length, 0);
+      }
+    }
     console.log('Verified authenticated game history, inclusive date-range suggestions, reconciliation and demo isolation.');
     for (const message of liveHost.messages) assert.ok(!JSON.stringify(message).includes(friend));
     for (const message of liveFriend.messages) assert.ok(!JSON.stringify(message).includes(host));

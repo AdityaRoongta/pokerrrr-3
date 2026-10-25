@@ -1,0 +1,42 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "dunzo-club-production-local",
+  "main": "worker/staging.ts",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CLUB_TABLE",
+        "class_name": "ClubTable"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "dunzo-club-v1",
+      "new_sqlite_classes": [
+        "ClubTable"
+      ]
+    }
+  ],
+  "env": {
+    "production": {
+      "name": "dunzo-club",
+      "workers_dev": true,
+      "vars": {
+        "APP_ENV": "production"
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "CLUB_TABLE",
+            "class_name": "ClubTable"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -925,3 +925,28 @@ test('selected games rotate in canonical order; BB alone determines half-size SB
   assert.equal(high.settings.sb, 1000);
   assert.ok(high.settings.buyin >= 4000);
 });
+
+
+test('seat action labels distinguish bets and raises, keep amounts, and reset for a new street', () => {
+  const r = room(3);
+  startHand(r);
+  const caller = r.players.find(p => p.id === r.turn);
+  act(r, caller.id, 'call');
+  assert.equal(caller.action, 'Call');
+  assert.equal(caller.actionAmount, 10);
+  act(r, r.turn, 'call');
+  act(r, r.turn, 'check');
+  assert.equal(r.phase, 'flop');
+  assert.equal(caller.action, null);
+  const bettor = r.players.find(p => p.id === r.turn);
+  act(r, bettor.id, 'raise', 20);
+  assert.equal(bettor.action, 'Bet');
+  assert.equal(bettor.actionAmount, 20);
+  assert.equal(view(r, caller.id).players.find(p => p.name === bettor.name).actionAmount, 20);
+  const raiser = r.players.find(p => p.id === r.turn);
+  act(r, raiser.id, 'raise', 40);
+  assert.equal(raiser.action, 'Raise to 40');
+  assert.equal(raiser.actionAmount, 40);
+  act(r, r.turn, 'fold');
+  assert.ok(r.players.some(p => p.action === 'Fold' && p.actionAmount === null));
+});

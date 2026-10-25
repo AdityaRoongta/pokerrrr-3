@@ -136,8 +136,7 @@ Previous Games shows your net chips for each completed session. Open a game to s
 everyone’s results. “Did not play” means you were absent; zero means break-even. History pages
 contain 20 games; Load More reads the next page. Settle Up selects inclusive India
 calendar dates, defaults to Monday through today, and shows weekdays. Totals appear
-before suggested payments. Share opens the device share sheet with a PNG or text;
-download and copy are available as fallbacks. It calculates over **all** matching completed games, including
+before suggested payments. Share opens the device share sheet with only a PNG; devices without file sharing save the image instead. It calculates over **all** matching completed games, including
 pages that have not been loaded. Active games are excluded. Balances aggregate by
 stable player ID, and the server verifies each game balances before suggesting
 payments. Dunzo is Arun; if Dunzo and Ishita have opposing net balances, offset

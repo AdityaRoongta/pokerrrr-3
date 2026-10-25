@@ -537,16 +537,12 @@ export default function Home() {
       <div className="game-main">
         <section className="play-area">
           <div className="rotation-bar">
-            {(room.settings.games || ['NLH', 'PLO4', 'PLO5']).map((g: string, i: number) => <div className={i === gameIndex ? 'active' : ''} key={g}>
-              <span>
-                {g}
-              </span>
-              {i === gameIndex && <small>
-                {room.phase === 'lobby' ? '' : `${room.handsIntoRotation + (['showdown', 'closed'].includes(room.phase) ? 0 : 1)}/${room.settings.rotation}`}
-              </small>}
-              {i < (room.settings.games || ['NLH', 'PLO4', 'PLO5']).length - 1 && <ChevronRight size={13} />}
-            </div>)}
-            <span className="table-stakes" aria-label={`Blinds ${room.settings.sb} / ${room.settings.bb}`}>{fmt(room.settings.sb)}/{fmt(room.settings.bb)}</span>
+            <strong>{room.game || room.settings.games?.[0] || 'NLH'}</strong>
+            <span className="table-stakes">{fmt(room.settings.sb)}/{fmt(room.settings.bb)}</span>
+            <span>Hand {room.phase === 'lobby' ? 0 : room.completed + (['showdown', 'closed'].includes(room.phase) ? 0 : 1)}</span>
+            {(room.settings.games?.length || 0) > 1 && room.phase !== 'closed' && <small className="next-variant">
+              {room.settings.games[(gameIndex + 1) % room.settings.games.length]} {room.settings.rotation === room.handsIntoRotation ? 'next hand' : `in ${room.settings.rotation - room.handsIntoRotation} ${room.settings.rotation - room.handsIntoRotation === 1 ? 'hand' : 'hands'}`}
+            </small>}
           </div>
 
           <div className={`table-stage ${room.runCount === 2 ? 'two-runouts' : ''} ${room.runVote ? 'has-run-vote' : ''}`}>
@@ -646,6 +642,9 @@ export default function Home() {
                     {p.seat === room.dealer && <b className="dealer-chip">D</b>}
                   </div>
                   {p.away && <span className="seat-state">Sit out</span>}
+                  {p.inHand && p.action && !effects.dealing && room.phase !== 'closed' && <span className={`player-action ${p.folded ? 'is-fold' : ''}`}>
+                    {p.action.startsWith('Raise to ') && p.actionAmount != null ? `Raise to ${fmt(p.actionAmount)}` : p.action}{p.actionAmount != null && !/to /.test(p.action) ? ` ${fmt(p.actionAmount)}` : ''}
+                  </span>}
                   {handActive && p.bet > 0 && <div className="seat-bet">● {fmt(p.bet)}</div>}
                 </> : <button className="seat-choice" aria-label={`Choose seat ${s + 1}`} disabled={controlsBusy || seated || room.phase === 'closed' || room.terminationPending} onClick={() => chooseSeat(s)}>
                   <span className="empty-seat">
@@ -703,6 +702,16 @@ export default function Home() {
           </div>
 
           <div className="action-zone">
+            <div className="hand-toolbar">
+              <span className={`turn-status ${myTurn && live && !effects.presentationBusy ? 'is-your-turn' : ''}`} role="status">
+                {myTurn && live && !effects.presentationBusy ? `Your turn · ${seconds}s` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : room.game}
+              </span>
+              <button className="text-button" onClick={() => setPanel('info')}>Game Info</button>
+              <button className="text-button" onClick={() => setPanel('ledger')}>Rankings</button>
+            </div>
+            {me?.inHand && me.cards?.length > 0 && room.phase !== 'closed' && <div className={`private-hand ${me.folded ? 'hand-folded' : ''}`} aria-label="Your private cards">
+              {me.cards.slice(0, effects.visibleHoleCards(me.seat, me.cards.length)).map((c: number, i: number) => <Card key={i} value={c} highlight={Boolean(focusedWinner?.id === room.me && focusedHand?.holeCards?.includes(c))} dim={Boolean(focusedWinner?.id === room.me && focusedHand?.holeCards?.length && !focusedHand.holeCards.includes(c))} />)}
+            </div>}
             {room.terminationPending && <p className="game-status" role="status">Game will terminate after this hand.</p>}
             {!seated && room.phase !== 'closed' ? <>
               <p className="game-status">
@@ -741,13 +750,13 @@ export default function Home() {
                       </div>
                       <div className="action-buttons">
                         <button className="fold" disabled={controlsBusy} onClick={() => send('fold')}>Fold</button>
-                        <button className="secondary" disabled={controlsBusy} onClick={() => send(l.call ? 'call' : 'check')}>
+                        <button className="secondary check-call" disabled={controlsBusy} onClick={() => send(l.call ? 'call' : 'check')}>
                           {l.call ? `Call ${fmt(l.call)}` : 'Check'}
                         </button>
                         <button className="primary" disabled={controlsBusy || !l.canRaise || !raiseValid} onClick={() => send('raise', {
                           amount: raise
                         })}>
-                          {l.canRaise ? `Raise ${fmt(raise)}` : 'Raise'}
+                          {l.canRaise ? `Raise to ${fmt(raise)}` : 'Raise'}
                         </button>
                       </div>
                     </div>
@@ -783,11 +792,11 @@ export default function Home() {
       {notice}
     </div>}
 
-    {panel && <div className="modal-backdrop" onClick={() => {
+    {panel && <div className={`modal-backdrop ${room && ['info', 'ledger'].includes(panel) ? 'table-sheet-backdrop' : ''}`} onClick={() => {
       setPanel('');
       setConfirm('');
     }}>
-      <section className={`modal ${panel === 'ledger' ? 'wide' : ''}`} onClick={e => e.stopPropagation()}>
+      <section role="dialog" aria-modal="true" aria-label={panel === 'ledger' ? 'Current Game Rankings' : panel === 'info' ? 'Game Info' : 'Table controls'} className={`modal ${panel === 'ledger' ? 'wide' : ''} ${room && ['info', 'ledger'].includes(panel) ? 'table-sheet' : ''}`} onClick={e => e.stopPropagation()}>
         <button className="modal-close icon-button" onClick={() => {
           setPanel('');
           setConfirm('');
@@ -888,7 +897,7 @@ export default function Home() {
             </>}
             <button onClick={() => setPanel('ledger')}>Current Game Rankings</button>
             <button onClick={() => setPanel('history')}>Game History</button>
-            <button onClick={installApp}>Install App</button>
+            <button onClick={() => setPanel('info')}>Game Info</button>
             {demo.current && live && <button disabled={effects.presentationBusy} onClick={previewShowdown}>Preview showdown</button>}
             {room.phase !== 'closed' && <button className="danger" disabled={controlsBusy || room.terminationPending} onClick={() => setConfirm('end')}>
               {room.terminationPending ? 'Termination Pending' : 'Terminate Game'}
@@ -911,6 +920,18 @@ export default function Home() {
           </p>}
         </>}
 
+        {panel === 'info' && <>
+          <h2>Game Info</h2>
+          <dl className="game-info-list">
+            <div><dt>Current game</dt><dd>{room.game} · {gameName[room.game]}</dd></div>
+            <div><dt>Blinds</dt><dd>{fmt(room.settings.sb)} / {fmt(room.settings.bb)}</dd></div>
+            <div><dt>Selected games</dt><dd>{room.settings.games.join(' · ')}</dd></div>
+            <div><dt>Rotation</dt><dd>Every {room.settings.rotation} hands</dd></div>
+            <div><dt>Action time</dt><dd>{room.settings.timer} seconds</dd></div>
+            <div><dt>Players</dt><dd>{visiblePlayers.length} / {room.settings.seats}</dd></div>
+          </dl>
+        </>}
+
         {panel === 'ledger' && <>
           <h2>Current Game Rankings</h2>
           <p>
@@ -929,10 +950,10 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody>
-                {[...room.players].sort((a: any, b: any) => b.net - a.net).map((p: any) => <tr key={p.id}>
+                {[...room.players].sort((a: any, b: any) => b.net - a.net).map((p: any) => <tr key={p.id} className={p.id === room.me ? 'your-ranking' : undefined}>
                   <td>
                     {p.name}
-                    {p.left ? ' · left' : ''}
+                    {p.id === room.me && p.name !== 'You' ? ' · You' : ''}{p.left ? ' · left' : ''}
                   </td>
                   <td>
                     {fmt(p.buyins)}

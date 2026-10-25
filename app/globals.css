@@ -4753,3 +4753,84 @@ html:has(.app.in-game),body:has(.app.in-game) {
 @media(prefers-reduced-motion:reduce) {
   .seat-timer rect,.next-hand-timer i,.vote-timer circle {transition: none;}
 }
+
+/* Keep private cards and decisions together without moving the live table. */
+.in-game .play-area {grid-template-rows: 38px minmax(0,1fr) 286px;}
+.in-game .rotation-bar {height: 38px; justify-content: flex-start; gap: 12px; white-space: nowrap; font-size: 12px;}
+.in-game .table-stakes {margin-left: 0;}
+.next-variant {margin-left: auto; color: var(--gold); font-size: 11px;}
+.in-game .action-zone {height: 286px; justify-content: flex-end; gap: 8px; padding: 10px 14px;}
+.hand-toolbar {display: flex; align-items: center; gap: 14px; width: 100%; min-height: 24px; flex-shrink: 0;}
+.hand-toolbar .text-button {font-size: 12px; min-height: 30px;}
+.turn-status {margin-right: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums;}
+.turn-status.is-your-turn {color: #a5f0c4; font-weight: 700;}
+.private-hand {display: flex; justify-content: center; gap: 6px; flex-shrink: 0; min-height: 76px;}
+.private-hand .card {width: 54px; height: 76px; padding: 5px;}
+.private-hand .card b {font-size: 24px;}
+.private-hand .card>span {font-size: 28px;}
+.private-hand.hand-folded {opacity: .55;}
+.in-game .your-seat .seat-top {height: 0;}
+.in-game .your-seat .seat-top .hole-cards {display: none;}
+.in-game .your-seat {--seat-edge-y: 64px;}
+.in-game .seat:not(.your-seat) .seat-info strong {font-size: 12px; color: #b8c8bf; font-weight: 500;}
+.in-game .seat-bet {font-size: 18px; font-weight: 750; color: #fff1c9; padding: 3px 8px; background: #101c16; border: 1px solid #d9bb8270; border-radius: 8px; white-space: nowrap; width: max-content; margin: 4px auto 0; font-variant-numeric: tabular-nums;}
+.player-action {display: block; font-size: 11px; font-weight: 650; color: #a5f0c4; margin-top: 3px; white-space: nowrap;}
+.player-action.is-fold {color: #f4b4ab;}
+.in-game .acting .seat-info {border-color: #83e6ad; box-shadow: 0 0 0 2px #83e6ad55, 0 0 20px #83e6ad30;}
+.in-game .action-buttons>.fold {background: #843f3f; border: 1px solid #d89089; color: #fff;}
+.in-game .action-buttons>.check-call {background: #28634f; border: 1px solid #78bb9c; color: #fff;}
+.in-game .action-buttons>.fold:hover:not(:disabled) {background: #9d4b4b;}
+.in-game .action-buttons>.check-call:hover:not(:disabled) {background: #327c63;}
+.in-game .action-buttons>button:disabled {opacity: .45;}
+.table-sheet-backdrop {align-items: flex-end; padding: 0; background: #030a0720; backdrop-filter: none;}
+.modal.table-sheet {max-width: 720px; max-height: 46dvh; margin: 0 auto; border-radius: 18px 18px 0 0; padding: 24px 20px max(20px,env(safe-area-inset-bottom)); overscroll-behavior-y: contain;}
+.table-sheet h2 {font-size: 24px; padding-right: 30px;}
+.your-ranking {background: #82d9a51c;}
+.your-ranking td:first-child {color: #a5f0c4; font-weight: 700;}
+.game-info-list {margin: 16px 0 0;}
+.game-info-list>div {display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 13px;}
+.game-info-list dt {color: var(--muted);}
+.game-info-list dd {margin: 0; text-align: right;}
+.history-table-scroll {overscroll-behavior-x: contain; overscroll-behavior-y: auto;}
+.settlement-totals .history-table-scroll {overflow: visible;}
+.settlement-totals table {width: 100%; min-width: 0; table-layout: fixed;}
+.settlement-totals th,.settlement-totals td {white-space: normal; overflow-wrap: anywhere; padding: 12px 6px;}
+.settlement-totals th:first-child,.settlement-totals td:first-child {width: 46%; position: static;}
+.settlement-result .share-settlement {display: block; width: 100%; margin-top: 28px; clear: both; min-height: 48px;}
+@media(max-width:620px) {
+  .in-game .play-area {grid-template-rows: 38px minmax(0,1fr) 270px;}
+  .in-game .rotation-bar {gap: 8px; font-size: 11px; padding: 0 8px;}
+  .next-variant {font-size: 10px;}
+  .in-game .action-zone {height: 270px; padding: 8px; gap: 6px;}
+  .private-hand {min-height: 68px; gap: 5px;}
+  .private-hand .card {width: 48px; height: 68px;}
+  .private-hand .card b {font-size: 22px;}
+  .private-hand .card>span {font-size: 26px;}
+  .in-game .action-buttons>button {font-size: 15px;}
+  .in-game .seat-bet {font-size: 16px;}
+  .hand-toolbar {gap: 10px;}
+  .turn-status {font-size: 11px;}
+}
+@media(max-height:700px) {
+  .in-game .play-area {grid-template-rows: 32px minmax(0,1fr) 230px;}
+  .in-game .rotation-bar {height: 32px;}
+  .in-game .action-zone {height: 230px; gap: 3px; padding: 4px 8px;}
+  .private-hand {min-height: 54px;}
+  .private-hand .card {height: 54px; width: 40px;}
+  .private-hand .card b {font-size: 18px;}
+  .private-hand .card>span {font-size: 20px;}
+  .in-game .action-buttons>button {min-height: 46px; padding: 8px 4px;}
+}
+@media(max-height:500px) {
+  .in-game .game-layout {overflow-y: auto;}
+  .in-game .play-area {min-height: 580px;}
+}
+@media(min-width:900px) and (min-height:501px) {
+  .in-game .play-area {grid-template-rows: 38px minmax(0,1fr) 216px;}
+  .in-game .action-zone {height: 216px; display: grid; grid-template-columns: minmax(270px,1fr) minmax(0,2fr); grid-template-rows: 30px minmax(0,1fr); align-items: center; gap: 8px 20px;}
+  .hand-toolbar {grid-column: 1 / -1; grid-row: 1;}
+  .private-hand {grid-column: 1; grid-row: 2;}
+  .in-game .action-zone>.betting-controls,.in-game .action-zone>.between-hands {grid-column: 2; grid-row: 2;}
+  .in-game .action-zone>.error,.in-game .action-zone>.game-status,.in-game .action-zone>.pending-buyins,.in-game .action-zone>.runout-decision {grid-column: 1 / -1;}
+  .in-game .action-zone:has(>.error,>.game-status,>.pending-buyins,>.runout-decision) {display: flex;}
+}

@@ -126,29 +126,15 @@ export function GameHistory({
     setSharing(true);
     setShareStatus('');
     try {
-      const text = settlementText(result),
-        file = shareFile;
-      if (navigator.share) {
-        if (file && navigator.canShare?.({
-          files: [file]
-        })) {
-          await navigator.share({
-            files: [file],
-            title: 'Dunzo Club settlement',
-            text
-          });
-          return;
-        }
-        await navigator.share({
-          title: 'Dunzo Club settlement',
-          text
-        });
-        return;
+      const file = shareFile || await settlementImage(settlementText(result));
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file] });
+      } else {
+        download(file);
+        setShareStatus('Settlement image saved.');
       }
-      download(file || (await settlementImage(text)));
-      setShareStatus('Image downloaded. Copy the text below to share.');
     } catch (e: any) {
-      if (e.name !== 'AbortError') setShareStatus('Sharing unavailable. Download the image or copy the text below.');
+      if (e.name !== 'AbortError') setShareStatus('Could not share the image. Please try again.');
     } finally {
       setSharing(false);
     }
@@ -254,7 +240,7 @@ export function GameHistory({
                 {to && settlementDate(to)}
               </small></label>
           </div>
-          <p className="settlement-note">Monday–Sunday cycle. Includes games completed on these dates in India time. Suggested payments only; nothing is marked paid.</p>
+          <p className="settlement-note">Monday–Sunday cycle. Includes games completed on these dates in India time.</p>
           <button className="primary full" disabled={calculating}>
             {calculating ? 'Calculating…' : 'Settle Up'}
           </button>
@@ -304,29 +290,9 @@ export function GameHistory({
                 </strong></span>
               <b>Rs.{unsigned(p.amount)}</b>
             </div>) : <p>Nothing to settle.</p>}
-            <button className="secondary" disabled={sharing} onClick={shareSettlement}>
+            <button className="secondary share-settlement" disabled={sharing} onClick={shareSettlement}>
               {sharing ? 'Preparing…' : 'Share Settlement'}
             </button>
-            <details>
-              <summary>Download / Copy</summary>
-              <button className="text-button" onClick={async () => {
-                try {
-                  download(await settlementImage(settlementText(result)));
-                  setShareStatus('Image downloaded.');
-                } catch {
-                  setShareStatus('Could not create image. Copy the text below.');
-                }
-              }}>Download image</button>
-              <button className="text-button" onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(settlementText(result));
-                  setShareStatus('Settlement text copied.');
-                } catch {
-                  setShareStatus('Select and copy the text below.');
-                }
-              }}>Copy text</button>
-              <textarea aria-label="Settlement text" readOnly value={settlementText(result)} rows={12} />
-            </details>
             <p role="status">
               {shareStatus}
             </p>

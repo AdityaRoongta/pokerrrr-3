@@ -247,7 +247,7 @@ test('share text includes date weekdays, totals before suggestions and simulated
   assert.match(text, /SIMULATED/);
   assert.match(text, /Mon.*Sun/);
   assert.ok(text.indexOf('Player Win / Loss') < text.indexOf('Suggested Payments'));
-  assert.match(text, /Nothing is marked paid/);
+  assert.doesNotMatch(text, /Suggestions only|Nothing is marked paid/);
 });
 
 test('staging reset replaces all closed history once, preserving active play and other storage', async () => {

@@ -15,23 +15,19 @@ export function useSocial(room: SocialRoom | null, practice: boolean, connection
   const [entries, setEntries] = useState<SocialEntry[]>([]);
   const [bubbles, setBubbles] = useState<SocialEntry[]>([]);
   const [open, setOpenState] = useState(false);
-  const [unread, setUnread] = useState(0);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const active = useRef(room);
-
-  const opened = useRef(open);
-
   const seen = useRef(new Set<string>());
   const inFlight = useRef<string | null>(null);
   const latest = useRef(0);
   const epoch = `${room?.code || ''}:${room?.createdAt || ''}:${room?.me || ''}`;
   const epochRef = useRef(epoch);
   const local = useRef(practice);
-  useLayoutEffect(() => { active.current = room; opened.current = open; epochRef.current = epoch; local.current = practice; }, [room, open, epoch, practice]);
-  const setOpen = useCallback((value: boolean) => { setOpenState(value); if (value) setUnread(0); }, []);
+  useLayoutEffect(() => { active.current = room; epochRef.current = epoch; local.current = practice; }, [room, epoch, practice]);
+  const setOpen = useCallback((value: boolean) => { setOpenState(value); }, []);
   const retry = useRef<{ code: string; requestId: string; text: string } | null>(null);
   const merge = useCallback((incoming: SocialEntry[]) => {
     latest.current = Math.max(latest.current, ...incoming.map(e => e.sequence));
@@ -42,7 +38,6 @@ export function useSocial(room: SocialRoom | null, practice: boolean, connection
     if (!enabled || !current || entry.code !== current.code || seen.current.has(entry.id)) return;
     seen.current.add(entry.id);
     merge([entry]);
-    if (!opened.current && entry.sender.name !== current.players.find((p) => p.id === current.me)?.name) setUnread(n => n + 1);
     if (entry.kind === 'message' && !document.hidden && Math.abs(Date.now() - entry.at) < 10000) {
       setBubbles(previous => [...previous.filter(e => e.sender.key !== entry.sender.key), { ...entry, at: Date.now() }].slice(-8));
     }
@@ -73,7 +68,7 @@ export function useSocial(room: SocialRoom | null, practice: boolean, connection
   useEffect(() => {
     // Reset the external game's conversation on identity/session changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEntries([]); setSending(false); inFlight.current = null; latest.current = 0; setBubbles([]); setOpen(false); setUnread(0); setCursor(null); setError('');
+    setEntries([]); setSending(false); inFlight.current = null; latest.current = 0; setBubbles([]); setOpen(false); setCursor(null); setError('');
     seen.current.clear(); retry.current = null;
     void load();
   }, [epoch, load, setOpen]);
@@ -114,6 +109,6 @@ export function useSocial(room: SocialRoom | null, practice: boolean, connection
     } catch (e) { if (started === epochRef.current) setError(`${(e as Error).message}. Send again to retry.`); return false; }
     finally { if (inFlight.current === request.requestId) inFlight.current = null; if (started === epochRef.current) setSending(false); }
   }
-  return { entries, bubbles, open, setOpen, unread, cursor, loading, sending, error, receive, send,
+  return { entries, bubbles, open, setOpen, cursor, loading, sending, error, receive, send,
     loadMore: () => cursor ? load(cursor) : load(), practiceEntry };
 }

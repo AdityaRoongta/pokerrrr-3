@@ -727,7 +727,6 @@ export default function Home() {
                     </svg>}
                     <span>
                       {p.name}
-                      {p.id === room.me && <small> YOU</small>}
                     </span>
                     <strong className={stackLabel(p) === 'Busted' ? 'busted-label' : ''}>
                       {stackLabel(p)}
@@ -761,7 +760,7 @@ export default function Home() {
 
           </div>
 
-          <div className="action-zone">
+          <div className={`action-zone ${social.open ? 'chat-open' : ''}`}>
             <div className="hand-toolbar">
               <span className={`turn-status ${myTurn && live && !effects.presentationBusy ? 'is-your-turn' : ''}`} role="status">
                 {myTurn && live && !effects.presentationBusy ? `Your turn · ${seconds}s` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : room.game}
@@ -837,6 +836,7 @@ export default function Home() {
                 </div> : room.host ? <button className="primary" disabled={controlsBusy || effects.presentationBusy || visiblePlayers.filter((p: any) => p.stack > 0 && !p.away).length < 2} onClick={() => send('deal')}>{room.phase === 'lobby' ? 'Deal first hand' : 'Deal next hand'} <ArrowUpRight size={17} /></button> : <button className="secondary" onClick={openReload}><Plus size={16} /> Load Chips</button>}
               </div>}
             </>}
+            {enableReactions && <ChatDrawer key={`${room.code}:${room.createdAt}`} room={room} social={social} myTurn={Boolean(myTurn && live)} />}
           </div>
 
         </section>
@@ -1088,6 +1088,5 @@ export default function Home() {
       </section>
     </div>}
 
-    {enableReactions && room && <ChatDrawer key={`${room.code}:${room.createdAt}`} room={room} social={social} myTurn={Boolean(myTurn && live)} />}
   </div>;
 }

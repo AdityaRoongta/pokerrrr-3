@@ -7,8 +7,8 @@ import { type SocialRoom, type useSocial } from '../lib/client/use-social';
 import './table-chat.css';
 type Social = ReturnType<typeof useSocial>;
 export function ChatButton({ social }: { social: Social }) {
-  return <button className="icon-button chat-toggle" aria-label={`Game chat${social.unread ? `, ${social.unread} unread` : ''}`} aria-expanded={social.open} onClick={() => social.setOpen(!social.open)}>
-    <MessageCircle size={21} />{social.unread > 0 && <span>{social.unread > 9 ? '9+' : social.unread}</span>}
+  return <button className="icon-button chat-toggle" aria-label="Game chat" aria-expanded={social.open} onClick={() => social.setOpen(!social.open)}>
+    <MessageCircle size={21} />
   </button>;
 }
 export function SpeechBubbles({ room, social }: { room: SocialRoom; social: Social }) {

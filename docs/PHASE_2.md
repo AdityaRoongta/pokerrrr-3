@@ -7,9 +7,13 @@ remain authoritative and retain their regression coverage.
 ## Player experience
 
 - Each game has its own persistent plain-text conversation. The table chat drawer
-  supports 500-character messages, earlier-message pagination and unread counts.
+  supports 500-character messages and earlier-message pagination. Live chat opens
+  over the bottom action panel, leaving the felt visible. There is no unread
+  badge; live speech bubbles provide the message notification.
   New live messages show five-second speech bubbles near the sender's seat.
   Completed games expose read-only chat from Previous Games → Game Results.
+  Personal cards are centered in their row and enlarged, with a slightly shorter
+  felt to make room. Player nameplates do not append a redundant “You” label.
 - Folded, Away and standing observers can chat and react. Standing observers see
   the same public table view and no private opponent cards during play.
 - The reaction catalogue includes Chappal, Cheers, Money Flying, Tomato Splat,

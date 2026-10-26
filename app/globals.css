@@ -4997,7 +4997,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
 
 /* Compact mobile action deck: status, full-width cards, slider + shortcuts, actions. */
 .in-game .play-area {
-  --action-height: 230px;
+  --action-height: 246px;
   --action-bottom-padding: 7px;
   grid-template-rows: 32px minmax(0,1fr) calc(var(--action-height) + env(safe-area-inset-bottom));
 }
@@ -5010,15 +5010,15 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .in-game .hand-toolbar {min-height:22px; height:22px; flex:0 0 22px;}
 .in-game .hand-toolbar .text-button {min-height:22px;}
 .in-game .personal-hand {
-  display:flex; flex:0 0 88px; height:88px; min-height:0; width:100%;
+  display:flex; flex:0 0 104px; height:104px; min-height:0; width:100%;
   padding:3px 0; border:0; background:transparent; align-items:center;
 }
 .in-game .personal-hole-cards {
-  display:flex; flex:1 1 auto; align-items:center; justify-content:flex-start;
+  display:flex; flex:1 1 auto; align-items:center; justify-content:center;
   gap:clamp(3px,1.1vw,7px); min-width:0; width:100%;
 }
 .in-game .personal-hole-cards .card.small {
-  flex:0 1 auto; width:clamp(48px,14vw,69px); height:82px;
+  flex:0 1 auto; width:clamp(52px,15vw,76px); height:96px;
   min-width:0; padding:4px; transform:none; margin:0;
 }
 .in-game .personal-hole-cards .card.small b {font-size:clamp(20px,5.8vw,28px);}
@@ -5065,18 +5065,18 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .in-game .table-stage.two-runouts .runout-boards {gap:6px;}
 .in-game .table-stage.two-runouts .board-zone {padding-bottom:0;}
 @media(max-width:620px) {
- .in-game .play-area {--action-height:225px; grid-template-rows:30px minmax(0,1fr) calc(var(--action-height) + env(safe-area-inset-bottom));}
+ .in-game .play-area {--action-height:241px; grid-template-rows:30px minmax(0,1fr) calc(var(--action-height) + env(safe-area-inset-bottom));}
  .in-game .rotation-bar {height:30px; min-height:30px;}
  .in-game .action-zone {height:calc(var(--action-height) + env(safe-area-inset-bottom)); padding:4px 8px calc(5px + env(safe-area-inset-bottom)); gap:4px;}
- .in-game .personal-hand {flex-basis:85px; height:85px;}
- .in-game .personal-hole-cards .card.small {height:79px; width:clamp(45px,14.5vw,66px);}
+ .in-game .personal-hand {flex-basis:101px; height:101px;}
+ .in-game .personal-hole-cards .card.small {height:93px; width:clamp(49px,15.5vw,74px);}
  .in-game .slider-shortcuts {gap:8px;}
  .in-game .action-buttons>button {height:54px; min-height:54px;}
 }
 @media(max-height:700px) {
- .in-game .play-area {--action-height:207px; grid-template-rows:28px minmax(0,1fr) calc(var(--action-height) + env(safe-area-inset-bottom));}
+ .in-game .play-area {--action-height:217px; grid-template-rows:28px minmax(0,1fr) calc(var(--action-height) + env(safe-area-inset-bottom));}
  .in-game .rotation-bar {height:28px; min-height:28px;}
- .in-game .personal-hand {flex-basis:70px; height:70px;}
- .in-game .personal-hole-cards .card.small {height:65px; width:clamp(40px,13vw,54px);}
+ .in-game .personal-hand {flex-basis:80px; height:80px;}
+ .in-game .personal-hole-cards .card.small {height:75px; width:clamp(44px,14vw,60px);}
  .in-game .action-buttons>button {height:50px; min-height:50px;}
 }

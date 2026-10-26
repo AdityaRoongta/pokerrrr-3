@@ -1,5 +1,4 @@
 .chat-toggle { position: relative; }
-.chat-toggle > span { position: absolute; right: -3px; top: -3px; border-radius: 12px; background: #e8bb70; color: #142720; padding: 1px 4px; font-size: 10px; }
 .speech-layer { position: absolute; inset: 0; pointer-events: none; z-index: 54; }
 .speech-bubble { position: absolute; transform: translate(-50%, 40px); max-width: 160px; overflow-wrap: anywhere; border-radius: 13px; background: #f5eddc; color: #1d302a; box-shadow: 0 3px 15px #0005; font-size: 12px; line-height: 1.35; white-space: pre-wrap; }
 .speech-bubble.bubble-above { transform: translate(-50%, calc(-100% - 40px)); }
@@ -8,7 +7,7 @@
 .speech-bubble.has-speaker::after { content: ''; position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); width: 0; height: 0; border: 7px solid transparent; border-top: 0; border-bottom-color: #f5eddc; }
 .speech-bubble.has-speaker.bubble-above::after { top: 100%; bottom: auto; border-bottom: 0; border-top: 7px solid #f5eddc; }
 
-.chat-drawer { position: fixed; top: max(65px, env(safe-area-inset-top)); right: 10px; width: min(360px, calc(100vw - 20px)); height: min(440px, 55dvh); display: flex; flex-direction: column; z-index: 80; border: 1px solid #9b865c88; border-radius: 18px; background: #13251ff7; color: #f5eddc; box-shadow: 0 12px 45px #0008; overflow: hidden; }
+.chat-drawer { position: fixed; bottom: max(10px, env(safe-area-inset-bottom)); right: 10px; width: min(360px, calc(100vw - 20px)); height: min(440px, 55dvh); display: flex; flex-direction: column; z-index: 80; border: 1px solid #9b865c88; border-radius: 18px; background: #13251ff7; color: #f5eddc; box-shadow: 0 12px 45px #0008; overflow: hidden; }
 .chat-drawer > header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid #b59b6440; }
 .chat-drawer h2 { font-size: 16px; margin: 0; }
 .chat-drawer small { font-size: 10px; opacity: .7; }
@@ -29,4 +28,15 @@
 .chat-error { font-size: 11px; color: #eeb8a1; margin: 4px 12px; }
 .chat-error button { margin-left: 8px; background: none; color: inherit; text-decoration: underline; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-@media (max-height: 540px) { .chat-drawer { height: 48dvh; top: 48px; } }
+/* Live chat replaces the action deck in-place, keeping the entire felt visible. */
+.in-game .action-zone { position: relative; }
+.in-game .action-zone.chat-open > :not(.chat-drawer) { visibility: hidden; }
+.in-game .action-zone > .chat-drawer { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 12px; padding-bottom: env(safe-area-inset-bottom); background: #13251f; }
+.in-game .action-zone > .chat-drawer > header { flex: 0 0 auto; padding: 5px 10px; min-height: 38px; }
+.in-game .action-zone > .chat-drawer h2 { font-size: 14px; }
+.in-game .action-zone > .chat-drawer > header small { display: none; }
+.in-game .action-zone > .chat-drawer .chat-turn { padding: 4px 8px; flex: 0 0 auto; }
+.in-game .action-zone > .chat-drawer .chat-messages { padding: 6px 12px; }
+.in-game .action-zone > .chat-drawer .chat-message { margin-bottom: 8px; }
+.in-game .action-zone > .chat-drawer .chat-compose { flex: 0 0 auto; padding: 5px 10px; gap: 3px 6px; }
+@media (max-height: 540px) { .chat-drawer { height: 48dvh; } }

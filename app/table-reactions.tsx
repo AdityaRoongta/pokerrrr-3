@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
+import { reactionRenderers } from './reaction-art';
 import { REACTIONS, reactionDefinition } from '../lib/reactions.mjs';
 import { seatPosition } from '../lib/table-presentation.mjs';
 import { type PokerAudio, type PokerSound } from '../lib/poker-audio';
@@ -31,8 +32,9 @@ function ChappalAnimation() {
 
 // Each reaction owns its art, animation and sound. The transport, targeting,
 // freshness rules and overlay lifecycle remain the same for future additions.
-const renderers: Record<string, { Icon: typeof ChappalArt; Animation: typeof ChappalAnimation; sound: PokerSound }> = {
-  chappal: { Icon: ChappalArt, Animation: ChappalAnimation, sound: 'chappal' }
+const renderers: Record<string, { Icon: ComponentType; Animation: ComponentType; sound: PokerSound }> = {
+  chappal: { Icon: ChappalArt, Animation: ChappalAnimation, sound: 'chappal' },
+  ...reactionRenderers
 };
 
 function ReactionAnimation({ event, room, mySeat, audio }: {
@@ -43,7 +45,7 @@ function ReactionAnimation({ event, room, mySeat, audio }: {
   const [delay] = useState(() => event.startedAt - Date.now());
   const overlay = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!definition.jolt || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const target = overlay.current?.closest('.table-stage')?.querySelector(`[data-seat-index="${event.to.seat}"] .seat-info`);
     if (!target || Date.now() > event.startedAt + definition.impactAt + 100) return;
     // A short physical jolt at contact sells the hit without moving the seat's
@@ -54,7 +56,7 @@ function ReactionAnimation({ event, room, mySeat, audio }: {
       { translate: '0 0', offset: 1 }
     ], { duration: 130, delay: Math.max(0, event.startedAt + definition.impactAt - Date.now()), easing: 'ease-out' });
     return () => hit.cancel();
-  }, [event.id, event.startedAt, event.to.seat, definition.impactAt]);
+  }, [event.id, event.startedAt, event.to.seat, definition.impactAt, definition.jolt]);
   useEffect(() => {
     // Dropped/late effects never play a detached slap after the animation ends.
     if (renderer && Date.now() < event.startedAt + definition.impactAt) audio?.play(renderer.sound, event.startedAt - Date.now());
@@ -92,15 +94,15 @@ export function TableReactions({ room, mySeat, reactions, audio }: {
   const pos = target ? seatPosition(target.seat, mySeat, room.settings.seats) : null;
   return <>
     {target && pos && room.phase !== 'closed' && <div className={`reaction-picker ${pos.y > 60 ? 'above-seat' : 'below-seat'}`} data-reaction-picker role="dialog" aria-label={`Reactions for ${target.name}`} style={{
-      left: `clamp(90px, ${pos.x}%, calc(100% - 90px))`,
-      top: `clamp(var(--seat-edge-y), ${pos.y}%, calc(100% - var(--seat-edge-y)))`
+      left: `clamp(128px, ${pos.x}%, calc(100% - 128px))`,
+      top: `clamp(12px, calc(${pos.y}% ${pos.y > 60 ? '- 210px' : '+ 38px'}), calc(100% - 190px))`
     }}>
       <div className="reaction-picker-heading"><span>Send to <b>{target.name}</b></span><button type="button" aria-label="Close reactions" onClick={() => reactions.setTarget(null)}>×</button></div>
-      <div className="reaction-choices">{Object.values(REACTIONS).map(definition => {
+      <div className="reaction-choices" aria-busy={reactions.sending}>{Object.values(REACTIONS).map(definition => {
         const renderer = renderers[definition.id];
         if (!renderer) return null;
-        return <button type="button" key={definition.id} disabled={reactions.sending} onClick={() => void reactions.send(definition.id)} aria-label={`Send ${definition.label} to ${target.name}`}>
-          <renderer.Icon />{reactions.sending && <span>Sending…</span>}
+        return <button type="button" key={definition.id} disabled={reactions.sending} onClick={() => void reactions.send(definition.id)} title={definition.label} aria-label={`Send ${definition.label} to ${target.name}`}>
+          <renderer.Icon />
         </button>;
       })}</div>
       {reactions.error && <p role="status">{reactions.error}</p>}

@@ -78,3 +78,18 @@ test('only two effects play concurrently, sender cooldown persists and closure c
   assert.equal((await f.social.drain('ABC234', 13001)).length, 0);
   assert.equal((await f.social.history('ABC234')).entries.length, 4);
 });
+
+test('all eight reactions persist, broadcast their own effect and leave poker unchanged', async () => {
+  const f = await fixture();
+  const catalogue = ['chappal', 'cheers', 'money', 'tomato', 'crown', 'laugh', 'duck', 'punch'];
+  for (const [index, id] of catalogue.entries()) {
+    const now = 10000 + index * 3000;
+    const sent = await f.social.send(a, reaction(1, { reaction: id }), 'reaction', now);
+    assert.equal(sent.entry.reaction, id);
+    const effects = await f.social.drain('ABC234', now);
+    assert.equal(effects.length, 1); assert.equal(effects[0].reaction, id);
+    assert.equal(effects[0].to.name, 'Bob');
+  }
+  assert.deepEqual((await f.social.history('ABC234')).entries.map(e => e.reaction), catalogue);
+  assert.deepEqual(await f.storage.get('room:ABC234'), f.room);
+});

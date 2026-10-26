@@ -293,6 +293,8 @@ export async function runApiSuite(base, restart, environment = 'staging') {
     assert.equal((await api(host, null, code)).me, host);
     console.log('Verified PIN rotation, other-device revocation and current-session continuity.');
     const games = new Set();
+    const extraReactions = ['cheers', 'money', 'tomato', 'crown', 'laugh', 'duck', 'punch'];
+    let nextCatalogueAt = Date.now() + 3000;
     for (let i = 0; i < 7; i++) {
       room = await api(host, null, code);
       if (room.phase === 'showdown') await sleep(Math.max(0, room.payoutFinishedAt - Date.now() + 50));
@@ -308,6 +310,15 @@ export async function runApiSuite(base, restart, environment = 'staging') {
         code
       }, room));
       games.add(room.game);
+      if (environment === 'staging') {
+        await sleep(Math.max(0, nextCatalogueAt - Date.now()));
+        const response = await react(host, {code, requestId:crypto.randomUUID(), reaction:extraReactions[i], targetSeat:2});
+        const sent = await response.json();
+        assert.equal(response.status, 200, sent.error);
+        assert.equal(sent.entry.reaction, extraReactions[i]);
+        await waitFor(() => liveFriend.messages.find(m => m.type === 'reaction' && m.event.id === sent.entry.id));
+        nextCatalogueAt = Date.now() + 3000;
+      }
       await waitFor(() => liveFriend.messages.find(m => m.room?.version === room.version));
       const privateHost = await api(host, null, code),
         privateFriend = await api(friend, null, code);

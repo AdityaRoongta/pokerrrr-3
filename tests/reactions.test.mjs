@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { acceptReaction, reactionsEnabled } from '../lib/reactions.mjs';
+import { acceptReaction, reactionsEnabled, REACTIONS } from '../lib/reactions.mjs';
 const event = { id: 'unique-effect', code: 'ABC234', reaction: 'chappal', startedAt: 10200,
   from: { seat: 6, name: 'Alice' }, to: { seat: 2, name: 'Bob' } };
 test('receiver drops duplicates, stale/foreign events and future events; production fails closed', () => {
@@ -17,5 +17,14 @@ test('standing senders animate from the spectator area; malformed or unknown eff
   assert.equal(acceptReaction({ ...event, from: { name: 'Observer', seat: null } }, 'ABC234', new Map(), 10050), true);
   for (const change of [{reaction:'toString'}, {from:{seat:'bad'}}, {to:{seat:null}}, {from:{seat:2}}]) {
     assert.equal(acceptReaction({ ...event, ...change }, 'ABC234', new Map(), 10050), false);
+  }
+});
+
+test('every catalogue effect has independent freshness timing', () => {
+  assert.equal(Object.keys(REACTIONS).length, 8);
+  for (const definition of Object.values(REACTIONS)) {
+    const next = { ...event, id: definition.id, reaction: definition.id };
+    assert.equal(acceptReaction(next, 'ABC234', new Map(), next.startedAt + definition.duration - 1), true);
+    assert.equal(acceptReaction(next, 'ABC234', new Map(), next.startedAt + definition.duration), false);
   }
 });

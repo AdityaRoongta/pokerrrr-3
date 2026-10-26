@@ -12,7 +12,9 @@ remain authoritative and retain their regression coverage.
   Completed games expose read-only chat from Previous Games → Game Results.
 - Folded, Away and standing observers can chat and react. Standing observers see
   the same public table view and no private opponent cards during play.
-- Tap another player's avatar/name and select a reaction. Chappal uses a direct
+- The reaction catalogue includes Chappal, Cheers, Money Flying, Tomato Splat,
+  Crown, Laughing Face, Duck and Punch, each with its own vector animation and
+  procedural sound. Tap another player's avatar/name and select an icon. Chappal uses a direct
   250ms flight, contact at 280ms, sharp flick, short jolt and dry whack. No visible
   Chappal label or animation caption. Accessible button names remain.
 - Reactions have a durable three-second per-sender cooldown. A maximum of two

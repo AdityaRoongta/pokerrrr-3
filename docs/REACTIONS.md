@@ -1,7 +1,8 @@
 # Table reactions
 
 Staging/local only; production hides the picker and rejects `/api/reactions`.
-Tap another seated player's avatar/name and choose the slipper icon. Your own
+Tap another seated player's avatar/name and choose one of eight icons: Chappal,
+Cheers, Money Flying, Tomato Splat, Crown, Laughing Face, Duck or Punch. Your own
 name keeps its reload action. Folded players and standing observers retain access.
 
 `SocialService` persists each reaction as a small chat activity entry and queues
@@ -30,3 +31,21 @@ caption; accessible controls describe the action.
 
 Transport, identity validation, durable history, cooldowns, queuing, freshness,
 reduced motion and cleanup are shared. See `PHASE_2.md` for the complete scope.
+
+## Catalogue
+
+| Reaction | Animation | Sound |
+| --- | --- | --- |
+| Chappal | Fast direct strike, contact flick and jolt | Dry whack |
+| Cheers | Two wine glasses meet with a sparkle | Glass clink |
+| Money Flying | Banknotes fan and drift away from the target | Paper flutter and twinkle |
+| Tomato Splat | Thrown tomato bursts into a splat and droplets | Wet plop/splat |
+| Crown | Crown flies over and settles above the target | Rising chime |
+| Laughing Face | Face arrives and bounces with tears | Four voiced laugh pulses |
+| Duck | Waddles towards the target and leaves a ripple | Double quack |
+| Punch | Fast glove jab, contact marks and recoil | Whoosh/thud |
+
+All icons use bundled vector art. The two-row picker stays within the felt and
+keeps 52px touch targets. Reduced-motion mode uses a simple arrival/fade for every
+reaction, and the shared social mute controls every effect. Chat history records
+the matching icon and label rather than showing a slipper for every reaction.

@@ -80,12 +80,12 @@ export default function Home() {
     [clock, setClock] = useState(Date.now()),
     [confirm, setConfirm] = useState(''),
     [sound, setSound] = useState(true),
-    [preaction, setPreaction] = useState<'fold' | 'check-fold' | null>(null),
+    [preaction, setPreaction] = useState<'fold' | 'check-fold' | 'check' | null>(null),
     [selectedWinner, setSelectedWinner] = useState(''),
     [selectedShortcut, setSelectedShortcut] = useState(''),
     [selectedRun, setSelectedRun] = useState(0),
     [selectedSeat, setSelectedSeat] = useState<number | null>(null);
-  const queuedAction = useRef<{ choice: 'fold' | 'check-fold'; player: string; code: string; hand: number; phase: string } | null>(null);
+  const queuedAction = useRef<{ choice: 'fold' | 'check-fold' | 'check'; player: string; code: string; hand: number; phase: string } | null>(null);
   const lastTurnAlert = useRef('');
   const audio = useRef<PokerAudio | null>(null);
   if (!audio.current) audio.current = new PokerAudio();
@@ -466,7 +466,7 @@ export default function Home() {
     myTurn = room?.turn === room?.me,
     l = room?.legal,
     seconds = room?.deadline ? Math.max(0, Math.ceil((room.deadline - clock - offset.current) / 1000)) : 0;
-  function selectPreaction(choice: 'fold' | 'check-fold') {
+  function selectPreaction(choice: 'fold' | 'check-fold' | 'check') {
     const next = preaction === choice ? null : choice;
     queuedAction.current = next ? { choice: next, player: room.me, code: room.code, hand: room.handStartedAt, phase: room.phase } : null;
     setPreaction(next);
@@ -782,19 +782,11 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="action-buttons">
-                    <button className="fold" disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === 'fold'} onClick={() => myTurn ? send('fold') : selectPreaction('fold')}>Fold</button>
-                    <button className="secondary check-call" disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === 'check-fold'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check-fold')}>{myTurn ? (l?.call ? `Call ${fmt(l.call)}` : 'Check') : 'Check / Fold'}</button>
+                    <button className="fold" disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === (l?.call ? 'fold' : 'check-fold')} onClick={() => myTurn ? send('fold') : selectPreaction(l?.call ? 'fold' : 'check-fold')}>{!myTurn && !l?.call ? 'Check / Fold' : 'Fold'}</button>
+                    <button className="secondary check-call" disabled={controlsBusy || effects.presentationBusy || (!myTurn && (!canQueueAction || Boolean(l?.call)))} aria-pressed={!myTurn && preaction === 'check'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check')}>{l?.call ? `Call ${fmt(l.call)}` : 'Check'}</button>
                     <button className="primary" disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || !raiseValid} onClick={() => send('raise', { amount: raise })}>
                       <span className="raise-button-label">Raise</span>
-                      <span className="raise-button-amount" title="Tap amount to enter exact raise" role="button" tabIndex={myTurn && l?.canRaise ? 0 : -1} aria-label="Edit exact raise amount" onClick={e => {
-                        e.stopPropagation();
-                        if (!myTurn || !l?.canRaise) return;
-                        const entered = window.prompt(`Raise to (minimum ${fmt(raiseMin)}, maximum ${fmt(raiseMax)})`, String(raise));
-                        if (entered === null || entered.trim() === '') return;
-                        const value = Number(entered.replace(/,/g, ''));
-                        if (!Number.isFinite(value) || !Number.isInteger(value) || value < raiseMin || value > raiseMax) { setError(`Enter a whole number between ${fmt(raiseMin)} and ${fmt(raiseMax)}.`); return; }
-                        setError(''); setSelectedShortcut(''); setRaise(value);
-                      }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }}>{myTurn && l?.canRaise ? fmt(raise) : '—'}</span>
+                      <span className="raise-button-amount">{myTurn && l?.canRaise ? fmt(raise) : '—'}</span>
                     </button>
                   </div>
                 </div>

@@ -658,7 +658,7 @@ export default function Home() {
               }}>
                 {p ? <>
                   {win && <div className="winner-badge"><Trophy size={10} /> +{fmt(win.wonAmount ?? win.amount)}</div>}
-                  <div className="seat-top">
+                  {p.id !== room.me && <div className="seat-top">
                     {p.inHand && p.cards?.length ? <div className="hole-cards">
                       {p.cards.slice(0, visibleCount).map((c: number, i: number) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
                         <Card value={c} small highlight={Boolean(seatHand?.holeCards?.includes(c))} dim={Boolean(seatHand?.holeCards?.length && !seatHand.holeCards.includes(c))} />
@@ -672,7 +672,7 @@ export default function Home() {
                     </div> : <div className="avatar">
                       {p.name.slice(0, 2).toUpperCase()}
                     </div>}
-                  </div>
+                  </div>}
                   <div className="seat-info"
                     data-reaction-target={enableReactions && p.id !== room.me && seated && room.phase !== 'closed' ? s : undefined}
                     role={room.phase !== 'closed' && (p.id === room.me || enableReactions && seated) ? 'button' : undefined}
@@ -725,6 +725,16 @@ export default function Home() {
 
           </div>
 
+          {seated && <div className="personal-hand" aria-label="Your hand and stack">
+            <div className="personal-hole-cards" aria-label="Your cards">
+              {me?.inHand && me.cards?.length ? me.cards.map((c: number, i: number) => <Card key={`${room.handStartedAt || 0}:${i}`} value={c} small highlight={Boolean(focusedHand?.holeCards?.includes(c))} dim={Boolean(focusedHand?.holeCards?.length && !focusedHand.holeCards.includes(c))} />) : <span className="personal-cards-placeholder">{room.game || 'NLH'} · Your cards</span>}
+            </div>
+            <button type="button" className="personal-stack" onClick={openReload} aria-label="Reload your chips">
+              <span>{me?.name || 'You'} · YOU</span>
+              <strong>{me ? stackLabel(me) : '—'}</strong>
+            </button>
+          </div>}
+
           <div className="action-zone">
             <div className="hand-toolbar">
               <span className={`turn-status ${myTurn && live && !effects.presentationBusy ? 'is-your-turn' : ''}`} role="status">
@@ -769,7 +779,7 @@ export default function Home() {
                     <div className="action-buttons">
                       <button className="fold" disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === 'fold'} onClick={() => myTurn ? send('fold') : selectPreaction('fold')}>Fold</button>
                       <button className="secondary check-call" disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === 'check-fold'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check-fold')}>{myTurn ? (l?.call ? `Call ${fmt(l.call)}` : 'Check') : 'Check / Fold'}</button>
-                      <button className="primary" disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || !raiseValid} onClick={() => send('raise', { amount: raise })}>{myTurn && l?.canRaise ? `Raise to ${fmt(raise)}` : 'Raise'}</button>
+                      <button className="primary" disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || !raiseValid} onClick={() => send('raise', { amount: raise })} ><span className="raise-button-label">Raise</span><span className="raise-button-amount">{myTurn && l?.canRaise ? fmt(raise) : ''}</span></button>
                     </div>
                   </div>
                   <div className="raise-slider-control">

@@ -292,6 +292,9 @@ export async function runApiSuite(base, restart, environment = 'staging') {
     assert.equal(resumed.player.id, host);
     assert.equal((await api(host, null, code)).me, host);
     console.log('Verified PIN rotation, other-device revocation and current-session continuity.');
+    const layoutCheck = await request(new URL('/layout-check', base));
+    assert.equal(layoutCheck.status, environment === 'production' ? 404 : 200);
+    await layoutCheck.arrayBuffer();
     const games = new Set();
     const extraReactions = ['cheers', 'money', 'tomato', 'crown', 'laugh', 'duck', 'punch'];
     let nextCatalogueAt = Date.now() + 3000;

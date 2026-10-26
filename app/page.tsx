@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Smartphone, Download, History, Layers3, MoreHorizontal, Plus, X, Volume2, VolumeX, Trophy, Pause, Play, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { useAppViewport } from '../lib/client/use-app-viewport';
 import { PokerAudio } from '../lib/poker-audio';
 import { useTableEffects } from '../lib/use-table-effects';
 import { seatPosition } from '../lib/table-presentation.mjs';
@@ -88,6 +89,7 @@ export default function Home() {
     [selectedShortcut, setSelectedShortcut] = useState(''),
     [selectedRun, setSelectedRun] = useState(0),
     [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+  const appViewport = useAppViewport(Boolean(room));
   const queuedAction = useRef<{ choice: 'fold' | 'check-fold' | 'check'; player: string; code: string; hand: number; phase: string } | null>(null);
   const lastTurnAlert = useRef('');
   const audio = useRef<PokerAudio | null>(null);
@@ -570,7 +572,7 @@ export default function Home() {
   const displayedCall = myTurn ? (l?.call || 0) : waitingCall;
   const canQueueAction = Boolean(!myTurn && me?.inHand && !me.folded && !me.away && me.stack > 0);
   const clampRaise = (v: number) => Math.min(raiseMax, Math.max(raiseMin, Math.round(v || raiseMin)));
-  return <div className={`app ${room ? 'in-game' : ''}`} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
+  return <div ref={appViewport} className={`app ${room ? 'in-game' : ''}`} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
 
     <header className="topbar">
       <button className="brand" onClick={room ? exit : undefined} aria-label="Dunzo Club">

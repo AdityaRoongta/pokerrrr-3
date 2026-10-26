@@ -5052,7 +5052,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
 }
 .in-game .action-buttons>button.primary {gap:0;}
 .in-game .raise-button-label {font-size:14px; line-height:1.1;}
-.in-game .raise-button-amount {font-size:clamp(15px,4.2vw,19px); line-height:1.2; min-height:0; cursor:text; text-decoration:underline; text-decoration-color:#20382b70; text-underline-offset:2px;}
+.in-game .raise-button-amount {font-size:clamp(15px,4.2vw,19px); line-height:1.2; min-height:0; cursor:default; text-decoration:none;}
 /* Less visual competition around the board and a tighter opponent footprint. */
 .in-game .seat.occupied:not(.your-seat) {width:72px;}
 .in-game .seat.occupied:not(.your-seat) .seat-top {height:28px;}

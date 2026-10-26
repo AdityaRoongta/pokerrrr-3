@@ -541,6 +541,7 @@ export default function Home() {
   const readyPlayers = visiblePlayers.filter((p: any) => p.stack > 0 && !p.away).length;
   const turnFraction = Math.max(0, Math.min(1, (room?.deadline - clock - offset.current) / ((room?.settings.timer || 15) * 1000)));
   const nextHandFraction = Math.max(0, Math.min(1, (room?.nextDealAt - clock - offset.current) / 3000));
+  const canQueueAction = Boolean(!myTurn && me?.inHand && !me.folded && !me.away && me.stack > 0);
   const clampRaise = (v: number) => Math.min(raiseMax, Math.max(raiseMin, Math.round(v || raiseMin)));
   return <div className={`app ${room ? 'in-game' : ''}`} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
 
@@ -766,8 +767,8 @@ export default function Home() {
                       <label>Raise to<input type="number" value={raise} min={raiseMin} max={raiseMax} step={1} disabled={!myTurn || controlsBusy || !l?.canRaise || effects.presentationBusy} onBlur={() => setRaise(clampRaise(raise))} onChange={e => { setSelectedShortcut(''); setRaise(Number(e.target.value)); }} /></label>
                     </div>
                     <div className="action-buttons">
-                      <button className="fold" disabled={controlsBusy || effects.presentationBusy} aria-pressed={!myTurn && preaction === 'fold'} onClick={() => myTurn ? send('fold') : selectPreaction('fold')}>Fold</button>
-                      <button className="secondary check-call" disabled={controlsBusy || effects.presentationBusy} aria-pressed={!myTurn && preaction === 'check-fold'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check-fold')}>{myTurn ? (l?.call ? `Call ${fmt(l.call)}` : 'Check') : 'Check / Fold'}</button>
+                      <button className="fold" disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === 'fold'} onClick={() => myTurn ? send('fold') : selectPreaction('fold')}>Fold</button>
+                      <button className="secondary check-call" disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === 'check-fold'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check-fold')}>{myTurn ? (l?.call ? `Call ${fmt(l.call)}` : 'Check') : 'Check / Fold'}</button>
                       <button className="primary" disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || !raiseValid} onClick={() => send('raise', { amount: raise })}>{myTurn && l?.canRaise ? `Raise to ${fmt(raise)}` : 'Raise'}</button>
                     </div>
                   </div>
@@ -776,7 +777,7 @@ export default function Home() {
                       setSelectedShortcut('');
                       const fraction = Number(e.target.value) / 1000;
                       const raw = raiseMin + (raiseMax - raiseMin) * fraction * fraction;
-                      const blind = Math.max(1, Number(room.settings?.bb || room.settings?.bigBlind || 50));
+                      const blind = Math.max(1, Number(room.settings?.bb || 50));
                       const snapped = Math.round(raw / blind) * blind;
                       setRaise(Number(e.target.value) === 1000 ? raiseMax : clampRaise(snapped));
                     }} style={{ '--range-fill': `${raiseMax > raiseMin ? Math.sqrt((raiseValue - raiseMin) / (raiseMax - raiseMin)) * 100 : 0}%` } as React.CSSProperties} />

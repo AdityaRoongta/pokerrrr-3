@@ -4960,3 +4960,37 @@ html:has(.app.in-game),body:has(.app.in-game) {
  .in-game .seat.occupied:not(.your-seat) { width: 70px; }
  .in-game .table-stage { --seat-edge-x: 45px; }
 }
+
+/* Personal cards are outside the felt: left-aligned horizontal hand, stack on right. */
+.in-game .play-area { --personal-hand-height: 94px; grid-template-rows: 38px minmax(0,1fr) var(--personal-hand-height) calc(var(--action-height) + env(safe-area-inset-bottom)); }
+.in-game .personal-hand { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; min-height: 0; padding: 6px 14px; background: #162920; border-top: 1px solid #ffffff19; }
+.in-game .personal-hole-cards { display: flex; align-items: center; gap: clamp(2px,1vw,6px); min-width: 0; flex: 1 1 auto; }
+.in-game .personal-hole-cards .card.small { flex: 0 1 auto; width: clamp(34px,9vw,52px); height: clamp(49px,13vw,73px); min-width: 0; padding: 3px; }
+.in-game .personal-hole-cards .card.small b { font-size: clamp(15px,4.5vw,21px); }
+.in-game .personal-hole-cards .card.small>span { font-size: clamp(17px,5vw,25px); }
+.in-game .personal-cards-placeholder { font-size: 12px; color: var(--muted); }
+.in-game .personal-stack { flex: 0 0 auto; min-width: 100px; max-width: 34%; border: 1px solid #d9bb8266; background: #22362b; color: #f0e9d7; border-radius: 8px; padding: 8px; text-align: right; }
+.in-game .personal-stack>span { display: block; font-size: 11px; color: #d9bb82; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.in-game .personal-stack strong { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.in-game .your-seat .seat-top { display: none; }
+.in-game .your-seat { --seat-edge-y: 40px; }
+.in-game .your-seat .seat-info { min-height: 36px; padding: 4px 5px; }
+.in-game .your-seat .seat-info>span { font-size: 10px; }
+.in-game .your-seat .seat-info strong { font-size: 12px; }
+.in-game .action-buttons>button { min-width: 0; white-space: nowrap; }
+.in-game .action-buttons>button.primary { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+.in-game .raise-button-label { display: block; font-size: 15px; line-height: 1.1; }
+.in-game .raise-button-amount { display: block; font-size: 17px; line-height: 1.15; font-variant-numeric: tabular-nums; min-height: 1.15em; }
+.in-game .table-stage.two-runouts .board-zone { padding-bottom: 0; }
+@media(max-width:620px) {
+ .in-game .play-area { --personal-hand-height: 86px; }
+ .in-game .personal-hand { padding: 5px 8px; gap: 7px; }
+ .in-game .personal-stack { min-width: 85px; padding: 6px; }
+ .in-game .personal-stack strong { font-size: 17px; }
+ .in-game .action-buttons>button { font-size: clamp(13px,3.8vw,16px); padding-inline: 3px; }
+}
+@media(max-height:700px) {
+ .in-game .play-area { --personal-hand-height: 72px; }
+ .in-game .personal-hole-cards .card.small { height: 56px; width: 39px; }
+ .in-game .personal-stack strong { font-size: 16px; }
+}

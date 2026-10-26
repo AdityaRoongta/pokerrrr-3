@@ -4927,3 +4927,9 @@ html:has(.app.in-game),body:has(.app.in-game) {
   .in-game .your-seat .hole-cards>span:last-child {width: 48px;}
   .in-game .your-seat .seat-top {height: 78px;}
 }
+
+/* Stable three-button action bar with readable queued and disabled states. */
+.in-game .betting-controls { min-height: 154px; }
+.in-game .action-buttons button[aria-pressed="true"] { outline: 2px solid var(--gold); outline-offset: -2px; box-shadow: inset 0 0 0 1px var(--gold); }
+.in-game .action-buttons button:disabled, .in-game .bet-shortcut:disabled { opacity: .45; color: #d8d8d8; background-color: #303438; }
+.in-game .quick-bets input:disabled { opacity: .45; }

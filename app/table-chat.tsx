@@ -16,8 +16,8 @@ export function SpeechBubbles({ room, social }: { room: SocialRoom; social: Soci
   return <div className="speech-layer" aria-hidden="true">{social.bubbles.map(entry => {
     const player = room.players.find((p) => !p.left && p.seat === entry.sender.seat && p.name === entry.sender.name);
     const pos = player ? seatPosition(player.seat, me?.seat || 0, room.settings.seats) : { x: 50, y: 15 };
-    return <div key={entry.id} className={`speech-bubble ${pos.y > 60 ? 'bubble-above' : 'bubble-below'}`} style={{ left: `clamp(80px, ${pos.x}%, calc(100% - 80px))`, top: `clamp(45px, ${pos.y}%, calc(100% - 45px))` }}>
-      {!player && <b>{entry.sender.name} · </b>}{entry.text}
+    return <div key={entry.id} className={`speech-bubble ${player ? 'has-speaker' : ''} ${pos.y > 60 ? 'bubble-above' : 'bubble-below'}`} style={{ left: `clamp(80px, ${pos.x}%, calc(100% - 80px))`, top: `clamp(45px, ${pos.y}%, calc(100% - 45px))` }}>
+      <span className="speech-bubble-content">{!player && <b>{entry.sender.name} · </b>}{entry.text}</span>
     </div>;
   })}</div>;
 }

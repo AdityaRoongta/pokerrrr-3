@@ -4928,8 +4928,35 @@ html:has(.app.in-game),body:has(.app.in-game) {
   .in-game .your-seat .seat-top {height: 78px;}
 }
 
-/* Stable three-button action bar with readable queued and disabled states. */
+/* Stable action controls and compact opponents, preserving the larger hero cards. */
 .in-game .betting-controls { min-height: 154px; }
 .in-game .action-buttons button[aria-pressed="true"] { outline: 2px solid var(--gold); outline-offset: -2px; box-shadow: inset 0 0 0 1px var(--gold); }
 .in-game .action-buttons button:disabled, .in-game .bet-shortcut:disabled { opacity: .45; color: #d8d8d8; background-color: #303438; }
 .in-game .quick-bets input:disabled { opacity: .45; }
+.in-game .seat.occupied:not(.your-seat) { width: 76px; }
+.in-game .seat.occupied:not(.your-seat) .seat-top { height: 32px; }
+.in-game .seat.occupied:not(.your-seat) .seat-info { min-height: 39px; padding: 4px 3px; }
+.in-game .seat.occupied:not(.your-seat) .seat-info>span { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.in-game .seat.occupied:not(.your-seat) .seat-info strong { font-size: 13px; margin-top: 1px; }
+.in-game .seat.occupied:not(.your-seat) .card.small { width: 23px; height: 32px; padding: 2px; }
+.in-game .seat.occupied:not(.your-seat) .card.small b { font-size: 11px; }
+.in-game .seat.occupied:not(.your-seat) .card.small>span { font-size: 12px; }
+.in-game .seat.occupied:not(.your-seat) .hole-cards .card { margin-left: -10px; }
+.in-game .seat.occupied:not(.your-seat).omaha-seat { --hole-card-width: 20px; }
+.in-game .seat.occupied:not(.your-seat).omaha-seat .hole-cards .card.small { width: 20px; height: 30px; padding: 2px; margin-left: 0; }
+.in-game .seat.occupied:not(.your-seat) .avatar { transform: scale(.75); }
+.in-game .table-stage { --seat-edge-x: 49px; --seat-edge-y: 50px; }
+.in-game .your-seat { --seat-edge-y: 90px; }
+.in-game .board-zone .pot-amount { font-size: clamp(26px,5vw,36px); }
+@media(min-width:361px) {
+  .in-game .table-stage:not(.two-runouts) .board-cards>.board-card-wrap>.card { width: clamp(36px,9.5vw,50px); height: clamp(51px,13.5vw,70px); }
+  .in-game .table-stage:not(.two-runouts) .board-cards .card b { font-size: clamp(17px,4.5vw,23px); }
+  .in-game .table-stage:not(.two-runouts) .board-cards .card>span { font-size: clamp(19px,5vw,27px); }
+}
+.in-game .table-stage.two-runouts .runout-boards { gap: 8px; }
+.in-game .table-stage.two-runouts .runout-board { gap: 3px; }
+.in-game .table-stage.two-runouts .board-cards>.board-card-wrap>.card { width: clamp(28px,7.6vw,38px); height: clamp(39px,10.5vw,52px); }
+@media(max-width:360px) {
+ .in-game .seat.occupied:not(.your-seat) { width: 70px; }
+ .in-game .table-stage { --seat-edge-x: 45px; }
+}

@@ -4776,124 +4776,25 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .in-game .action-buttons>button:disabled {opacity: .45;}
 .table-sheet-backdrop {align-items: flex-end; padding: 0; background: #030a0720; backdrop-filter: none;}
 .modal.table-sheet {max-width: 720px; max-height: 46dvh; margin: 0 auto; border-radius: 18px 18px 0 0; padding: 24px 20px max(20px,env(safe-area-inset-bottom)); overscroll-behavior-y: contain;}
-.table-sheet h2 {font-size: 24px; padding-right: 30px;}
-.your-ranking {background: #82d9a51c;}
-.your-ranking td:first-child {color: #a5f0c4; font-weight: 700;}
-.game-info-list {margin: 16px 0 0;}
-.game-info-list>div {display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 13px;}
-.game-info-list dt {color: var(--muted);}
-.game-info-list dd {margin: 0; text-align: right;}
-.history-table-scroll {overscroll-behavior-x: contain; overscroll-behavior-y: auto;}
-.settlement-totals .history-table-scroll {overflow: visible;}
-.settlement-totals table {width: 100%; min-width: 0; table-layout: fixed;}
-.settlement-totals th,.settlement-totals td {white-space: normal; overflow-wrap: anywhere; padding: 12px 6px;}
-.settlement-totals th:first-child,.settlement-totals td:first-child {width: 46%; position: static;}
-.settlement-result .share-settlement {display: block; width: 100%; margin-top: 28px; clear: both; min-height: 48px;}
-@media(max-width:620px) {
-  .in-game .play-area {grid-template-rows: 38px minmax(0,1fr) 200px;}
-  .in-game .rotation-bar {gap: 8px; font-size: 11px; padding: 0 8px;}
-  .next-variant {font-size: 10px;}
-  .in-game .action-zone {height: 200px; padding: 8px; gap: 6px;}
-  .in-game .action-buttons>button {font-size: 15px;}
-  .in-game .seat-bet {font-size: 16px;}
-  .hand-toolbar {gap: 10px;}
-  .turn-status {font-size: 11px;}
-}
-@media(max-height:700px) {
-  .in-game .play-area {grid-template-rows: 32px minmax(0,1fr) 196px;}
-  .in-game .rotation-bar {height: 32px;}
-  .in-game .action-zone {height: 196px; gap: 3px; padding: 4px 8px;}
-  .in-game .action-buttons>button {min-height: 46px; padding: 8px 4px;}
-}
-@media(max-height:500px) {
-  .in-game .game-layout {overflow-y: auto;}
-  .in-game .play-area {min-height: 580px;}
-}
+.table-sheet h2 {font-size…15523 tokens truncated…p key={w.id}>{w.name} +{fmt(w.wonAmount ?? w.amount)} · {h.runCount === 2 && w.runHands?.length > 0 ? w.runHands.map((rh: any) => `Run ${rh.run}: ${rh.description} (+${fmt(rh.wonAmount)})`).join(' · ') : w.description || w.hand}{w.returnedAmount > 0 ? ` · ${fmt(w.returnedAmount)} returned` : ''}</p>)}
+                {h.showdown.map((p: any) => <div className="history-hole" key={p.name}>
+                  <span>
+                    {p.name}
+                  </span>
+                  {p.cards.map((c: number, i: number) => <Card key={i} value={c} small />)}
+                </div>)}
+                <div className="history-actions">
+                  {h.actions.map((a: string, i: number) => <div key={i}>
+                    {a}
+                  </div>)}
+                </div>
+              </div>
+            </details>)}
+          </div>}
+        </>}
 
-/* Omaha fans stay within their name tag, including a full five-card hand. */
-.in-game .omaha-seat {--hole-card-width: 28px;}
-.in-game .omaha-seat.your-seat {--hole-card-width: 36px;}
-.in-game .omaha-seat .hole-cards {display: grid; width: 100%; padding-left: 0; justify-content: normal;}
-.in-game .omaha-seat[data-card-count="4"] .hole-cards {grid-template-columns: repeat(3,minmax(0,1fr)) var(--hole-card-width);}
-.in-game .omaha-seat[data-card-count="5"] .hole-cards {grid-template-columns: repeat(4,minmax(0,1fr)) var(--hole-card-width);}
-.in-game .omaha-seat .hole-cards>span {min-width: 0;}
-.in-game .omaha-seat .hole-cards .card.small {width: var(--hole-card-width); height: 40px; margin-left: 0; padding: 2px;}
-.in-game .omaha-seat .hole-cards .card.small b {font-size: 11px;}
-.in-game .omaha-seat .hole-cards .card.small:not(.back)>span {align-self: flex-start; font-size: 14px; margin-top: 0;}
-.in-game .omaha-seat.your-seat .hole-cards .card.small {height: 52px;}
-.in-game .omaha-seat.your-seat .hole-cards .card.small b {font-size: 14px;}
-.in-game .omaha-seat.your-seat .hole-cards .card.small>span {font-size: 19px;}
-@media(max-width:620px) {
-  .in-game .omaha-seat {--hole-card-width: 26px;}
-  .in-game .omaha-seat.your-seat {--hole-card-width: 32px;}
-  .in-game .omaha-seat.your-seat .hole-cards .card.small {height: 46px;}
-  .in-game .omaha-seat.your-seat .hole-cards .card.small b {font-size: 12px;}
-  .in-game .omaha-seat.your-seat .hole-cards .card.small>span {font-size: 17px;}
-}
-@media(max-height:700px) {
-  .in-game .omaha-seat .hole-cards .card.small {height: 34px;}
-  .in-game .omaha-seat.your-seat .hole-cards .card.small {height: 42px;}
-}
+      </section>
+    </div>}
 
-/* Both boards stay on the felt; readable results use the space below the seats. */
-.in-game .runout-board {flex-direction: column; align-items: center; gap: 5px;}
-.in-game .two-runouts .runout-boards {gap: 10px;}
-.in-game .two-runouts .board-zone {padding-top: 0;}
-.in-game .two-runouts .pot-amount {font-size: 24px; margin: 2px 0 8px;}
-.in-game .two-runouts .board-cards>.board-card-wrap>.card {width: 30px; height: 42px; padding: 3px;}
-.in-game .two-runouts .board-cards .card b {font-size: 15px;}
-.in-game .two-runouts .board-cards .card>span {font-size: 18px;}
-.in-game .action-zone:has(.showdown-summary) {justify-content: flex-start; gap: 6px;}
-.showdown-summary {display: grid; grid-template-columns: minmax(0,1fr); gap: 14px; width: 100%; flex-shrink: 0;}
-.showdown-summary.two-run-summary {grid-template-columns: repeat(2,minmax(0,1fr));}
-.run-summary {min-width: 0;}
-.run-summary h3 {font-size: 12px; line-height: 1.2; color: var(--gold); margin: 0 0 4px;}
-.table-awards {width: 100%; min-height: 56px; text-align: left; color: #eef1df;}
-.table-pot-label {display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px;}
-.table-pot-tabs {display: flex; gap: 8px; max-width: 100%; overflow-x: auto; margin-bottom: 4px;}
-.table-pot-tabs button {flex-shrink: 0; border: 0; border-bottom: 1px solid transparent; background: none; color: var(--muted); padding: 3px 2px; font-size: 11px;}
-.table-pot-tabs button[aria-pressed=true] {color: var(--gold); border-bottom-color: var(--gold);}
-.table-pot-tabs button:disabled {opacity: 1; cursor: default;}
-.table-award-winners>div+div {margin-top: 6px;}
-.table-winner-name {border: 0; background: none; color: #edf5df; padding: 1px 0; font-size: 13px; line-height: 1.3; text-align: left;}
-.table-winner-name b {color: #b7edb9;}
-.table-winner-name:disabled {opacity: 1; cursor: default;}
-.table-winning-hand {display: block; font-size: 12px; line-height: 1.35; color: #d1dec5; overflow-wrap: anywhere;}
-.table-award-winners small {display: block; font-size: 11px; color: var(--muted);}
-.in-game .action-zone:has(.showdown-summary) .between-hands {min-height: 24px; margin-top: auto; flex-shrink: 0;}
-@media(max-width:360px) {
-  .in-game .table-stage .board-cards>.board-card-wrap>.card {width: clamp(22px,calc(10vw - 10px),26px); height: 36px; padding: 2px;}
-  .in-game .table-stage .board-cards {gap: 2px;}
-  .in-game .table-stage .board-cards .card b {font-size: 12px;}
-  .in-game .table-stage .board-cards .card>span {font-size: 14px;}
+  </div>;
 }
-@media(min-width:900px) and (min-height:501px) {
-  .in-game .play-area {grid-template-rows: 38px minmax(0,1fr) 164px;}
-  .in-game .action-zone {height: 164px; padding: 8px 14px; gap: 4px;}
-  .in-game .betting-controls {display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); grid-template-rows: 38px 28px; gap: 6px 20px; width: 100%;}
-  .in-game .betting-main .quick-bets {grid-column: 1; grid-row: 1;}
-  .in-game .raise-slider-control {grid-column: 1; grid-row: 2; min-height: 28px; height: 28px;}
-  .in-game .action-buttons {grid-column: 2; grid-row: 1 / 3; align-self: center;}
-}
-
-/* Installed iOS apps can under-report dvh with viewport-fit=cover (WebKit 254868).
-   Keep safe-area padding inside the game border instead of leaving a blank strip. */
-@media(display-mode:standalone),(display-mode:fullscreen) {
-  .app.in-game {height: 100vh;}
-}
-.in-game .game-layout {padding-bottom: 4px;}
-.in-game .play-area {--action-height: 206px; --action-bottom-padding: 10px; grid-template-rows: 38px minmax(0,1fr) calc(var(--action-height) + env(safe-area-inset-bottom));}
-.in-game .action-zone {height: calc(var(--action-height) + env(safe-area-inset-bottom)); padding-bottom: calc(var(--action-bottom-padding) + env(safe-area-inset-bottom));}
-@media(max-width:620px) {
-  .in-game .play-area {--action-height: 200px; --action-bottom-padding: 8px;}
-}
-@media(max-height:700px) {
-  .in-game .play-area {--action-height: 196px; --action-bottom-padding: 4px; grid-template-rows: 32px minmax(0,1fr) calc(var(--action-height) + env(safe-area-inset-bottom));}
-}
-@media(min-width:900px) and (min-height:501px) {
-  .in-game .play-area {--action-height: 164px; --action-bottom-padding: 8px; grid-template-rows: 38px minmax(0,1fr) calc(var(--action-height) + env(safe-area-inset-bottom));}
-}
-/* The status row stays anchored; action controls use the remaining space below it. */
-.in-game .action-zone {justify-content: flex-start;}
-.in-game .action-zone>.betting-controls,.in-game .action-zone>.between-hands {margin-top: auto;}
-.hand-toolbar {flex-shrink: 0;}

@@ -328,7 +328,7 @@ test('deal animation goes clockwise card by card, including all forty PLO5 cards
   assert.deepEqual(plan.flights.slice(0, 8).map(f => f.seat), [1, 2, 3, 4, 5, 6, 7, 0]);
   assert.deepEqual(plan.flights.slice(8, 16).map(f => f.round), Array(8).fill(1));
   assert.ok(plan.flights.every((f, i) => !i || f.at > plan.flights[i - 1].at));
-  assert.equal(r.deadline, 1000 + plan.duration + 30000);
+  assert.equal(r.deadline, 1000 + plan.duration + r.settings.timer * 1000);
   assert.deepEqual(boardPlan(0, 5).map(e => e.index), [0, 1, 2, 3, 4]);
   assert.deepEqual(boardPlan(3, 5).map(e => e.index), [3, 4]);
 });
@@ -955,4 +955,16 @@ test('seat action labels distinguish bets and raises, keep amounts, and reset fo
   assert.equal(raiser.actionAmount, 40);
   act(r, r.turn, 'fold');
   assert.ok(r.players.some(p => p.action === 'Fold' && p.actionAmount === null));
+});
+
+test('action time is configurable per game and controls the first deadline', async () => {
+  const { dealPlan } = await import('../lib/table-presentation.mjs');
+  assert.equal(room(2).settings.timer, 15);
+  for (const timer of [10, 15, 20, 30]) {
+    const r = room(2, { timer });
+    startHand(r, 1000);
+    assert.equal(r.settings.timer, timer);
+    assert.equal(r.deadline, 1000 + dealPlan(r).duration + timer * 1000);
+  }
+  for (const timer of [0, 9, 31, 15.5]) assert.throws(() => room(2, { timer }), /Action time/);
 });

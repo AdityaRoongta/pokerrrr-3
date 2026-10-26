@@ -16,7 +16,8 @@ import { PokerClient, type Connection } from '../lib/client/poker-client';
 import { GameHistory } from './game-history';
 import { PlayerLobby, PinSettings } from './player-lobby';
 import { showTestTools } from '../lib/client/environment';
-import { nextRaise } from '../lib/client/raise-selection.mjs';
+import { nextRaise, bettingOpportunity } from '../lib/client/raise-selection.mjs';
+import { preactionValid, resolvePreaction } from '../lib/client/preaction.mjs';
 type Room = any;
 // Temporary identities for local practice; multiplayer identity comes from the server.
 function playerId() {
@@ -79,10 +80,15 @@ export default function Home() {
     [clock, setClock] = useState(Date.now()),
     [confirm, setConfirm] = useState(''),
     [sound, setSound] = useState(true),
+    [vibration, setVibration] = useState(false),
+    [vibrationSupported, setVibrationSupported] = useState(false),
+    [preaction, setPreaction] = useState<'check' | 'check-fold' | null>(null),
     [selectedWinner, setSelectedWinner] = useState(''),
     [selectedShortcut, setSelectedShortcut] = useState(''),
     [selectedRun, setSelectedRun] = useState(0),
     [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+  const queuedAction = useRef<{ choice: 'check' | 'check-fold'; player: string; code: string; hand: number; phase: string } | null>(null);
+  const lastTurnAlert = useRef('');
   const audio = useRef<PokerAudio | null>(null);
   if (!audio.current) audio.current = new PokerAudio();
   const effects = useTableEffects(room, audio.current),
@@ -209,6 +215,8 @@ export default function Home() {
     return input ? transport.current.send(input, current.current || undefined) : transport.current.snapshot(roomCode || current.current?.code || '');
   }
   useEffect(() => {
+    setVibrationSupported(typeof navigator.vibrate === 'function');
+    setVibration(localStorage.getItem('hg-vibration') === 'on');
     const enabled = localStorage.getItem('hg-sound') !== 'off';
     setSound(enabled);
     audio.current?.setEnabled(enabled);
@@ -462,6 +470,34 @@ export default function Home() {
     myTurn = room?.turn === room?.me,
     l = room?.legal,
     seconds = room?.deadline ? Math.max(0, Math.ceil((room.deadline - clock - offset.current) / 1000)) : 0;
+  function selectPreaction(choice: 'check' | 'check-fold') {
+    const next = preaction === choice ? null : choice;
+    queuedAction.current = next ? { choice: next, player: room.me, code: room.code, hand: room.handStartedAt, phase: room.phase } : null;
+    setPreaction(next);
+    audio.current?.unlock();
+  }
+  useEffect(() => {
+    const queued = queuedAction.current;
+    if (queued && !preactionValid(queued, room)) {
+      queuedAction.current = null;
+      setPreaction(null);
+      return;
+    }
+    if (!myTurn || !live || !l || effects.presentationBusy || controlsBusy) return;
+    const alertKey = bettingOpportunity(room) || '';
+    if (lastTurnAlert.current !== alertKey) {
+      lastTurnAlert.current = alertKey;
+      if (vibration && !document.hidden && typeof navigator.vibrate === 'function') {
+        try { navigator.vibrate([100, 70, 100]); } catch { /* Haptics are optional. */ }
+      }
+    }
+    if (!queued) return;
+    // Consume before sending: rerenders and reconnects must never send it twice.
+    queuedAction.current = null;
+    setPreaction(null);
+    const action = resolvePreaction(queued.choice, l.call);
+    if (action) void send(action);
+  }, [room, myTurn, live, controlsBusy, effects.presentationBusy, vibration]);
   const voting = room?.phase === 'runout_vote',
     handActive = live || voting;
   useEffect(() => {
@@ -510,7 +546,7 @@ export default function Home() {
     raiseValid = Boolean(l && Number.isSafeInteger(raise) && raise >= raiseMin && raise <= raiseMax),
     raiseValue = Math.min(raiseMax, Math.max(raiseMin, raise || raiseMin));
   const readyPlayers = visiblePlayers.filter((p: any) => p.stack > 0 && !p.away).length;
-  const turnFraction = Math.max(0, Math.min(1, (room?.deadline - clock - offset.current) / ((room?.settings.timer || 30) * 1000)));
+  const turnFraction = Math.max(0, Math.min(1, (room?.deadline - clock - offset.current) / ((room?.settings.timer || 15) * 1000)));
   const nextHandFraction = Math.max(0, Math.min(1, (room?.nextDealAt - clock - offset.current) / 3000));
   const clampRaise = (v: number) => Math.min(raiseMax, Math.max(raiseMin, Math.round(v || raiseMin)));
   return <div className={`app ${room ? 'in-game' : ''}`} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
@@ -521,6 +557,12 @@ export default function Home() {
         <span>Dunzo Club<span className="brand-dot">.</span>{isStaging && <small className="staging-badge">STAGING</small>}</span>
       </button>
       <div className="top-right">
+        {vibrationSupported && <button className="icon-button" aria-label="Vibrate on your turn" title={vibration ? 'Vibration on' : 'Vibration off'} aria-pressed={vibration} onClick={() => {
+          const enabled = !vibration;
+          setVibration(enabled);
+          localStorage.setItem('hg-vibration', enabled ? 'on' : 'off');
+          if (enabled) { try { navigator.vibrate(80); } catch { } }
+        }}><Smartphone size={18} /></button>}
         <button className="icon-button sound-toggle" onClick={toggleSound} aria-label={sound ? 'Mute sound effects' : 'Enable sound effects'} aria-pressed={sound} title={sound ? 'Sound on' : 'Sound off'}>
           {sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
         </button>
@@ -630,13 +672,13 @@ export default function Home() {
                   {win && <div className="winner-badge"><Trophy size={10} /> +{fmt(win.wonAmount ?? win.amount)}</div>}
                   <div className="seat-top">
                     {p.inHand && p.cards?.length ? <div className="hole-cards">
-                      {p.cards.slice(0, visibleCount).map((c: number, i: number) => <span className={effects.dealing ? 'arriving-hole-card' : ''} key={`${room.handStartedAt || 0}:${i}`}>
+                      {p.cards.slice(0, visibleCount).map((c: number, i: number) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
                         <Card value={c} small highlight={Boolean(seatHand?.holeCards?.includes(c))} dim={Boolean(seatHand?.holeCards?.length && !seatHand.holeCards.includes(c))} />
                       </span>)}
                     </div> : p.inHand && handActive ? <div className="hole-cards">
                       {Array.from({
                         length: visibleCount
-                      }, (_, i) => <span className={effects.dealing ? 'arriving-hole-card' : ''} key={`${room.handStartedAt || 0}:${i}`}>
+                      }, (_, i) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
                         <Card small back />
                       </span>)}
                     </div> : <div className="avatar">
@@ -727,6 +769,12 @@ export default function Home() {
                 {transport.current?.hasPending() && <button type="button" onClick={retryLastAction}>Retry last action</button>}
               </div>}
               {voting ? null : live ? <>
+                {!myTurn && me?.inHand && !me.folded && !me.away && me.stack > 0 && <div className="preactions" aria-label="Choose an action for your turn">
+                  <span>On your turn</span>
+                  <button disabled={controlsBusy} aria-pressed={preaction === 'check'} onClick={() => selectPreaction('check')}>Check</button>
+                  <button disabled={controlsBusy} aria-pressed={preaction === 'check-fold'} onClick={() => selectPreaction('check-fold')}>Check / Fold</button>
+                  {preaction && <small>Tap again to cancel</small>}
+                </div>}
                 {myTurn && l && !effects.presentationBusy ? <>
                   <div className="betting-controls">
                     <div className="betting-main">

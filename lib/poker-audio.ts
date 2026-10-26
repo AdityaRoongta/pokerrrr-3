@@ -101,8 +101,12 @@ export class PokerAudio {
     } else if (kind === 'fold') {
       noise(at, .13, 750, .075);
     } else if (kind === 'check') {
-      tone(at, 400, .045, .035);
-      tone(at + .085, 400, .04, .025);
+      // Two dry, low wooden impacts, with a short noisy attack.
+      for (const time of [at, at + .14]) {
+        noise(time, .035, 900, .15);
+        tone(time, 185, .075, .2);
+        tone(time + .002, 370, .035, .06);
+      }
     } else if (kind === 'call') {
       tone(at, 750, .085, .045);
       noise(at + .02, .055, 2700, .025);

@@ -169,3 +169,25 @@ test('a returned-only player gets their chips, and persisted legacy timelines ke
   const legacyPlan = {runs: [{run: 1, payoutStart: 500}]};
   assert.deepEqual(payoutEvents({result, runCount: 1}, 0, legacyPlan).map(e => [e.at, e.amount]), [[500, 300]]);
 });
+
+// Preselection must never turn a check into an unexpected paid call.
+test('queued checks cancel facing a bet; check/fold never calls', async () => {
+  const { resolvePreaction } = await import('../lib/client/preaction.mjs');
+  assert.equal(resolvePreaction('check', 0), 'check');
+  assert.equal(resolvePreaction('check', 50), null);
+  assert.equal(resolvePreaction('check-fold', 0), 'check');
+  assert.equal(resolvePreaction('check-fold', 50), 'fold');
+});
+test('preselection clears across streets, hands, tables and player eligibility', async () => {
+  const { preactionValid } = await import('../lib/client/preaction.mjs');
+  const queued = { player: 'me', code: 'ABC234', hand: 123, phase: 'flop' };
+  const room = { me: 'me', code: 'ABC234', handStartedAt: 123, phase: 'flop', players: [{id: 'me', inHand: true, stack: 500}] };
+  assert.equal(preactionValid(queued, room), true);
+  for (const patch of [{phase: 'turn'}, {phase: 'showdown'}, {handStartedAt: 124}, {code: 'XYZ234'}, {me: 'other'}]) {
+    assert.equal(preactionValid(queued, {...room, ...patch}), false);
+  }
+  for (const patch of [{folded: true}, {away: true}, {stack: 0}, {inHand: false}]) {
+    assert.equal(preactionValid(queued, {...room, players: [{...room.players[0], ...patch}]}), false);
+  }
+  assert.equal(preactionValid(queued, null), false);
+});

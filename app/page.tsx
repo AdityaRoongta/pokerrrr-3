@@ -756,53 +756,32 @@ export default function Home() {
                 {transport.current?.hasPending() && <button type="button" onClick={retryLastAction}>Retry last action</button>}
               </div>}
               {voting ? null : live ? <>
-                {!myTurn && me?.inHand && !me.folded && !me.away && me.stack > 0 && <div className="preactions" aria-label="Choose an action for your turn">
-                  <span>On your turn</span>
-                  <button disabled={controlsBusy} aria-pressed={preaction === 'fold'} onClick={() => selectPreaction('fold')}>Fold</button>
-                  <button disabled={controlsBusy} aria-pressed={preaction === 'check-fold'} onClick={() => selectPreaction('check-fold')}>Check / Fold</button>
-                  {preaction && <small>Tap again to cancel</small>}
-                </div>}
-                {myTurn && l && !effects.presentationBusy ? <>
-                  <div className="betting-controls">
-                    <div className="betting-main">
-                      <div className="quick-bets">
-                        {l.canRaise && [['½ pot', .5], ['Pot', 1]].map(([label, n]) => <button className="bet-shortcut" key={label} aria-pressed={selectedShortcut === label} title={`Raise to ${fmt(shortcutRaiseTo(current.current, token.current, Number(n)))}`} onClick={() => {
-                          setSelectedShortcut(String(label));
-                          setRaise(shortcutRaiseTo(current.current, token.current, Number(n)));
-                        }}>
-                          {label}
-                        </button>)}
-                        {l.canRaise && l.max === me.bet + me.stack && <button className="bet-shortcut" aria-pressed={selectedShortcut === 'All-in'} onClick={() => {
-                          setSelectedShortcut('All-in');
-                          setRaise(l.max);
-                        }}>All-in</button>}
-                        {l.canRaise && <label>Raise to<input type="number" value={raise} min={Math.min(l.min, l.max)} max={l.max} step={1} onBlur={() => setRaise(clampRaise(raise))} onChange={e => {
-                          setSelectedShortcut('');
-                          setRaise(Number(e.target.value));
-                        }} /></label>}
-                      </div>
-                      <div className="action-buttons">
-                        <button className="fold" disabled={controlsBusy} onClick={() => send('fold')}>Fold</button>
-                        <button className="secondary check-call" disabled={controlsBusy} onClick={() => send(l.call ? 'call' : 'check')}>
-                          {l.call ? `Call ${fmt(l.call)}` : 'Check'}
-                        </button>
-                        <button className="primary" disabled={controlsBusy || !l.canRaise || !raiseValid} onClick={() => send('raise', {
-                          amount: raise
-                        })}>
-                          {l.canRaise ? `Raise to ${fmt(raise)}` : 'Raise'}
-                        </button>
-                      </div>
+                <div className="betting-controls">
+                  <div className="betting-main">
+                    <div className="quick-bets">
+                      {([['½ pot', .5], ['Pot', 1]] as const).map(([label, n]) => <button className="bet-shortcut" key={label} disabled={!myTurn || controlsBusy || !l?.canRaise || effects.presentationBusy} aria-pressed={selectedShortcut === label} onClick={() => {
+                        setSelectedShortcut(label); setRaise(shortcutRaiseTo(current.current, token.current, n));
+                      }}>{label}</button>)}
+                      <button className="bet-shortcut" disabled={!myTurn || controlsBusy || !l?.canRaise || effects.presentationBusy} aria-pressed={selectedShortcut === 'All-in'} onClick={() => { setSelectedShortcut('All-in'); setRaise(l.max); }}>All-in</button>
+                      <label>Raise to<input type="number" value={raise} min={raiseMin} max={raiseMax} step={1} disabled={!myTurn || controlsBusy || !l?.canRaise || effects.presentationBusy} onBlur={() => setRaise(clampRaise(raise))} onChange={e => { setSelectedShortcut(''); setRaise(Number(e.target.value)); }} /></label>
                     </div>
-                    {l.canRaise && <div className="raise-slider-control">
-                      <input type="range" aria-label="Raise amount slider" aria-orientation="horizontal" min={raiseMin} max={raiseMax} step={1} value={raiseValue} disabled={busy || raiseMin === raiseMax} onChange={e => {
-                        setSelectedShortcut('');
-                        setRaise(Number(e.target.value));
-                      }} style={{
-                        '--range-fill': `${raiseMax > raiseMin ? (raiseValue - raiseMin) / (raiseMax - raiseMin) * 100 : 100}%`
-                      } as React.CSSProperties} />
-                    </div>}
+                    <div className="action-buttons">
+                      <button className="fold" disabled={controlsBusy || effects.presentationBusy} aria-pressed={!myTurn && preaction === 'fold'} onClick={() => myTurn ? send('fold') : selectPreaction('fold')}>Fold</button>
+                      <button className="secondary check-call" disabled={controlsBusy || effects.presentationBusy} aria-pressed={!myTurn && preaction === 'check-fold'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check-fold')}>{myTurn ? (l?.call ? `Call ${fmt(l.call)}` : 'Check') : 'Check / Fold'}</button>
+                      <button className="primary" disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || !raiseValid} onClick={() => send('raise', { amount: raise })}>{myTurn && l?.canRaise ? `Raise to ${fmt(raise)}` : 'Raise'}</button>
+                    </div>
                   </div>
-                </> : null}
+                  <div className="raise-slider-control">
+                    <input type="range" aria-label="Raise amount slider" min={0} max={1000} step={1} value={raiseMax > raiseMin ? Math.round(Math.sqrt((raiseValue - raiseMin) / (raiseMax - raiseMin)) * 1000) : 0} disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || raiseMin === raiseMax} onChange={e => {
+                      setSelectedShortcut('');
+                      const fraction = Number(e.target.value) / 1000;
+                      const raw = raiseMin + (raiseMax - raiseMin) * fraction * fraction;
+                      const blind = Math.max(1, Number(room.settings?.bb || room.settings?.bigBlind || 50));
+                      const snapped = Math.round(raw / blind) * blind;
+                      setRaise(Number(e.target.value) === 1000 ? raiseMax : clampRaise(snapped));
+                    }} style={{ '--range-fill': `${raiseMax > raiseMin ? Math.sqrt((raiseValue - raiseMin) / (raiseMax - raiseMin)) * 100 : 0}%` } as React.CSSProperties} />
+                  </div>
+                </div>
               </> : <div className="between-hands">
                 {room.paused && <span className="paused-state">Auto-deal paused</span>}
                 {room.phase === 'closed' ? <button className="primary" onClick={() => setPanel('ledger')}>Current Game Rankings <ArrowUpRight size={16} /></button> : room.phase === 'showdown' ? <div className="auto-deal-status" role="status">

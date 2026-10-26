@@ -328,7 +328,7 @@ test('deal animation goes clockwise card by card, including all forty PLO5 cards
   assert.deepEqual(plan.flights.slice(0, 8).map(f => f.seat), [1, 2, 3, 4, 5, 6, 7, 0]);
   assert.deepEqual(plan.flights.slice(8, 16).map(f => f.round), Array(8).fill(1));
   assert.ok(plan.flights.every((f, i) => !i || f.at > plan.flights[i - 1].at));
-  assert.equal(r.deadline, 1000 + plan.duration + 30000);
+  assert.equal(r.deadline, 1000 + plan.duration + r.settings.timer * 1000);
   assert.deepEqual(boardPlan(0, 5).map(e => e.index), [0, 1, 2, 3, 4]);
   assert.deepEqual(boardPlan(3, 5).map(e => e.index), [3, 4]);
 });
@@ -810,6 +810,8 @@ test('pending Sit Out can be canceled; Get Up supersedes it and cancels an unapp
     buyin: 1000
   }), /seat is taken/);
   auto(r, () => .9);
+  assert.equal(p.left, false, 'Seat is reserved through payout presentation');
+  tick(r, r.payoutFinishedAt);
   assert.equal(p.left, true);
   assert.equal(p.stack, 0);
   assert.equal(p.buyins, 1000);
@@ -955,4 +957,43 @@ test('seat action labels distinguish bets and raises, keep amounts, and reset fo
   assert.equal(raiser.actionAmount, 40);
   act(r, r.turn, 'fold');
   assert.ok(r.players.some(p => p.action === 'Fold' && p.actionAmount === null));
+});
+
+test('action time is configurable per game and controls the first deadline', async () => {
+  const { dealPlan } = await import('../lib/table-presentation.mjs');
+  assert.equal(room(2).settings.timer, 15);
+  for (const timer of [10, 15, 20, 30]) {
+    const r = room(2, { timer });
+    startHand(r, 1000);
+    assert.equal(r.settings.timer, timer);
+    assert.equal(r.deadline, 1000 + dealPlan(r).duration + timer * 1000);
+  }
+  for (const timer of [0, 9, 31, 15.5]) assert.throws(() => room(2, { timer }), /Action time/);
+});
+
+test('folded contribution differences never manufacture side pots', () => {
+  const r = room(3);
+  r.handEvents = [];
+  r.phase = 'river';
+  r.game = 'NLH';
+  r.board = cs('2c 3d 7h 9s Jc');
+  r.players.forEach((p, i) => {
+    p.inHand = true;
+    p.folded = i === 2;
+    p.total = [100, 100, 50][i];
+    p.stack = 100;
+    p.buyins = 200;
+    p.cards = cs(['Ac Ad', 'Kc Kd', 'Qc Qd'][i]);
+  });
+  finish(r);
+  assert.deepEqual([...new Set(r.result.flatMap(p => p.pots.map(pot => pot.label)))], ['Main pot']);
+  assert.equal(r.result.reduce((sum, p) => sum + p.wonAmount, 0), 250);
+});
+test('queued Check never turns into a Call', async () => {
+  const { resolvePreaction } = await import('../lib/client/preaction.mjs');
+  assert.equal(resolvePreaction('check', 0), 'check');
+  assert.equal(resolvePreaction('check', 50), null);
+  assert.equal(resolvePreaction('check-fold', 50), 'fold');
+  assert.equal(resolvePreaction('check-fold', 0), 'check');
+  assert.equal(resolvePreaction('fold', 50), 'fold');
 });

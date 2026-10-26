@@ -194,6 +194,49 @@ export async function runApiSuite(base, restart, environment = 'staging') {
     const h = await peer(host),
       f = await peer(friend);
     console.log('Verified player login, shared lobby and private socket snapshots.');
+    // Cosmetic events use their own endpoint: no betting version/receipt changes.
+    const react = (token, body, origin) => request(new URL('/api/reactions', base), {
+      method: 'POST', headers: {Cookie: cookies.get(token), 'Content-Type': 'application/json', ...(origin && {Origin: origin})},
+      body: JSON.stringify(body)
+    });
+    const reactionInput = {code, requestId: crypto.randomUUID(), reaction: 'chappal', targetSeat: 2};
+    assert.equal((await react(host, reactionInput, 'https://other.test')).status, 403);
+    if (['staging', 'production'].includes(environment)) {
+      assert.equal((await request(new URL('/api/reactions', base), {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(reactionInput)})).status, 401);
+      assert.equal((await react(host, {...reactionInput, targetSeat: 6})).status, 400);
+      const response = await react(host, reactionInput);
+      assert.equal(response.status, 200);
+      const {entry} = await response.json();
+      const hostEvent = await waitFor(() => h.messages.find(m => m.type === 'reaction'));
+      const friendEvent = await waitFor(() => f.messages.find(m => m.type === 'reaction'));
+      assert.equal(hostEvent.event.id, entry.id);
+      assert.deepEqual(friendEvent.event, hostEvent.event);
+      assert.equal(hostEvent.event.from.name, 'Integration Host');
+      assert.equal(hostEvent.event.to.seat, 2);
+      assert.equal((await api(host, null, code)).version, room.version);
+      assert.equal((await react(host, {...reactionInput, requestId: crypto.randomUUID()})).status, 429);
+      assert.equal((await react(friend, {...reactionInput, requestId: crypto.randomUUID(), targetSeat: 6})).status, 200);
+      assert.equal((await react(host, reactionInput)).status, 200);
+      const reconnected = await peer(friend);
+      await sleep(100);
+      assert.equal(h.messages.filter(m => m.type === 'reaction' && m.event.id === entry.id).length, 1);
+      assert.equal(unseated.messages.filter(m => m.type === 'reaction' && m.event.id === entry.id).length, 1);
+      assert.equal(reconnected.messages.filter(m => m.type === 'reaction').length, 0);
+      const chatInput = { code, requestId: crypto.randomUUID(), text: 'HTTP/socket persistence <plain text>' };
+      const chat = body => request(new URL('/api/chat', base), { method: 'POST', headers: { Cookie: cookies.get(observer), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      assert.equal((await chat(chatInput)).status, 200);
+      assert.equal((await chat(chatInput)).status, 200);
+      const pushed = await waitFor(() => h.messages.find(m => m.type === 'social' && m.entry.kind === 'message'));
+      assert.equal(pushed.entry.text, chatInput.text);
+      const history = await (await request(new URL(`/api/chat?code=${code}`, base), {headers: {Cookie: cookies.get(friend)}})).json();
+      assert.equal(history.entries.filter(e => e.kind === 'message').length, 1);
+      assert.equal(history.entries.filter(e => e.kind === 'reaction').length, 2);
+      const away = await api(host, commandEnvelope({type:'set_away', code, away:true}, room));
+      assert.equal(away.players.find(p => p.id === host).away, true);
+      room = await api(host, commandEnvelope({type:'set_away', code, away:false}, away));
+      console.log('Verified chat and reactions across three clients, persistent deduplication, observers, cooldowns, Away and no animation replay.');
+    } else assert.equal((await react(host, reactionInput)).status, 404);
+
     const reload = commandEnvelope({
       type: 'rebuy',
       code,
@@ -211,6 +254,10 @@ export async function runApiSuite(base, restart, environment = 'staging') {
       const restored = await api(host, null, code);
       assert.equal(restored.version, room.version);
       assert.deepEqual(restored.players, room.players);
+      if (['staging', 'production'].includes(environment)) {
+        const chat = await (await request(new URL(`/api/chat?code=${code}`, base), {headers: {Cookie: cookies.get(host)}})).json();
+        assert.equal(chat.entries.filter(e => e.kind === 'message').length, 1);
+      }
     }
     const liveHost = restart ? await peer(host) : h,
       liveFriend = restart ? await peer(friend) : f,
@@ -246,6 +293,8 @@ export async function runApiSuite(base, restart, environment = 'staging') {
     assert.equal((await api(host, null, code)).me, host);
     console.log('Verified PIN rotation, other-device revocation and current-session continuity.');
     const games = new Set();
+    const extraReactions = ['cheers', 'money', 'tomato', 'crown', 'laugh', 'duck', 'punch'];
+    let nextCatalogueAt = Date.now() + 3000;
     for (let i = 0; i < 7; i++) {
       room = await api(host, null, code);
       if (room.phase === 'showdown') await sleep(Math.max(0, room.payoutFinishedAt - Date.now() + 50));
@@ -261,6 +310,15 @@ export async function runApiSuite(base, restart, environment = 'staging') {
         code
       }, room));
       games.add(room.game);
+      if (['staging', 'production'].includes(environment)) {
+        await sleep(Math.max(0, nextCatalogueAt - Date.now()));
+        const response = await react(host, {code, requestId:crypto.randomUUID(), reaction:extraReactions[i], targetSeat:2});
+        const sent = await response.json();
+        assert.equal(response.status, 200, sent.error);
+        assert.equal(sent.entry.reaction, extraReactions[i]);
+        await waitFor(() => liveFriend.messages.find(m => m.type === 'reaction' && m.event.id === sent.entry.id));
+        nextCatalogueAt = Date.now() + 3000;
+      }
       await waitFor(() => liveFriend.messages.find(m => m.room?.version === room.version));
       const privateHost = await api(host, null, code),
         privateFriend = await api(friend, null, code);
@@ -292,6 +350,14 @@ export async function runApiSuite(base, restart, environment = 'staging') {
       type: 'deal',
       code
     }, room));
+    if (['staging', 'production'].includes(environment)) {
+      const stand = commandEnvelope({type:'stand_up', code}, room);
+      room = await api(host, stand);
+      room = await api(host, stand);
+      assert.equal(room.players.find(p => p.id === host).pendingSeatAction, 'leave');
+      room = await api(host, commandEnvelope({type:'cancel_stand_up', code}, room));
+      assert.equal(room.players.find(p => p.id === host).pendingSeatAction, null);
+    }
     const dealtVersion = room.version;
     const timed = await waitFor(() => liveHost.messages.find(m => m.room?.version > dealtVersion && m.room?.phase === 'showdown'), 45_000);
     assert.equal(timed.room.completed, 8);
@@ -306,6 +372,12 @@ export async function runApiSuite(base, restart, environment = 'staging') {
       room = await api(host, null, code);
     }
     assert.equal(room.phase, 'closed');
+    if (['staging', 'production'].includes(environment)) {
+      const closedSend = await request(new URL('/api/chat', base), {method:'POST', headers:{Cookie:cookies.get(host),'Content-Type':'application/json'}, body:JSON.stringify({code,requestId:crypto.randomUUID(),text:'too late'})});
+      assert.equal(closedSend.status, 409);
+      const archive = await (await request(new URL(`/api/chat?code=${code}`, base), {headers:{Cookie:cookies.get(host)}})).json();
+      assert.equal(archive.entries.filter(e => e.kind === 'message').length, 1);
+    }
     assert.equal(room.players.reduce((n, p) => n + p.cashout, 0), 2850);
     const headers = {
       Cookie: cookies.get(observer)

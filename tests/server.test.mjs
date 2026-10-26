@@ -364,7 +364,7 @@ test('termination and pending seat actions survive restart, alarm closes and arc
     saved = await f.storage.get(`room:${f.code}`);
   }
   assert.equal(f.storage.alarm, saved.payoutFinishedAt);
-  assert.equal(saved.players[0].left, true);
+  assert.equal(saved.players[0].left, false, 'Departure waits for payout');
   assert.equal(saved.players[1].away, true);
   await recovered.advance(saved.payoutFinishedAt);
   assert.equal(await f.storage.get('active'), undefined);

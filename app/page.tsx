@@ -1,19 +1,25 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Download, History, Layers3, MoreHorizontal, Plus, Smartphone, X, Volume2, VolumeX, Trophy, Pause, Play, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { ArrowUpRight, Smartphone, Download, History, Layers3, MoreHorizontal, Plus, X, Volume2, VolumeX, Trophy, Pause, Play, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { PokerAudio } from '../lib/poker-audio';
 import { useTableEffects } from '../lib/use-table-effects';
 import { seatPosition } from '../lib/table-presentation.mjs';
 import { RunoutVote, RunoutAnnouncement } from './runout-vote';
 import { TableMotion } from './table-motion';
 import { TableAwards } from './table-awards';
+import { ChatButton, ChatDrawer, SpeechBubbles } from './table-chat';
+import { useSocial } from '../lib/client/use-social';
+import { TableReactions } from './table-reactions';
+import { useReactions } from '../lib/client/use-reactions';
+import { reactionsEnabled } from '../lib/reactions.mjs';
 import { newRoom, command, startHand, act, legal, view, resolveAlias, tick, shortcutRaiseTo } from '../lib/client/practice.mjs';
 import { PokerClient, type Connection } from '../lib/client/poker-client';
 import { GameHistory } from './game-history';
 import { PlayerLobby, PinSettings } from './player-lobby';
 import { showTestTools } from '../lib/client/environment';
-import { nextRaise } from '../lib/client/raise-selection.mjs';
+import { nextRaise, bettingOpportunity } from '../lib/client/raise-selection.mjs';
+import { preactionValid, resolvePreaction } from '../lib/client/preaction.mjs';
 type Room = any;
 // Temporary identities for local practice; multiplayer identity comes from the server.
 function playerId() {
@@ -58,6 +64,7 @@ function Card({
   </div>;
 }
 const isStaging = process.env.NEXT_PUBLIC_APP_ENV === 'staging';
+const enableReactions = reactionsEnabled(process.env.NEXT_PUBLIC_APP_ENV);
 export default function Home() {
   const [room, setRoom] = useState<Room>(null),
     [name, setName] = useState(''),
@@ -75,12 +82,18 @@ export default function Home() {
     [clock, setClock] = useState(Date.now()),
     [confirm, setConfirm] = useState(''),
     [sound, setSound] = useState(true),
+    [socialSound, setSocialSound] = useState(true),
+    [preaction, setPreaction] = useState<'fold' | 'check-fold' | 'check' | null>(null),
     [selectedWinner, setSelectedWinner] = useState(''),
     [selectedShortcut, setSelectedShortcut] = useState(''),
     [selectedRun, setSelectedRun] = useState(0),
     [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+  const queuedAction = useRef<{ choice: 'fold' | 'check-fold' | 'check'; player: string; code: string; hand: number; phase: string } | null>(null);
+  const lastTurnAlert = useRef('');
   const audio = useRef<PokerAudio | null>(null);
   if (!audio.current) audio.current = new PokerAudio();
+  const socialAudio = useRef<PokerAudio | null>(null);
+  if (!socialAudio.current) socialAudio.current = new PokerAudio();
   const effects = useTableEffects(room, audio.current),
     animationBusy = useRef(false);
   animationBusy.current = effects.presentationBusy;
@@ -102,6 +115,8 @@ export default function Home() {
     current = useRef<Room>(null),
     pending = useRef(false),
     offset = useRef(0);
+  const social = useSocial(room, Boolean(demo.current), connection, enableReactions);
+  const reactions = useReactions(current, demo, enableReactions);
   // HTTP replies and socket pushes can race. Never replace a newer snapshot.
   function update(r: Room) {
     if (current.current?.code === r.code && current.current.version > r.version) return;
@@ -204,6 +219,12 @@ export default function Home() {
     return input ? transport.current.send(input, current.current || undefined) : transport.current.snapshot(roomCode || current.current?.code || '');
   }
   useEffect(() => {
+    const reactionSound = localStorage.getItem('hg-social-sound') !== 'off';
+    setSocialSound(reactionSound);
+    socialAudio.current?.setEnabled(reactionSound);
+    const unlockSocial = () => socialAudio.current?.unlock();
+    document.addEventListener('pointerdown', unlockSocial);
+    document.addEventListener('keydown', unlockSocial);
     const enabled = localStorage.getItem('hg-sound') !== 'off';
     setSound(enabled);
     audio.current?.setEnabled(enabled);
@@ -218,6 +239,8 @@ export default function Home() {
     const timer = setInterval(() => setClock(Date.now()), 500);
     return () => {
       clearInterval(timer);
+      document.removeEventListener('pointerdown', unlockSocial);
+      document.removeEventListener('keydown', unlockSocial);
       window.removeEventListener('beforeinstallprompt', installer);
     };
   }, []);
@@ -227,7 +250,9 @@ export default function Home() {
       setLobby(state.lobby);
       const r = state.room;
       if (r && !demo.current && (current.current && current.current.code === r.code || !current.current && autoResume.current && state.lobby.activeGame?.joined && state.lobby.activeGame?.code === r.code)) update(r);
-    }, setConnection, expired);
+    }, setConnection, expired, (event, serverTime) => {
+      if (!demo.current) reactions.receive(event, serverTime);
+    }, entry => { if (!demo.current) social.receive(entry); });
   }, [player?.id, authEpoch]);
   useEffect(() => {
     const id = setInterval(() => {
@@ -360,6 +385,11 @@ export default function Home() {
       });
       autoResume.current = true;
       update(r);
+      const returning = r.players.find((p: any) => p.id === r.me && !p.left);
+      if (enableReactions && returning?.away && !returning.pendingSeatAction && r.phase !== 'closed') {
+        const back = await api({ type: 'set_away', code: r.code, away: false });
+        update(back);
+      }
     } catch (e: any) {
       setError(e.message);
       try {
@@ -435,7 +465,13 @@ export default function Home() {
       setBusy(false);
     }
   }
-  function exit() {
+  async function exit() {
+    const r = current.current;
+    const leaving = r?.players.find((p: any) => p.id === r.me && !p.left);
+    if (enableReactions && leaving && !leaving.away && !leaving.pendingSeatAction && r.phase !== 'closed') {
+      if (!await send('set_away', { away: true })) return;
+    }
+    social.setOpen(false);
     demo.current = null;
     current.current = null;
     setRoom(null);
@@ -455,6 +491,31 @@ export default function Home() {
     myTurn = room?.turn === room?.me,
     l = room?.legal,
     seconds = room?.deadline ? Math.max(0, Math.ceil((room.deadline - clock - offset.current) / 1000)) : 0;
+  function selectPreaction(choice: 'fold' | 'check-fold' | 'check') {
+    const next = preaction === choice ? null : choice;
+    queuedAction.current = next ? { choice: next, player: room.me, code: room.code, hand: room.handStartedAt, phase: room.phase } : null;
+    setPreaction(next);
+    audio.current?.unlock();
+  }
+  useEffect(() => {
+    const queued = queuedAction.current;
+    if (queued && !preactionValid(queued, room)) {
+      queuedAction.current = null;
+      setPreaction(null);
+      return;
+    }
+    if (!myTurn || !live || !l || effects.presentationBusy || controlsBusy) return;
+    const alertKey = bettingOpportunity(room) || '';
+    if (lastTurnAlert.current !== alertKey) {
+      lastTurnAlert.current = alertKey;
+    }
+    if (!queued) return;
+    // Consume before sending: rerenders and reconnects must never send it twice.
+    queuedAction.current = null;
+    setPreaction(null);
+    const action = resolvePreaction(queued.choice, l.call);
+    if (action) void send(action);
+  }, [room, myTurn, live, controlsBusy, effects.presentationBusy]);
   const voting = room?.phase === 'runout_vote',
     handActive = live || voting;
   useEffect(() => {
@@ -503,8 +564,11 @@ export default function Home() {
     raiseValid = Boolean(l && Number.isSafeInteger(raise) && raise >= raiseMin && raise <= raiseMax),
     raiseValue = Math.min(raiseMax, Math.max(raiseMin, raise || raiseMin));
   const readyPlayers = visiblePlayers.filter((p: any) => p.stack > 0 && !p.away).length;
-  const turnFraction = Math.max(0, Math.min(1, (room?.deadline - clock - offset.current) / ((room?.settings.timer || 30) * 1000)));
+  const turnFraction = Math.max(0, Math.min(1, (room?.deadline - clock - offset.current) / ((room?.settings.timer || 15) * 1000)));
   const nextHandFraction = Math.max(0, Math.min(1, (room?.nextDealAt - clock - offset.current) / 3000));
+  const waitingCall = Math.min(me?.stack || 0, Math.max(0, Math.max(0, ...(room?.players || []).filter((p: any) => p.inHand && !p.folded).map((p: any) => p.bet || 0)) - (me?.bet || 0)));
+  const displayedCall = myTurn ? (l?.call || 0) : waitingCall;
+  const canQueueAction = Boolean(!myTurn && me?.inHand && !me.folded && !me.away && me.stack > 0);
   const clampRaise = (v: number) => Math.min(raiseMax, Math.max(raiseMin, Math.round(v || raiseMin)));
   return <div className={`app ${room ? 'in-game' : ''}`} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
 
@@ -528,6 +592,7 @@ export default function Home() {
             <i />
             {demo.current ? 'Practice table' : connection === 'connected' ? 'Live table' : connection === 'offline' ? 'Offline' : 'Reconnecting…'}
           </span>
+          {enableReactions && <ChatButton social={social} />}
           <button className="icon-button" onClick={() => setPanel('menu')} aria-label="Table menu">
             <MoreHorizontal size={22} />
           </button>
@@ -615,39 +680,53 @@ export default function Home() {
                 seatHand = win?.runHands?.find((h: any) => h.run === focusedRunNumber) || win?.runHands?.[0] || win,
                 cardCount = room.game === 'NLH' ? 2 : room.game === 'PLO4' ? 4 : 5,
                 visibleCount = effects.visibleHoleCards(s, cardCount);
-              return <div key={s} className={`seat ${p ? 'occupied' : 'open'} ${p?.id === room.turn ? 'acting' : ''} ${p?.folded && handActive ? 'folded' : ''} ${p?.id === room.me ? 'your-seat' : ''} ${cardCount > 2 ? 'omaha-seat' : ''} ${win ? 'winner-seat' : ''}`} data-card-count={cardCount} style={{
+              return <div key={s} data-seat-index={s} className={`seat ${p ? 'occupied' : 'open'} ${p?.id === room.turn ? 'acting' : ''} ${p?.folded && handActive ? 'folded' : ''} ${p?.id === room.me ? 'your-seat' : ''} ${cardCount > 2 ? 'omaha-seat' : ''} ${win ? 'winner-seat' : ''}`} data-card-count={cardCount} style={{
                 left: `clamp(var(--seat-edge-x), ${x}%, calc(100% - var(--seat-edge-x)))`,
                 top: `clamp(var(--seat-edge-y), ${y}%, calc(100% - var(--seat-edge-y)))`
               }}>
                 {p ? <>
                   {win && <div className="winner-badge"><Trophy size={10} /> +{fmt(win.wonAmount ?? win.amount)}</div>}
-                  <div className="seat-top">
+                  {p.id !== room.me && <div className="seat-top" data-reaction-target={enableReactions && room.phase !== 'closed' ? s : undefined} onClick={() => {
+                    if (enableReactions && room.phase !== 'closed') reactions.setTarget(reactions.target === s ? null : s);
+                  }}>
                     {p.inHand && p.cards?.length ? <div className="hole-cards">
-                      {p.cards.slice(0, visibleCount).map((c: number, i: number) => <span className={effects.dealing ? 'arriving-hole-card' : ''} key={`${room.handStartedAt || 0}:${i}`}>
+                      {p.cards.slice(0, visibleCount).map((c: number, i: number) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
                         <Card value={c} small highlight={Boolean(seatHand?.holeCards?.includes(c))} dim={Boolean(seatHand?.holeCards?.length && !seatHand.holeCards.includes(c))} />
                       </span>)}
                     </div> : p.inHand && handActive ? <div className="hole-cards">
                       {Array.from({
                         length: visibleCount
-                      }, (_, i) => <span className={effects.dealing ? 'arriving-hole-card' : ''} key={`${room.handStartedAt || 0}:${i}`}>
+                      }, (_, i) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
                         <Card small back />
                       </span>)}
                     </div> : <div className="avatar">
                       {p.name.slice(0, 2).toUpperCase()}
                     </div>}
-                  </div>
-                  <div className="seat-info" role={p.id === room.me && room.phase !== 'closed' ? 'button' : undefined} tabIndex={p.id === room.me && room.phase !== 'closed' ? 0 : undefined} aria-label={p.id === room.me && room.phase !== 'closed' ? `${p.name}, ${stackLabel(p)}, reload chips` : undefined} onClick={p.id === room.me ? openReload : undefined} onKeyDown={p.id === room.me ? e => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      openReload();
-                    }
-                  } : undefined}>
+                  </div>}
+                  <div className="seat-info"
+                    data-reaction-target={enableReactions && p.id !== room.me && room.phase !== 'closed' ? s : undefined}
+                    role={room.phase !== 'closed' && (p.id === room.me || enableReactions) ? 'button' : undefined}
+                    tabIndex={room.phase !== 'closed' && (p.id === room.me || enableReactions) ? 0 : undefined}
+                    aria-label={room.phase !== 'closed' ? p.id === room.me ? `${p.name}, ${stackLabel(p)}, reload chips` : enableReactions ? `Send reaction to ${p.name}` : undefined : undefined}
+                    aria-expanded={enableReactions && p.id !== room.me ? reactions.target === s : undefined}
+                    onClick={() => {
+                      if (room.phase === 'closed') return;
+                      if (p.id === room.me) openReload();
+                      else if (enableReactions) reactions.setTarget(reactions.target === s ? null : s);
+                    }}
+                    onKeyDown={e => {
+                      if ((e.key === 'Enter' || e.key === ' ') && room.phase !== 'closed') {
+                        e.preventDefault();
+                        if (p.id === room.me) openReload();
+                        else if (enableReactions) reactions.setTarget(reactions.target === s ? null : s);
+                      }
+                    }}>
+
                     {live && !effects.dealing && p.id === room.turn && room.deadline && <svg className={`seat-timer ${seconds <= 5 ? 'urgent' : ''}`} viewBox="0 0 100 100" preserveAspectRatio="none" role="timer" aria-label={`${p.name}: ${seconds} seconds remaining`}>
                       <rect x="2" y="2" width="96" height="96" rx="10" pathLength="100" strokeDasharray={`${turnFraction * 100} 100`} />
                     </svg>}
                     <span>
                       {p.name}
-                      {p.id === room.me && <small> YOU</small>}
                     </span>
                     <strong className={stackLabel(p) === 'Busted' ? 'busted-label' : ''}>
                       {stackLabel(p)}
@@ -666,7 +745,14 @@ export default function Home() {
             })}
 
             <TableMotion room={room} mySeat={me?.seat || 0} effects={effects} />
+            {enableReactions && <TableReactions room={room} mySeat={me?.seat || 0} reactions={{ ...reactions, send: async reaction => {
+              const target = room.players.find((p: any) => !p.left && p.seat === reactions.target);
+              const sent = await reactions.send(reaction);
+              if (sent && demo.current && target) social.practiceEntry({ kind: 'reaction', reaction, to: { name: target.name, seat: target.seat } });
+              return sent;
+            } }} audio={socialAudio.current} />}
 
+            {enableReactions && <SpeechBubbles room={room} social={social} />}
             <RunoutVote room={room} now={clock + offset.current} busy={busy} send={send} />
             <RunoutAnnouncement room={room} effects={effects} />
 
@@ -674,13 +760,18 @@ export default function Home() {
 
           </div>
 
-          <div className="action-zone">
+          <div className={`action-zone ${social.open ? 'chat-open' : ''}`}>
             <div className="hand-toolbar">
               <span className={`turn-status ${myTurn && live && !effects.presentationBusy ? 'is-your-turn' : ''}`} role="status">
                 {myTurn && live && !effects.presentationBusy ? `Your turn · ${seconds}s` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : room.game}
               </span>
               <button className="text-button" onClick={() => setPanel('ledger')}>Rankings</button>
             </div>
+            {seated && <div className="personal-hand" aria-label="Your cards">
+              <div className="personal-hole-cards" aria-label="Your cards">
+                {me?.inHand && me.cards?.length ? me.cards.map((c: number, i: number) => <Card key={`${room.handStartedAt || 0}:${i}`} value={c} small highlight={Boolean(focusedHand?.holeCards?.includes(c))} dim={Boolean(focusedHand?.holeCards?.length && !focusedHand.holeCards.includes(c))} />) : <span className="personal-cards-placeholder">{room.game || 'NLH'} · Your cards</span>}
+              </div>
+            </div>}
             {room.phase === 'showdown' && <section className={`showdown-summary ${room.runCount === 2 ? 'two-run-summary' : ''}`} aria-label="Showdown results">
               {Array.from({length: room.runCount || 1}, (_, i) => <div className="run-summary" key={`${room.handStartedAt}:${i}`}>
                 {room.runCount === 2 && <h3>Run {i + 1}</h3>}
@@ -690,6 +781,7 @@ export default function Home() {
                 }} />
               </div>)}
             </section>}
+            {me?.pendingSeatAction === 'leave' && <p className="game-status" role="status">Standing up after this hand and payouts. <button className="text-button" disabled={controlsBusy || room.terminationPending} onClick={() => send('cancel_stand_up')}>Cancel</button></p>}
             {room.terminationPending && <p className="game-status" role="status">Game will terminate after this hand.</p>}
             {!seated && room.phase !== 'closed' ? <>
               <p className="game-status">
@@ -706,47 +798,34 @@ export default function Home() {
                 {transport.current?.hasPending() && <button type="button" onClick={retryLastAction}>Retry last action</button>}
               </div>}
               {voting ? null : live ? <>
-                {myTurn && l && !effects.presentationBusy ? <>
-                  <div className="betting-controls">
-                    <div className="betting-main">
-                      <div className="quick-bets">
-                        {l.canRaise && [['½ pot', .5], ['Pot', 1]].map(([label, n]) => <button className="bet-shortcut" key={label} aria-pressed={selectedShortcut === label} title={`Raise to ${fmt(shortcutRaiseTo(current.current, token.current, Number(n)))}`} onClick={() => {
-                          setSelectedShortcut(String(label));
-                          setRaise(shortcutRaiseTo(current.current, token.current, Number(n)));
-                        }}>
-                          {label}
-                        </button>)}
-                        {l.canRaise && l.max === me.bet + me.stack && <button className="bet-shortcut" aria-pressed={selectedShortcut === 'All-in'} onClick={() => {
-                          setSelectedShortcut('All-in');
-                          setRaise(l.max);
-                        }}>All-in</button>}
-                        {l.canRaise && <label>Raise to<input type="number" value={raise} min={Math.min(l.min, l.max)} max={l.max} step={1} onBlur={() => setRaise(clampRaise(raise))} onChange={e => {
-                          setSelectedShortcut('');
-                          setRaise(Number(e.target.value));
-                        }} /></label>}
-                      </div>
-                      <div className="action-buttons">
-                        <button className="fold" disabled={controlsBusy} onClick={() => send('fold')}>Fold</button>
-                        <button className="secondary check-call" disabled={controlsBusy} onClick={() => send(l.call ? 'call' : 'check')}>
-                          {l.call ? `Call ${fmt(l.call)}` : 'Check'}
-                        </button>
-                        <button className="primary" disabled={controlsBusy || !l.canRaise || !raiseValid} onClick={() => send('raise', {
-                          amount: raise
-                        })}>
-                          {l.canRaise ? `Raise to ${fmt(raise)}` : 'Raise'}
-                        </button>
-                      </div>
-                    </div>
-                    {l.canRaise && <div className="raise-slider-control">
-                      <input type="range" aria-label="Raise amount slider" aria-orientation="horizontal" min={raiseMin} max={raiseMax} step={1} value={raiseValue} disabled={busy || raiseMin === raiseMax} onChange={e => {
+                <div className="betting-controls">
+                  <div className="slider-shortcuts">
+                    <div className="raise-slider-control">
+                      <input type="range" aria-label="Raise amount slider" min={0} max={1000} step={1} value={raiseMax > raiseMin ? Math.round(Math.sqrt((raiseValue - raiseMin) / (raiseMax - raiseMin)) * 1000) : 0} disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || raiseMin === raiseMax} onChange={e => {
                         setSelectedShortcut('');
-                        setRaise(Number(e.target.value));
-                      }} style={{
-                        '--range-fill': `${raiseMax > raiseMin ? (raiseValue - raiseMin) / (raiseMax - raiseMin) * 100 : 100}%`
-                      } as React.CSSProperties} />
-                    </div>}
+                        const fraction = Number(e.target.value) / 1000;
+                        const raw = raiseMin + (raiseMax - raiseMin) * fraction * fraction;
+                        const blind = Math.max(1, Number(room.settings?.bb || 50));
+                        const snapped = Math.round(raw / blind) * blind;
+                        setRaise(Number(e.target.value) === 1000 ? raiseMax : clampRaise(snapped));
+                      }} style={{ '--range-fill': `${raiseMax > raiseMin ? Math.sqrt((raiseValue - raiseMin) / (raiseMax - raiseMin)) * 100 : 0}%` } as React.CSSProperties} />
+                    </div>
+                    <div className="quick-bets" aria-label="Raise shortcuts">
+                      {([['½', .5], ['Pot', 1]] as const).map(([label, n]) => <button className="bet-shortcut" key={label} title={label === '½' ? 'Half pot' : 'Pot'} disabled={!myTurn || controlsBusy || !l?.canRaise || effects.presentationBusy} aria-pressed={selectedShortcut === label} onClick={() => {
+                        setSelectedShortcut(label); setRaise(shortcutRaiseTo(current.current, token.current, n));
+                      }}>{label}</button>)}
+                      <button className="bet-shortcut" title="All-in" disabled={!myTurn || controlsBusy || !l?.canRaise || effects.presentationBusy} aria-pressed={selectedShortcut === 'All'} onClick={() => { setSelectedShortcut('All'); setRaise(l.max); }}>All</button>
+                    </div>
                   </div>
-                </> : null}
+                  <div className="action-buttons">
+                    <button className="fold" disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === (displayedCall ? 'fold' : 'check-fold')} onClick={() => myTurn ? send('fold') : selectPreaction(displayedCall ? 'fold' : 'check-fold')}>{!myTurn && !displayedCall ? 'Check / Fold' : 'Fold'}</button>
+                    <button className="secondary check-call" disabled={controlsBusy || effects.presentationBusy || (!myTurn && (!canQueueAction || Boolean(displayedCall)))} aria-pressed={!myTurn && preaction === 'check'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check')}>{displayedCall ? `Call ${fmt(displayedCall)}` : 'Check'}</button>
+                    <button className="primary" disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || !raiseValid} onClick={() => send('raise', { amount: raise })}>
+                      <span className="raise-button-label">Raise</span>
+                      <span className="raise-button-amount">{myTurn && l?.canRaise ? fmt(raise) : '—'}</span>
+                    </button>
+                  </div>
+                </div>
               </> : <div className="between-hands">
                 {room.paused && <span className="paused-state">Auto-deal paused</span>}
                 {room.phase === 'closed' ? <button className="primary" onClick={() => setPanel('ledger')}>Current Game Rankings <ArrowUpRight size={16} /></button> : room.phase === 'showdown' ? <div className="auto-deal-status" role="status">
@@ -757,6 +836,7 @@ export default function Home() {
                 </div> : room.host ? <button className="primary" disabled={controlsBusy || effects.presentationBusy || visiblePlayers.filter((p: any) => p.stack > 0 && !p.away).length < 2} onClick={() => send('deal')}>{room.phase === 'lobby' ? 'Deal first hand' : 'Deal next hand'} <ArrowUpRight size={17} /></button> : <button className="secondary" onClick={openReload}><Plus size={16} /> Load Chips</button>}
               </div>}
             </>}
+            {enableReactions && <ChatDrawer key={`${room.code}:${room.createdAt}`} room={room} social={social} myTurn={Boolean(myTurn && live)} />}
           </div>
 
         </section>
@@ -872,6 +952,16 @@ export default function Home() {
                 {me.pendingSeatAction === 'sit_out' ? 'Cancel Sit Out' : me.away ? 'Sit In' : 'Sit Out'}
               </button>
             </>}
+            {enableReactions && seated && room.phase !== 'closed' && <button disabled={controlsBusy || room.terminationPending} onClick={() => {
+              if (me.pendingSeatAction === 'leave') void send('cancel_stand_up');
+              else setConfirm('stand_up');
+            }}>{me.pendingSeatAction === 'leave' ? 'Cancel Stand Up' : 'Stand Up'}</button>}
+            {enableReactions && <button onClick={() => { setPanel(''); social.setOpen(true); }}>Game Chat</button>}
+            {enableReactions && <button onClick={() => {
+              const enabled = !socialSound; setSocialSound(enabled); socialAudio.current?.setEnabled(enabled);
+              localStorage.setItem('hg-social-sound', enabled ? 'on' : 'off');
+              if (enabled) socialAudio.current?.unlock();
+            }}>{socialSound ? 'Mute Reaction Sounds' : 'Enable Reaction Sounds'}</button>}
             <button onClick={() => setPanel('ledger')}>Current Game Rankings</button>
             <button onClick={() => setPanel('history')}>Game History</button>
             <button onClick={() => setPanel('info')}>Game Info</button>
@@ -883,14 +973,14 @@ export default function Home() {
           </div>
           {confirm && <div className="confirm">
             <p>
-              {handActive ? 'Terminate the game after this hand?' : 'Terminate the game and cash out all chips?'}
+              {confirm === 'stand_up' ? (handActive || room.phase === 'showdown' && !effects.settled ? 'Stand up and cash out after this hand and payouts? Your seat stays reserved until then. Returning requires a new buy-in.' : 'Stand up, cash out your chips and release your seat? Returning requires a new buy-in.') : handActive ? 'Terminate the game after this hand?' : 'Terminate the game and cash out all chips?'}
             </p>
             <button className="primary" disabled={controlsBusy} onClick={async () => {
               if (await send(confirm)) {
                 setConfirm('');
                 setPanel('');
               }
-            }}>Confirm Terminate Game</button>
+            }}>{confirm === 'stand_up' ? 'Confirm Stand Up' : 'Confirm Terminate Game'}</button><button className="text-button" onClick={() => setConfirm('')}>Cancel</button>
           </div>}
           {error && <p className="error" role="alert">
             {error}
@@ -930,7 +1020,7 @@ export default function Home() {
                 {[...room.players].sort((a: any, b: any) => b.net - a.net).map((p: any) => <tr key={p.id} className={p.id === room.me ? 'your-ranking' : undefined}>
                   <td>
                     {p.name}
-                    {p.id === room.me && p.name !== 'You' ? ' · You' : ''}{p.left ? ' · left' : ''}
+                    {p.id === room.me && p.name !== 'You' ? ' · You' : ''}{p.left ? ' · standing' : ''}
                   </td>
                   <td>
                     {fmt(p.buyins)}

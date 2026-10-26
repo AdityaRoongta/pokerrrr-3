@@ -13,7 +13,8 @@ const requireState = (condition, message, status = 409) => {
 // One Durable Object alarm represents the earliest persisted table deadline.
 export function nextDeadline(room) {
   if (!room || room.phase === 'closed') return null;
-  const deadlines = [room.deadline, room.phase === 'runout_vote' ? room.runVote?.deadline : null, room.phase === 'showdown' ? room.terminationPending ? room.payoutFinishedAt : !room.paused ? room.nextDealAt : null : null].filter(Number.isFinite);
+  const departure = room.phase === 'showdown' && room.players.some(p => p.pendingSeatAction === 'leave') ? room.payoutFinishedAt : null;
+  const deadlines = [departure, room.deadline, room.phase === 'runout_vote' ? room.runVote?.deadline : null, room.phase === 'showdown' ? room.terminationPending ? room.payoutFinishedAt : !room.paused ? room.nextDealAt : null : null].filter(Number.isFinite);
   return deadlines.length ? Math.min(...deadlines) : null;
 }
 async function digest(value) {
@@ -35,6 +36,31 @@ export class TableService {
   async save(tx, previous, room) {
     room.version = (previous?.version ?? -1) + 1;
     if (room.phase === 'closed') room.closedAt ??= Date.now();
+    // Existing staging games get a clearly marked opening balance, not invented
+    // historical transactions. The marker and first new entries commit together.
+    if (!await tx.get(`accounting:${room.code}:initialized`)) {
+      for (const [index, player] of (previous?.players || []).entries()) {
+        await tx.put(`accounting:${room.code}:opening:${index}`, {
+          kind: 'opening_balance', playerId: player.id, name: player.name,
+          buyins: player.buyins, cashout: player.cashout, at: Date.now(), code: room.code
+        });
+      }
+      await tx.put(`accounting:${room.code}:initialized`, true);
+    }
+    // Append-only accounting audit lives outside poker snapshots. These writes and
+    // the command receipt commit atomically, so retries cannot double cash out.
+    for (const [index, player] of room.players.entries()) {
+      const before = previous?.players.find(p => p.id === player.id);
+      const prefix = `accounting:${room.code}:${String(room.version).padStart(10, '0')}:${index}`;
+      for (const [field, kind] of [['buyins', 'buy_in'], ['cashout', 'cash_out']]) {
+        const amount = player[field] - (before?.[field] || 0);
+        const zeroDeparture = kind === 'cash_out' && amount === 0 && before && !before.left && player.left;
+        if (amount > 0 || zeroDeparture) await tx.put(`${prefix}:${kind}`, {
+          kind, amount, playerId: player.id, name: player.name, at: Date.now(),
+          version: room.version, hand: room.completed, code: room.code
+        });
+      }
+    }
     await tx.put(`room:${room.code}`, room);
     if (!previous || previous.phase !== room.phase || previous.completed !== room.completed) {
       for (const hand of room.history.filter(h => h.number > (previous?.completed || 0))) {

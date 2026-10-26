@@ -34,6 +34,7 @@ export function PlayerLobby({
     [pin, setPin] = useState(''),
     [bb, setBb] = useState(50),
     [rotation, setRotation] = useState(3),
+    [timer, setTimer] = useState(15),
     [games, setGames] = useState(['NLH', 'PLO4', 'PLO5']);
   async function login(event: FormEvent) {
     event.preventDefault();
@@ -76,6 +77,7 @@ export function PlayerLobby({
         await onOpen({
           bb,
           rotation,
+          timer,
           games
         });
       }}>
@@ -90,6 +92,10 @@ export function PlayerLobby({
           </fieldset>
 
           <label>Big Blind<input type="number" min={2} max={100000} step={2} value={bb} onChange={e => setBb(Number(e.target.value))} required /><small>Small Blind: {bb > 0 ? bb / 2 : 0}</small></label>
+
+          <label>Time to act<select value={timer} onChange={e => setTimer(Number(e.target.value))}>
+            {[10, 15, 20, 30].map(n => <option key={n} value={n}>{n} seconds</option>)}
+          </select></label>
 
           <label>Switch game every<select value={rotation} onChange={e => setRotation(Number(e.target.value))}>
             {[2, 3, 4].map(n => <option key={n} value={n}>{n} completed hands</option>)}

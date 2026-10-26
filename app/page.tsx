@@ -622,7 +622,7 @@ export default function Home() {
                 seatHand = win?.runHands?.find((h: any) => h.run === focusedRunNumber) || win?.runHands?.[0] || win,
                 cardCount = room.game === 'NLH' ? 2 : room.game === 'PLO4' ? 4 : 5,
                 visibleCount = effects.visibleHoleCards(s, cardCount);
-              return <div key={s} className={`seat ${p ? 'occupied' : 'open'} ${p?.id === room.turn ? 'acting' : ''} ${p?.folded && handActive ? 'folded' : ''} ${p?.id === room.me ? 'your-seat' : ''} ${cardCount > 2 ? 'omaha-seat' : ''} ${win ? 'winner-seat' : ''}`} data-card-count={cardCount} style={{
+              return <div key={s} data-seat-index={s} className={`seat ${p ? 'occupied' : 'open'} ${p?.id === room.turn ? 'acting' : ''} ${p?.folded && handActive ? 'folded' : ''} ${p?.id === room.me ? 'your-seat' : ''} ${cardCount > 2 ? 'omaha-seat' : ''} ${win ? 'winner-seat' : ''}`} data-card-count={cardCount} style={{
                 left: `clamp(var(--seat-edge-x), ${x}%, calc(100% - var(--seat-edge-x)))`,
                 top: `clamp(var(--seat-edge-y), ${y}%, calc(100% - var(--seat-edge-y)))`
               }}>

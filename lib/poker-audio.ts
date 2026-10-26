@@ -1,3 +1,4 @@
+import { REACTIONS } from './reactions.mjs';
 // Small procedural effects: no downloaded samples or external requests.
 export type PokerSound = 'shuffle' | 'deal' | 'board' | 'win' | 'check' | 'call' | 'raise' | 'allin' | 'fold' | 'chappal';
 export class PokerAudio {
@@ -8,7 +9,7 @@ export class PokerAudio {
   unlock() {
     if (!this.enabled) return;
     try {
-      const C = window.AudioContext || (window as any).webkitAudioContext;
+      const C = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!C) return;
       this.context ??= new C();
       if (this.context?.state === 'suspended') void this.context.resume().catch(() => { });
@@ -81,10 +82,14 @@ export class PokerAudio {
       osc.stop(time + duration);
     };
     if (kind === 'chappal') {
-      const impact = ctx.currentTime + Math.max(0, delayMs + 850) / 1000;
-      if (delayMs >= 0) noise(at, .23, 750, .08);
-      noise(impact, .12, 1800, .22);
-      tone(impact, 180, .09, .12);
+      const impact = ctx.currentTime + Math.max(0, delayMs + REACTIONS.chappal.impactAt) / 1000;
+      if (delayMs >= 0) noise(at, .10, 1400, .045);
+      // A dry broadband crack, a very short low thud and a tiny second skin
+      // contact. No musical pitch or long tail: all three land with the flick.
+      noise(impact, .048, 2600, .48);
+      noise(impact + .006, .075, 650, .22);
+      tone(impact, 115, .055, .19);
+      noise(impact + .014, .028, 3600, .13);
     } else if (kind === 'shuffle') {
       for (let i = 0; i < 9; i++) noise(at + i * .042, .055, 1100 + i * 120, .1);
     } else if (kind === 'deal') {

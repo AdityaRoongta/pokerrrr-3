@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { REACTIONS, reactionDefinition } from '../lib/reactions.mjs';
 import { seatPosition } from '../lib/table-presentation.mjs';
 import { type PokerAudio, type PokerSound } from '../lib/poker-audio';
@@ -10,19 +10,22 @@ import './table-reactions.css';
 // Authored vector art stays crisp at every phone size and needs no image request.
 function ChappalArt() {
   return <svg viewBox="0 0 80 120" aria-hidden="true" fill="none">
-    <path d="M22 110C9 103 10 85 14 68L18 27C19 10 29 3 42 5C61 7 70 20 67 38L59 75C57 88 62 101 51 110C43 117 31 116 22 110Z" fill="#7e341c" stroke="#2b150f" strokeWidth="4" />
-    <path d="M24 104C14 97 19 78 21 64L24 29C25 16 31 10 42 12C56 14 63 23 60 37L52 75C49 88 56 98 46 105C40 109 31 109 24 104Z" fill="#db9b52" />
-    <path d="M23 55L40 37L58 55" stroke="#763b22" strokeWidth="13" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M23 52L40 35L58 52" stroke="#f6c577" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M40 35L42 22" stroke="#763b22" strokeWidth="7" strokeLinecap="round" />
-    <path d="M29 80L44 83M28 88L43 91M28 96L42 99" stroke="#b77639" strokeWidth="2" strokeLinecap="round" />
+    <path d="M24 113C13 109 12 98 15 83L20 30C21 13 29 5 42 6C57 7 65 18 63 35L57 78C56 91 59 104 49 112C42 117 31 117 24 113Z" fill="#211c18" />
+    <path d="M24 109C16 105 17 94 19 81L24 29C25 16 31 9 42 10C54 11 61 21 59 35L53 78C52 92 55 101 46 108C39 112 31 112 24 109Z" fill="#684b35" />
+    <path d="M26 103C21 100 22 89 24 78L28 30C29 20 33 15 41 16C50 17 56 23 54 35L49 78C47 92 51 99 43 104C37 107 31 107 26 103Z" fill="#806047" />
+    <path d="M24 109C34 115 45 113 51 105" stroke="#ad8b67" strokeWidth=".8" />
+    <path d="M23 59L40 36L58 56L54 68L40 47L24 70Z" fill="#302820" />
+    <path d="M24 57L40 34L58 55L55 62L40 43L24 65Z" fill="#4a3527" />
+    <path d="M26 56L40 37L55 54" stroke="#967355" strokeWidth="1.2" />
+    <path d="M39 35L41 23" stroke="#302820" strokeWidth="5" strokeLinecap="round" />
+    <path d="M26 84L44 86M26 91L43 93M27 99L42 100" stroke="#5d432f" strokeWidth="1" opacity=".5" />
   </svg>;
 }
 
 function ChappalAnimation() {
   return <>
     <div className="reaction-projectile"><div className="reaction-projectile-art"><ChappalArt /></div></div>
-    <div className="reaction-impact"><span>THWACK!</span><i /><b>✦</b></div>
+    <div className="reaction-impact"><i /><i /><i /></div>
   </>;
 }
 
@@ -38,6 +41,20 @@ function ReactionAnimation({ event, room, mySeat, audio }: {
   const definition = reactionDefinition(event.reaction);
   const renderer = renderers[event.reaction];
   const [delay] = useState(() => event.startedAt - Date.now());
+  const overlay = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const target = overlay.current?.closest('.table-stage')?.querySelector(`[data-seat-index="${event.to.seat}"] .seat-info`);
+    if (!target || Date.now() > event.startedAt + definition.impactAt + 100) return;
+    // A short physical jolt at contact sells the hit without moving the seat's
+    // layout or interrupting the player clock, cards or betting controls.
+    const hit = target.animate([
+      { translate: '0 0', offset: 0 }, { translate: '5px 1px', offset: .18 },
+      { translate: '-3px -1px', offset: .42 }, { translate: '2px 0', offset: .7 },
+      { translate: '0 0', offset: 1 }
+    ], { duration: 130, delay: Math.max(0, event.startedAt + definition.impactAt - Date.now()), easing: 'ease-out' });
+    return () => hit.cancel();
+  }, [event.id, event.startedAt, event.to.seat, definition.impactAt]);
   useEffect(() => {
     // Dropped/late effects never play a detached slap after the animation ends.
     if (renderer && Date.now() < event.startedAt + definition.impactAt) audio?.play(renderer.sound, event.startedAt - Date.now());
@@ -46,7 +63,8 @@ function ReactionAnimation({ event, room, mySeat, audio }: {
   const from = seatPosition(event.from.seat, mySeat, room.settings.seats);
   const to = seatPosition(event.to.seat, mySeat, room.settings.seats);
   const { Animation } = renderer;
-  return <div className={`reaction-overlay reaction-${event.reaction}`} style={{
+  return <div ref={overlay} className={`reaction-overlay reaction-${event.reaction}`} style={{
+    '--strike-angle': `${Math.atan2(to.y - from.y, to.x - from.x) * 180 / Math.PI + 90}deg`,
     '--reaction-from-x': `clamp(var(--seat-edge-x), ${from.x}%, calc(100% - var(--seat-edge-x)))`,
     '--reaction-from-y': `clamp(var(--seat-edge-y), ${from.y}%, calc(100% - var(--seat-edge-y)))`,
     '--reaction-to-x': `clamp(var(--seat-edge-x), ${to.x}%, calc(100% - var(--seat-edge-x)))`,

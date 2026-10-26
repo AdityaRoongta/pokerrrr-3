@@ -11,39 +11,39 @@
 .reaction-choices svg { height: 54px; width: 40px; transform: rotate(25deg); }
 .reaction-picker p { font-size: 11px; line-height: 1.4; margin: 8px 0 0; color: #f0cd91; }
 .reaction-overlay { position: absolute; inset: 0; z-index: 60; pointer-events: none; overflow: visible; }
-.reaction-projectile { position: absolute; width: 56px; height: 84px; left: var(--reaction-from-x); top: var(--reaction-from-y); transform: translate(-50%, -50%); opacity: 0; animation: chappal-flight var(--reaction-duration) linear var(--reaction-delay) both; }
-.reaction-projectile-art { width: 100%; height: 100%; filter: drop-shadow(0 8px 5px #0008); animation: chappal-spin var(--reaction-duration) ease-out var(--reaction-delay) both; }
-.reaction-projectile svg { width: 100%; height: 100%; }
-.reaction-impact { position: absolute; left: var(--reaction-to-x); top: var(--reaction-to-y); transform: translate(-50%, -50%); width: 90px; height: 90px; opacity: 0; animation: chappal-impact var(--reaction-duration) linear var(--reaction-delay) both; }
-.reaction-impact i { position: absolute; inset: 0; border: 3px solid #ffdc85; border-radius: 50%; box-shadow: 0 0 18px #ffcf6c88; }
-.reaction-impact span { position: absolute; white-space: nowrap; top: -12px; left: 50%; transform: translateX(-50%) rotate(-10deg); font-size: 17px; font-style: italic; font-weight: 900; color: #ffe8a5; text-shadow: 2px 2px #6f3519, -1px -1px #6f3519; }
-.reaction-impact b { position: absolute; right: -9px; bottom: 6px; color: #fff0b5; font-size: 32px; }
+.reaction-projectile { position: absolute; width: 48px; height: 76px; left: var(--reaction-from-x); top: var(--reaction-from-y); transform: translate(-50%, -50%); opacity: 0; animation: chappal-flight var(--reaction-duration) linear var(--reaction-delay) both; }
+.reaction-projectile-art { width: 100%; height: 100%; transform: rotate(var(--strike-angle)); filter: drop-shadow(0 3px 2px #0009); }
+.reaction-projectile svg { width: 100%; height: 100%; transform-origin: 50% 78%; animation: chappal-flick var(--reaction-duration) linear var(--reaction-delay) both; }
+.reaction-impact { position: absolute; left: var(--reaction-to-x); top: var(--reaction-to-y); width: 64px; height: 64px; opacity: 0; transform: translate(-50%, -50%) rotate(-25deg); animation: chappal-contact var(--reaction-duration) linear var(--reaction-delay) both; }
+.reaction-impact i { position: absolute; top: 7px; right: -4px; width: 20px; height: 2px; background: #eee5d0; transform: rotate(-32deg); }
+.reaction-impact i:nth-child(2) { top: 21px; right: -9px; width: 14px; transform: rotate(-5deg); }
+.reaction-impact i:nth-child(3) { top: 35px; right: -5px; width: 18px; transform: rotate(23deg); }
 .reaction-caption { position: absolute; left: 50%; top: 5px; transform: translateX(-50%); padding: 5px 10px; max-width: 85%; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; font-size: 11px; border-radius: 30px; background: #12231fe8; border: 1px solid #dab37155; color: #f0dec2; animation: reaction-caption var(--reaction-duration) linear var(--reaction-delay) both; }
 .reaction-caption span { color: #efbf70; margin: 0 3px; }
 .reaction-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* 250ms straight flight, contact at 280ms, then a short wrist-like flick
+   and recoil. Orientation stays fixed until the final contact. */
 @keyframes chappal-flight {
   0% { opacity: 0; left: var(--reaction-from-x); top: var(--reaction-from-y); }
-  3% { opacity: 1; }
-  47% { opacity: 1; left: var(--reaction-to-x); top: var(--reaction-to-y); }
-  58% { opacity: 1; left: var(--reaction-to-x); top: var(--reaction-to-y); }
-  78%, 100% { opacity: 0; left: var(--reaction-to-x); top: calc(var(--reaction-to-y) + 24px); }
+  2% { opacity: 1; }
+  31%, 48% { opacity: 1; left: var(--reaction-to-x); top: var(--reaction-to-y); }
+  65%, 100% { opacity: 0; left: var(--reaction-to-x); top: var(--reaction-to-y); }
 }
-@keyframes chappal-spin {
-  0% { transform: rotate(-65deg) scale(.65); }
-  25% { transform: rotate(150deg) scale(1.12); }
-  47% { transform: rotate(380deg) scale(1); }
-  53% { transform: rotate(400deg) scale(.8); }
-  78%, 100% { transform: rotate(440deg) scale(.65); }
+@keyframes chappal-flick {
+  0%, 30% { transform: perspective(240px) rotateX(60deg) rotateZ(-10deg); }
+  35% { transform: perspective(240px) rotateX(-18deg) rotateZ(16deg); }
+  40% { transform: perspective(240px) rotateX(24deg) rotateZ(-8deg); }
+  52%, 100% { transform: perspective(240px) rotateX(65deg) rotateZ(-14deg) translateY(12px); }
 }
-@keyframes chappal-impact {
-  0%, 46% { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
-  48% { opacity: 1; transform: translate(-50%, -50%) scale(.7); }
-  56% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
-  85%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); }
+@keyframes chappal-contact {
+  0%, 34% { opacity: 0; }
+  35%, 40% { opacity: .9; }
+  50%, 100% { opacity: 0; }
 }
 @keyframes reaction-caption { 0% { opacity: 0; } 8%, 85% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .reaction-projectile { animation-name: reaction-caption; left: var(--reaction-to-x); top: var(--reaction-to-y); }
-  .reaction-projectile-art { animation: none; transform: rotate(25deg); }
+  .reaction-projectile-art { transform: rotate(25deg); }
+  .reaction-projectile svg { animation: none; }
   .reaction-impact { display: none; }
 }

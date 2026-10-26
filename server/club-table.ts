@@ -232,7 +232,7 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
         if (advanced) await this.broadcast(advanced);
         if (request.method === 'GET') return json(await this.service.snapshot(token, url.searchParams.get('code') || ''));
         const input = await this.body(request);
-        if (['stand_up', 'cancel_stand_up', 'set_away'].includes(input.type) && !reactionsEnabled(this.env.APP_ENV)) throw new TableError('This control is only available in staging', 403);
+        if (['stand_up', 'cancel_stand_up', 'set_away'].includes(input.type) && !reactionsEnabled(this.env.APP_ENV)) throw new TableError('This control is not enabled', 403);
         if (['create', 'join'].includes(input.type)) input.name = player.name;
         const result = await this.service.execute(token, input);
         await this.broadcast(result.snapshot.code);

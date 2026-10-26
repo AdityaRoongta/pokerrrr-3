@@ -1,6 +1,6 @@
 # Table reactions
 
-Staging/local only; production hides the picker and rejects `/api/reactions`.
+Enabled in production, staging and local builds. Unknown environments fail closed.
 Tap another seated player's avatar/name and choose one of eight icons: Chappal,
 Cheers, Money Flying, Tomato Splat, Crown, Laughing Face, Duck or Punch. Your own
 name keeps its reload action. Folded players and standing observers retain access.

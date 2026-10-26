@@ -201,7 +201,7 @@ export async function runApiSuite(base, restart, environment = 'staging') {
     });
     const reactionInput = {code, requestId: crypto.randomUUID(), reaction: 'chappal', targetSeat: 2};
     assert.equal((await react(host, reactionInput, 'https://other.test')).status, 403);
-    if (environment === 'staging') {
+    if (['staging', 'production'].includes(environment)) {
       assert.equal((await request(new URL('/api/reactions', base), {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(reactionInput)})).status, 401);
       assert.equal((await react(host, {...reactionInput, targetSeat: 6})).status, 400);
       const response = await react(host, reactionInput);
@@ -254,7 +254,7 @@ export async function runApiSuite(base, restart, environment = 'staging') {
       const restored = await api(host, null, code);
       assert.equal(restored.version, room.version);
       assert.deepEqual(restored.players, room.players);
-      if (environment === 'staging') {
+      if (['staging', 'production'].includes(environment)) {
         const chat = await (await request(new URL(`/api/chat?code=${code}`, base), {headers: {Cookie: cookies.get(host)}})).json();
         assert.equal(chat.entries.filter(e => e.kind === 'message').length, 1);
       }
@@ -310,7 +310,7 @@ export async function runApiSuite(base, restart, environment = 'staging') {
         code
       }, room));
       games.add(room.game);
-      if (environment === 'staging') {
+      if (['staging', 'production'].includes(environment)) {
         await sleep(Math.max(0, nextCatalogueAt - Date.now()));
         const response = await react(host, {code, requestId:crypto.randomUUID(), reaction:extraReactions[i], targetSeat:2});
         const sent = await response.json();
@@ -350,7 +350,7 @@ export async function runApiSuite(base, restart, environment = 'staging') {
       type: 'deal',
       code
     }, room));
-    if (environment === 'staging') {
+    if (['staging', 'production'].includes(environment)) {
       const stand = commandEnvelope({type:'stand_up', code}, room);
       room = await api(host, stand);
       room = await api(host, stand);
@@ -372,7 +372,7 @@ export async function runApiSuite(base, restart, environment = 'staging') {
       room = await api(host, null, code);
     }
     assert.equal(room.phase, 'closed');
-    if (environment === 'staging') {
+    if (['staging', 'production'].includes(environment)) {
       const closedSend = await request(new URL('/api/chat', base), {method:'POST', headers:{Cookie:cookies.get(host),'Content-Type':'application/json'}, body:JSON.stringify({code,requestId:crypto.randomUUID(),text:'too late'})});
       assert.equal(closedSend.status, 409);
       const archive = await (await request(new URL(`/api/chat?code=${code}`, base), {headers:{Cookie:cookies.get(host)}})).json();

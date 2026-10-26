@@ -1,0 +1,49 @@
+.seat-info[data-reaction-target] { cursor: pointer; touch-action: manipulation; }
+.seat-info[data-reaction-target]:focus-visible { outline: 2px solid #e8bc73; outline-offset: 4px; }
+.reaction-picker { position: absolute; z-index: 65; width: 172px; padding: 10px; border: 1px solid #b4926059; border-radius: 16px; background: #182722; color: #f6eddc; box-shadow: 0 12px 36px #0008; transform: translate(-50%, 45px); }
+.reaction-picker.above-seat { transform: translate(-50%, calc(-100% - 45px)); }
+.reaction-picker-heading { display: flex; gap: 6px; align-items: center; justify-content: space-between; font-size: 11px; }
+.reaction-picker-heading span { min-width: 0; overflow-wrap: anywhere; }
+.reaction-picker-heading button { background: none; color: #e8d8bc; border: 0; font-size: 23px; min-width: 32px; min-height: 32px; cursor: pointer; }
+.reaction-choices { display: flex; justify-content: center; gap: 6px; }
+.reaction-choices button { display: flex; align-items: center; flex-direction: column; gap: 5px; padding: 8px 16px; border: 1px solid #d3aa6940; border-radius: 12px; background: #d3aa6912; color: #f6eddc; cursor: pointer; min-width: 84px; font-size: 12px; }
+.reaction-choices button:hover, .reaction-choices button:focus-visible { background: #d3aa692e; border-color: #e8bc73; }
+.reaction-choices svg { height: 54px; width: 40px; transform: rotate(25deg); }
+.reaction-picker p { font-size: 11px; line-height: 1.4; margin: 8px 0 0; color: #f0cd91; }
+.reaction-overlay { position: absolute; inset: 0; z-index: 60; pointer-events: none; overflow: visible; }
+.reaction-projectile { position: absolute; width: 56px; height: 84px; left: var(--reaction-from-x); top: var(--reaction-from-y); transform: translate(-50%, -50%); opacity: 0; animation: chappal-flight var(--reaction-duration) linear var(--reaction-delay) both; }
+.reaction-projectile-art { width: 100%; height: 100%; filter: drop-shadow(0 8px 5px #0008); animation: chappal-spin var(--reaction-duration) ease-out var(--reaction-delay) both; }
+.reaction-projectile svg { width: 100%; height: 100%; }
+.reaction-impact { position: absolute; left: var(--reaction-to-x); top: var(--reaction-to-y); transform: translate(-50%, -50%); width: 90px; height: 90px; opacity: 0; animation: chappal-impact var(--reaction-duration) linear var(--reaction-delay) both; }
+.reaction-impact i { position: absolute; inset: 0; border: 3px solid #ffdc85; border-radius: 50%; box-shadow: 0 0 18px #ffcf6c88; }
+.reaction-impact span { position: absolute; white-space: nowrap; top: -12px; left: 50%; transform: translateX(-50%) rotate(-10deg); font-size: 17px; font-style: italic; font-weight: 900; color: #ffe8a5; text-shadow: 2px 2px #6f3519, -1px -1px #6f3519; }
+.reaction-impact b { position: absolute; right: -9px; bottom: 6px; color: #fff0b5; font-size: 32px; }
+.reaction-caption { position: absolute; left: 50%; top: 5px; transform: translateX(-50%); padding: 5px 10px; max-width: 85%; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; font-size: 11px; border-radius: 30px; background: #12231fe8; border: 1px solid #dab37155; color: #f0dec2; animation: reaction-caption var(--reaction-duration) linear var(--reaction-delay) both; }
+.reaction-caption span { color: #efbf70; margin: 0 3px; }
+.reaction-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@keyframes chappal-flight {
+  0% { opacity: 0; left: var(--reaction-from-x); top: var(--reaction-from-y); }
+  3% { opacity: 1; }
+  47% { opacity: 1; left: var(--reaction-to-x); top: var(--reaction-to-y); }
+  58% { opacity: 1; left: var(--reaction-to-x); top: var(--reaction-to-y); }
+  78%, 100% { opacity: 0; left: var(--reaction-to-x); top: calc(var(--reaction-to-y) + 24px); }
+}
+@keyframes chappal-spin {
+  0% { transform: rotate(-65deg) scale(.65); }
+  25% { transform: rotate(150deg) scale(1.12); }
+  47% { transform: rotate(380deg) scale(1); }
+  53% { transform: rotate(400deg) scale(.8); }
+  78%, 100% { transform: rotate(440deg) scale(.65); }
+}
+@keyframes chappal-impact {
+  0%, 46% { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+  48% { opacity: 1; transform: translate(-50%, -50%) scale(.7); }
+  56% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
+  85%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); }
+}
+@keyframes reaction-caption { 0% { opacity: 0; } 8%, 85% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .reaction-projectile { animation-name: reaction-caption; left: var(--reaction-to-x); top: var(--reaction-to-y); }
+  .reaction-projectile-art { animation: none; transform: rotate(25deg); }
+  .reaction-impact { display: none; }
+}

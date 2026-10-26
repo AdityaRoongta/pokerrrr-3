@@ -4,6 +4,8 @@ import { DurableObject } from 'cloudflare:workers';
 import { TableService, TableError } from './table-service.mjs';
 import { PlayerAuth, sessionCookie } from './player-auth.mjs';
 import { PROTOCOL_VERSION } from '../lib/protocol/poker.mjs';
+import { ReactionService } from './reaction-service.mjs';
+import { reactionsEnabled } from '../lib/reactions.mjs';
 type Peer = {
   playerId: string;
   cookie: string;
@@ -19,6 +21,7 @@ const json = (data: unknown, status = 200, headers = {}) => Response.json(data, 
 export class ClubTable extends DurableObject<Cloudflare.Env> {
   private service: TableService;
   private auth: PlayerAuth;
+  private reactions: ReactionService;
   private queue: Promise<unknown> = Promise.resolve();
   private rates = new Map<string, {
     count: number;
@@ -27,6 +30,7 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env);
     this.service = new TableService(ctx.storage);
+    this.reactions = new ReactionService(ctx.storage);
     this.auth = new PlayerAuth(ctx.storage.sql, work => ctx.storage.transactionSync(work));
     if (env.APP_ENV === 'staging') {
       ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS history_examples (id TEXT PRIMARY KEY, record TEXT NOT NULL)');
@@ -110,6 +114,14 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
           code: 'LOGIN_REQUIRED'
         }, 401);
         const token = player.id;
+        if (url.pathname === '/api/reactions') {
+          if (!reactionsEnabled(this.env.APP_ENV)) return json({ error: 'Reactions are not enabled' }, 404);
+          if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+          this.limit(`reaction:${token}`, 30);
+          const result = await this.reactions.send(token, await this.body(request));
+          if (!result.replayed) await this.broadcastReaction(result.event);
+          return json({ event: result.event, serverTime: Date.now() });
+        }
         if (['/api/history', '/api/settlement'].includes(url.pathname) && request.method === 'GET') {
           this.limit(`history:${token}`, 60);
           if (this.env.APP_ENV === 'staging') {
@@ -309,6 +321,19 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
           socket.close(1011, 'Please reconnect');
         } catch { }
       }
+    }
+  }
+  // Reactions are ephemeral and scoped to current table participants. No replay
+  // in sendState: reconnects receive poker state, never a queue of old effects.
+  private async broadcastReaction(event: { code: string } & Record<string, unknown>) {
+    const room = await this.ctx.storage.get<{ players: { id: string; left?: boolean }[] }>(`room:${event.code}`);
+    for (const socket of this.ctx.getWebSockets()) {
+      try {
+        const peer = socket.deserializeAttachment() as Peer;
+        if (!room?.players.some(p => p.id === peer?.playerId && !p.left)) continue;
+        if (!(await this.authorized(peer))) continue;
+        socket.send(JSON.stringify({ protocol: PROTOCOL_VERSION, type: 'reaction', event, serverTime: Date.now() }));
+      } catch { /* A disconnected spectator must not fail an accepted reaction. */ }
     }
   }
   private authorized(peer: Peer) {

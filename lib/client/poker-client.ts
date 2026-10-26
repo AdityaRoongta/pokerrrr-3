@@ -88,7 +88,8 @@ export class PokerClient {
   connect(update: (state: {
     lobby: any;
     room: Snapshot | null;
-  }) => void, status: (state: Connection) => void, expired: () => void) {
+  }) => void, status: (state: Connection) => void, expired: () => void,
+    reaction?: (event: any, serverTime: number) => void) {
     let stopped = false,
       socket: WebSocket | undefined,
       retry: ReturnType<typeof setTimeout> | undefined;
@@ -124,6 +125,10 @@ export class PokerClient {
           }
           if (message.type === 'pong') {
             clearTimeout(watchdog);
+            return;
+          }
+          if (message.type === 'reaction') {
+            reaction?.(message.event, message.serverTime);
             return;
           }
           if (message.type !== 'state' || message.room && !Number.isSafeInteger(message.room.version)) return;

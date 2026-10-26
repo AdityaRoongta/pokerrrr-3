@@ -1,5 +1,5 @@
 // Small procedural effects: no downloaded samples or external requests.
-export type PokerSound = 'shuffle' | 'deal' | 'board' | 'win' | 'check' | 'call' | 'raise' | 'allin' | 'fold';
+export type PokerSound = 'shuffle' | 'deal' | 'board' | 'win' | 'check' | 'call' | 'raise' | 'allin' | 'fold' | 'chappal';
 export class PokerAudio {
   private context: AudioContext | null = null;
   private nodes = new Set<AudioScheduledSourceNode>();
@@ -80,7 +80,12 @@ export class PokerAudio {
       osc.start(time);
       osc.stop(time + duration);
     };
-    if (kind === 'shuffle') {
+    if (kind === 'chappal') {
+      const impact = ctx.currentTime + Math.max(0, delayMs + 850) / 1000;
+      if (delayMs >= 0) noise(at, .23, 750, .08);
+      noise(impact, .12, 1800, .22);
+      tone(impact, 180, .09, .12);
+    } else if (kind === 'shuffle') {
       for (let i = 0; i < 9; i++) noise(at + i * .042, .055, 1100 + i * 120, .1);
     } else if (kind === 'deal') {
       noise(at, .075, 1900, .07);

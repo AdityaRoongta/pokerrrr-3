@@ -194,6 +194,40 @@ export async function runApiSuite(base, restart, environment = 'staging') {
     const h = await peer(host),
       f = await peer(friend);
     console.log('Verified player login, shared lobby and private socket snapshots.');
+    // Cosmetic events use their own endpoint: no betting version/receipt changes.
+    const react = (token, body, origin) => request(new URL('/api/reactions', base), {
+      method: 'POST', headers: {Cookie: cookies.get(token), 'Content-Type': 'application/json', ...(origin && {Origin: origin})},
+      body: JSON.stringify(body)
+    });
+    const reactionInput = {code, requestId: crypto.randomUUID(), reaction: 'chappal', targetSeat: 2};
+    assert.equal((await react(host, reactionInput, 'https://other.test')).status, 403);
+    if (environment === 'staging') {
+      assert.equal((await request(new URL('/api/reactions', base), {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(reactionInput)})).status, 401);
+      assert.equal((await react(observer, reactionInput)).status, 403);
+      assert.equal((await react(host, {...reactionInput, targetSeat: 6})).status, 400);
+      const response = await react(host, reactionInput);
+      assert.equal(response.status, 200);
+      const {event} = await response.json();
+      const hostEvent = await waitFor(() => h.messages.find(m => m.type === 'reaction'));
+      const friendEvent = await waitFor(() => f.messages.find(m => m.type === 'reaction'));
+      assert.deepEqual(hostEvent.event, event);
+      assert.deepEqual(friendEvent.event, event);
+      assert.equal(event.from.name, 'Integration Host');
+      assert.equal(event.to.name, 'Integration Friend');
+      assert.equal(event.to.seat, 2);
+      assert.ok(!JSON.stringify(event).includes(host) && !JSON.stringify(event).includes(friend));
+      assert.equal((await api(host, null, code)).version, room.version);
+      assert.equal((await react(host, {...reactionInput, requestId: crypto.randomUUID()})).status, 429);
+      assert.equal((await react(friend, {...reactionInput, requestId: crypto.randomUUID(), targetSeat: 6})).status, 429);
+      assert.equal((await react(host, reactionInput)).status, 200);
+      const reconnected = await peer(friend);
+      await sleep(100);
+      assert.equal(h.messages.filter(m => m.type === 'reaction').length, 1);
+      assert.equal(unseated.messages.filter(m => m.type === 'reaction').length, 0);
+      assert.equal(reconnected.messages.filter(m => m.type === 'reaction').length, 0);
+      console.log('Verified one targeted reaction on both clients, deduplication, cooldown, spectator exclusion and no replay.');
+    } else assert.equal((await react(host, reactionInput)).status, 404);
+
     const reload = commandEnvelope({
       type: 'rebuy',
       code,

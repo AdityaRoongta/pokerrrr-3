@@ -8,6 +8,9 @@ import { seatPosition } from '../lib/table-presentation.mjs';
 import { RunoutVote, RunoutAnnouncement } from './runout-vote';
 import { TableMotion } from './table-motion';
 import { TableAwards } from './table-awards';
+import { TableReactions } from './table-reactions';
+import { useReactions } from '../lib/client/use-reactions';
+import { reactionsEnabled } from '../lib/reactions.mjs';
 import { newRoom, command, startHand, act, legal, view, resolveAlias, tick, shortcutRaiseTo } from '../lib/client/practice.mjs';
 import { PokerClient, type Connection } from '../lib/client/poker-client';
 import { GameHistory } from './game-history';
@@ -58,6 +61,7 @@ function Card({
   </div>;
 }
 const isStaging = process.env.NEXT_PUBLIC_APP_ENV === 'staging';
+const enableReactions = reactionsEnabled(process.env.NEXT_PUBLIC_APP_ENV);
 export default function Home() {
   const [room, setRoom] = useState<Room>(null),
     [name, setName] = useState(''),
@@ -102,6 +106,7 @@ export default function Home() {
     current = useRef<Room>(null),
     pending = useRef(false),
     offset = useRef(0);
+  const reactions = useReactions(current, demo, enableReactions);
   // HTTP replies and socket pushes can race. Never replace a newer snapshot.
   function update(r: Room) {
     if (current.current?.code === r.code && current.current.version > r.version) return;
@@ -227,7 +232,9 @@ export default function Home() {
       setLobby(state.lobby);
       const r = state.room;
       if (r && !demo.current && (current.current && current.current.code === r.code || !current.current && autoResume.current && state.lobby.activeGame?.joined && state.lobby.activeGame?.code === r.code)) update(r);
-    }, setConnection, expired);
+    }, setConnection, expired, (event, serverTime) => {
+      if (!demo.current) reactions.receive(event, serverTime);
+    });
   }, [player?.id, authEpoch]);
   useEffect(() => {
     const id = setInterval(() => {
@@ -636,12 +643,25 @@ export default function Home() {
                       {p.name.slice(0, 2).toUpperCase()}
                     </div>}
                   </div>
-                  <div className="seat-info" role={p.id === room.me && room.phase !== 'closed' ? 'button' : undefined} tabIndex={p.id === room.me && room.phase !== 'closed' ? 0 : undefined} aria-label={p.id === room.me && room.phase !== 'closed' ? `${p.name}, ${stackLabel(p)}, reload chips` : undefined} onClick={p.id === room.me ? openReload : undefined} onKeyDown={p.id === room.me ? e => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      openReload();
-                    }
-                  } : undefined}>
+                  <div className="seat-info"
+                    data-reaction-target={enableReactions && p.id !== room.me && seated && room.phase !== 'closed' ? s : undefined}
+                    role={room.phase !== 'closed' && (p.id === room.me || enableReactions && seated) ? 'button' : undefined}
+                    tabIndex={room.phase !== 'closed' && (p.id === room.me || enableReactions && seated) ? 0 : undefined}
+                    aria-label={room.phase !== 'closed' ? p.id === room.me ? `${p.name}, ${stackLabel(p)}, reload chips` : enableReactions && seated ? `Send reaction to ${p.name}` : undefined : undefined}
+                    aria-expanded={enableReactions && p.id !== room.me && seated ? reactions.target === s : undefined}
+                    onClick={() => {
+                      if (room.phase === 'closed') return;
+                      if (p.id === room.me) openReload();
+                      else if (enableReactions && seated) reactions.setTarget(reactions.target === s ? null : s);
+                    }}
+                    onKeyDown={e => {
+                      if ((e.key === 'Enter' || e.key === ' ') && room.phase !== 'closed') {
+                        e.preventDefault();
+                        if (p.id === room.me) openReload();
+                        else if (enableReactions && seated) reactions.setTarget(reactions.target === s ? null : s);
+                      }
+                    }}>
+
                     {live && !effects.dealing && p.id === room.turn && room.deadline && <svg className={`seat-timer ${seconds <= 5 ? 'urgent' : ''}`} viewBox="0 0 100 100" preserveAspectRatio="none" role="timer" aria-label={`${p.name}: ${seconds} seconds remaining`}>
                       <rect x="2" y="2" width="96" height="96" rx="10" pathLength="100" strokeDasharray={`${turnFraction * 100} 100`} />
                     </svg>}
@@ -666,6 +686,7 @@ export default function Home() {
             })}
 
             <TableMotion room={room} mySeat={me?.seat || 0} effects={effects} />
+            {enableReactions && <TableReactions room={room} mySeat={me?.seat || 0} reactions={reactions} audio={audio.current} />}
 
             <RunoutVote room={room} now={clock + offset.current} busy={busy} send={send} />
             <RunoutAnnouncement room={room} effects={effects} />

@@ -968,3 +968,30 @@ test('action time is configurable per game and controls the first deadline', asy
   }
   for (const timer of [0, 9, 31, 15.5]) assert.throws(() => room(2, { timer }), /Action time/);
 });
+
+test('folded contribution differences never manufacture side pots', () => {
+  const r = room(3);
+  r.handEvents = [];
+  r.phase = 'river';
+  r.game = 'NLH';
+  r.board = cs('2c 3d 7h 9s Jc');
+  r.players.forEach((p, i) => {
+    p.inHand = true;
+    p.folded = i === 2;
+    p.total = [100, 100, 50][i];
+    p.stack = 100;
+    p.buyins = 200;
+    p.cards = cs(['Ac Ad', 'Kc Kd', 'Qc Qd'][i]);
+  });
+  finish(r);
+  assert.deepEqual([...new Set(r.result.flatMap(p => p.pots.map(pot => pot.label)))], ['Main pot']);
+  assert.equal(r.result.reduce((sum, p) => sum + p.wonAmount, 0), 250);
+});
+test('queued Check never turns into a Call', async () => {
+  const { resolvePreaction } = await import('../lib/client/preaction.mjs');
+  assert.equal(resolvePreaction('check', 0), 'check');
+  assert.equal(resolvePreaction('check', 50), null);
+  assert.equal(resolvePreaction('check-fold', 50), 'fold');
+  assert.equal(resolvePreaction('check-fold', 0), 'check');
+  assert.equal(resolvePreaction('fold', 50), 'fold');
+});

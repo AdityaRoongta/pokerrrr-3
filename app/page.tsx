@@ -541,6 +541,8 @@ export default function Home() {
   const readyPlayers = visiblePlayers.filter((p: any) => p.stack > 0 && !p.away).length;
   const turnFraction = Math.max(0, Math.min(1, (room?.deadline - clock - offset.current) / ((room?.settings.timer || 15) * 1000)));
   const nextHandFraction = Math.max(0, Math.min(1, (room?.nextDealAt - clock - offset.current) / 3000));
+  const waitingCall = Math.min(me?.stack || 0, Math.max(0, Math.max(0, ...(room?.players || []).filter((p: any) => p.inHand && !p.folded).map((p: any) => p.bet || 0)) - (me?.bet || 0)));
+  const displayedCall = myTurn ? (l?.call || 0) : waitingCall;
   const canQueueAction = Boolean(!myTurn && me?.inHand && !me.folded && !me.away && me.stack > 0);
   const clampRaise = (v: number) => Math.min(raiseMax, Math.max(raiseMin, Math.round(v || raiseMin)));
   return <div className={`app ${room ? 'in-game' : ''}`} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
@@ -782,8 +784,8 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="action-buttons">
-                    <button className="fold" disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === (l?.call ? 'fold' : 'check-fold')} onClick={() => myTurn ? send('fold') : selectPreaction(l?.call ? 'fold' : 'check-fold')}>{!myTurn && !l?.call ? 'Check / Fold' : 'Fold'}</button>
-                    <button className="secondary check-call" disabled={controlsBusy || effects.presentationBusy || (!myTurn && (!canQueueAction || Boolean(l?.call)))} aria-pressed={!myTurn && preaction === 'check'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check')}>{l?.call ? `Call ${fmt(l.call)}` : 'Check'}</button>
+                    <button className="fold" disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === (displayedCall ? 'fold' : 'check-fold')} onClick={() => myTurn ? send('fold') : selectPreaction(displayedCall ? 'fold' : 'check-fold')}>{!myTurn && !displayedCall ? 'Check / Fold' : 'Fold'}</button>
+                    <button className="secondary check-call" disabled={controlsBusy || effects.presentationBusy || (!myTurn && (!canQueueAction || Boolean(displayedCall)))} aria-pressed={!myTurn && preaction === 'check'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check')}>{displayedCall ? `Call ${fmt(displayedCall)}` : 'Check'}</button>
                     <button className="primary" disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || !raiseValid} onClick={() => send('raise', { amount: raise })}>
                       <span className="raise-button-label">Raise</span>
                       <span className="raise-button-amount">{myTurn && l?.canRaise ? fmt(raise) : '—'}</span>

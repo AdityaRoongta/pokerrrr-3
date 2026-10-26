@@ -1,10 +1,10 @@
 import { resetStagingHistory } from '../lib/staging-history.mjs';
 import { historyViewerKey } from '../lib/game-history.mjs';
 import { DurableObject } from 'cloudflare:workers';
-import { TableService, TableError } from './table-service.mjs';
+import { TableService, TableError, nextDeadline } from './table-service.mjs';
 import { PlayerAuth, sessionCookie } from './player-auth.mjs';
 import { PROTOCOL_VERSION } from '../lib/protocol/poker.mjs';
-import { ReactionService } from './reaction-service.mjs';
+import { SocialService } from './social-service.mjs';
 import { reactionsEnabled } from '../lib/reactions.mjs';
 type Peer = {
   playerId: string;
@@ -21,7 +21,7 @@ const json = (data: unknown, status = 200, headers = {}) => Response.json(data, 
 export class ClubTable extends DurableObject<Cloudflare.Env> {
   private service: TableService;
   private auth: PlayerAuth;
-  private reactions: ReactionService;
+  private social: SocialService;
   private queue: Promise<unknown> = Promise.resolve();
   private rates = new Map<string, {
     count: number;
@@ -30,7 +30,7 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
     super(ctx, env);
     this.service = new TableService(ctx.storage);
-    this.reactions = new ReactionService(ctx.storage);
+    this.social = new SocialService(ctx.storage);
     this.auth = new PlayerAuth(ctx.storage.sql, work => ctx.storage.transactionSync(work));
     if (env.APP_ENV === 'staging') {
       ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS history_examples (id TEXT PRIMARY KEY, record TEXT NOT NULL)');
@@ -114,13 +114,19 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
           code: 'LOGIN_REQUIRED'
         }, 401);
         const token = player.id;
-        if (url.pathname === '/api/reactions') {
-          if (!reactionsEnabled(this.env.APP_ENV)) return json({ error: 'Reactions are not enabled' }, 404);
+        if (['/api/reactions', '/api/chat'].includes(url.pathname)) {
+          if (!reactionsEnabled(this.env.APP_ENV)) return json({ error: 'Social features are not enabled' }, 404);
+          if (url.pathname === '/api/chat' && request.method === 'GET') {
+            this.limit(`chat-read:${token}`, 120);
+            return json(await this.social.history(url.searchParams.get('code') || '', url.searchParams.get('before')));
+          }
           if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-          this.limit(`reaction:${token}`, 30);
-          const result = await this.reactions.send(token, await this.body(request));
-          if (!result.replayed) await this.broadcastReaction(result.event);
-          return json({ event: result.event, serverTime: Date.now() });
+          this.limit(`social:${token}`, 90);
+          const advanced = await this.service.advance();
+          if (advanced) await this.broadcast(advanced);
+          const result = await this.social.send(player, await this.body(request), url.pathname === '/api/chat' ? 'message' : 'reaction');
+          if (!result.replayed) await this.broadcastSocial(result.entry);
+          return json({ ...result, serverTime: Date.now() });
         }
         if (['/api/history', '/api/settlement'].includes(url.pathname) && request.method === 'GET') {
           this.limit(`history:${token}`, 60);
@@ -226,6 +232,7 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
         if (advanced) await this.broadcast(advanced);
         if (request.method === 'GET') return json(await this.service.snapshot(token, url.searchParams.get('code') || ''));
         const input = await this.body(request);
+        if (['stand_up', 'cancel_stand_up', 'set_away'].includes(input.type) && !reactionsEnabled(this.env.APP_ENV)) throw new TableError('This control is only available in staging', 403);
         if (['create', 'join'].includes(input.type)) input.name = player.name;
         const result = await this.service.execute(token, input);
         await this.broadcast(result.snapshot.code);
@@ -247,6 +254,9 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
         return json({
           error: 'Table unavailable. Reconnect and try again.'
         }, 503);
+      } finally {
+        // Optional effects cannot turn a successful poker command into an error.
+        try { await this.maintainSocial(); } catch (error) { console.error('Social maintenance failed', error); }
       }
     });
   }
@@ -330,11 +340,29 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
     for (const socket of this.ctx.getWebSockets()) {
       try {
         const peer = socket.deserializeAttachment() as Peer;
-        if (!room?.players.some(p => p.id === peer?.playerId && !p.left)) continue;
+        if (!room || !peer) continue;
         if (!(await this.authorized(peer))) continue;
         socket.send(JSON.stringify({ protocol: PROTOCOL_VERSION, type: 'reaction', event, serverTime: Date.now() }));
       } catch { /* A disconnected spectator must not fail an accepted reaction. */ }
     }
+  }
+  private async broadcastSocial(entry: Record<string, unknown>) {
+    for (const socket of this.ctx.getWebSockets()) {
+      try {
+        const peer = socket.deserializeAttachment() as Peer;
+        if (peer && await this.authorized(peer)) socket.send(JSON.stringify({ protocol: PROTOCOL_VERSION, type: 'social', entry }));
+      } catch { /* Delivery is best effort; reconnect restores durable history. */ }
+    }
+  }
+  private async maintainSocial() {
+    if (!reactionsEnabled(this.env.APP_ENV)) return;
+    const code = await this.ctx.storage.get<string>('active');
+    if (!code) return;
+    for (const event of await this.social.drain(code)) await this.broadcastReaction(event);
+    const room = await this.ctx.storage.get<any>(`room:${code}`);
+    const deadlines = [nextDeadline(room), await this.social.deadline(code)].filter((t): t is number => t !== null);
+    if (deadlines.length) await this.ctx.storage.setAlarm(Math.max(Date.now() + 1, Math.min(...deadlines)));
+    else await this.ctx.storage.deleteAlarm();
   }
   private authorized(peer: Peer) {
     return this.auth.session(new Request('https://dunzo.invalid', {
@@ -357,6 +385,12 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
     return this.serial(async () => {
       const code = await this.service.advance();
       if (code) await this.broadcast(code);
+      try { await this.maintainSocial(); } catch (error) {
+        console.error('Social alarm failed', error);
+        // Retry independently; betting state has already committed.
+        const existing = await this.ctx.storage.getAlarm();
+        await this.ctx.storage.setAlarm(Math.min(existing || Infinity, Date.now() + 1000));
+      }
     });
   }
 }

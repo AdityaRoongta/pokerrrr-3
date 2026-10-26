@@ -60,7 +60,7 @@ function ReactionAnimation({ event, room, mySeat, audio }: {
     if (renderer && Date.now() < event.startedAt + definition.impactAt) audio?.play(renderer.sound, event.startedAt - Date.now());
   }, [event.id, event.startedAt, definition.impactAt, renderer, audio]);
   if (!renderer || !definition) return null;
-  const from = seatPosition(event.from.seat, mySeat, room.settings.seats);
+  const from = event.from.seat === null ? { x: 50, y: 90 } : seatPosition(event.from.seat, mySeat, room.settings.seats);
   const to = seatPosition(event.to.seat, mySeat, room.settings.seats);
   const { Animation } = renderer;
   return <div ref={overlay} className={`reaction-overlay reaction-${event.reaction}`} style={{
@@ -72,7 +72,6 @@ function ReactionAnimation({ event, room, mySeat, audio }: {
     '--reaction-delay': `${delay}ms`, '--reaction-duration': `${definition.duration}ms`
   } as CSSProperties} aria-hidden="true">
     <Animation />
-    <div className="reaction-caption">{event.from.name} <span>→</span> {event.to.name} · {definition.label}</div>
   </div>;
 }
 
@@ -101,12 +100,12 @@ export function TableReactions({ room, mySeat, reactions, audio }: {
         const renderer = renderers[definition.id];
         if (!renderer) return null;
         return <button type="button" key={definition.id} disabled={reactions.sending} onClick={() => void reactions.send(definition.id)} aria-label={`Send ${definition.label} to ${target.name}`}>
-          <renderer.Icon /><span>{reactions.sending ? 'Sending…' : definition.label}</span>
+          <renderer.Icon />{reactions.sending && <span>Sending…</span>}
         </button>;
       })}</div>
       {reactions.error && <p role="status">{reactions.error}</p>}
     </div>}
-    {reactions.event?.code === room.code && <ReactionAnimation key={reactions.event.id} event={reactions.event} room={room} mySeat={mySeat} audio={audio} />}
-    <span className="reaction-announcement" role="status" aria-live="polite">{reactions.event ? `${reactions.event.from.name} sent ${reactions.event.to.name} a ${reactions.event.reaction}` : ''}</span>
+    {reactions.events.filter(event => event.code === room.code && room.phase !== 'closed' && room.players.some(p => !p.left && p.seat === event.to.seat && p.name === event.to.name)).map(event => <ReactionAnimation key={event.id} event={event} room={room} mySeat={mySeat} audio={audio} />)}
+    <span className="reaction-announcement" role="status" aria-live="polite">{reactions.queued ? 'Reaction sent. Effects wait during all-in runouts and expire after five seconds.' : ''}</span>
   </>;
 }

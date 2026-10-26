@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Download, History, Layers3, MoreHorizontal, Plus, X, Volume2, VolumeX, Trophy, Pause, Play, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { ArrowUpRight, Smartphone, Download, History, Layers3, MoreHorizontal, Plus, X, Volume2, VolumeX, Trophy, Pause, Play, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { PokerAudio } from '../lib/poker-audio';
 import { useTableEffects } from '../lib/use-table-effects';
 import { seatPosition } from '../lib/table-presentation.mjs';
 import { RunoutVote, RunoutAnnouncement } from './runout-vote';
 import { TableMotion } from './table-motion';
 import { TableAwards } from './table-awards';
+import { ChatButton, ChatDrawer, SpeechBubbles } from './table-chat';
+import { useSocial } from '../lib/client/use-social';
 import { TableReactions } from './table-reactions';
 import { useReactions } from '../lib/client/use-reactions';
 import { reactionsEnabled } from '../lib/reactions.mjs';
@@ -80,6 +82,7 @@ export default function Home() {
     [clock, setClock] = useState(Date.now()),
     [confirm, setConfirm] = useState(''),
     [sound, setSound] = useState(true),
+    [socialSound, setSocialSound] = useState(true),
     [preaction, setPreaction] = useState<'fold' | 'check-fold' | 'check' | null>(null),
     [selectedWinner, setSelectedWinner] = useState(''),
     [selectedShortcut, setSelectedShortcut] = useState(''),
@@ -89,6 +92,8 @@ export default function Home() {
   const lastTurnAlert = useRef('');
   const audio = useRef<PokerAudio | null>(null);
   if (!audio.current) audio.current = new PokerAudio();
+  const socialAudio = useRef<PokerAudio | null>(null);
+  if (!socialAudio.current) socialAudio.current = new PokerAudio();
   const effects = useTableEffects(room, audio.current),
     animationBusy = useRef(false);
   animationBusy.current = effects.presentationBusy;
@@ -110,6 +115,7 @@ export default function Home() {
     current = useRef<Room>(null),
     pending = useRef(false),
     offset = useRef(0);
+  const social = useSocial(room, Boolean(demo.current), connection, enableReactions);
   const reactions = useReactions(current, demo, enableReactions);
   // HTTP replies and socket pushes can race. Never replace a newer snapshot.
   function update(r: Room) {
@@ -213,6 +219,12 @@ export default function Home() {
     return input ? transport.current.send(input, current.current || undefined) : transport.current.snapshot(roomCode || current.current?.code || '');
   }
   useEffect(() => {
+    const reactionSound = localStorage.getItem('hg-social-sound') !== 'off';
+    setSocialSound(reactionSound);
+    socialAudio.current?.setEnabled(reactionSound);
+    const unlockSocial = () => socialAudio.current?.unlock();
+    document.addEventListener('pointerdown', unlockSocial);
+    document.addEventListener('keydown', unlockSocial);
     const enabled = localStorage.getItem('hg-sound') !== 'off';
     setSound(enabled);
     audio.current?.setEnabled(enabled);
@@ -227,6 +239,8 @@ export default function Home() {
     const timer = setInterval(() => setClock(Date.now()), 500);
     return () => {
       clearInterval(timer);
+      document.removeEventListener('pointerdown', unlockSocial);
+      document.removeEventListener('keydown', unlockSocial);
       window.removeEventListener('beforeinstallprompt', installer);
     };
   }, []);
@@ -238,7 +252,7 @@ export default function Home() {
       if (r && !demo.current && (current.current && current.current.code === r.code || !current.current && autoResume.current && state.lobby.activeGame?.joined && state.lobby.activeGame?.code === r.code)) update(r);
     }, setConnection, expired, (event, serverTime) => {
       if (!demo.current) reactions.receive(event, serverTime);
-    });
+    }, entry => { if (!demo.current) social.receive(entry); });
   }, [player?.id, authEpoch]);
   useEffect(() => {
     const id = setInterval(() => {
@@ -371,6 +385,11 @@ export default function Home() {
       });
       autoResume.current = true;
       update(r);
+      const returning = r.players.find((p: any) => p.id === r.me && !p.left);
+      if (enableReactions && returning?.away && !returning.pendingSeatAction && r.phase !== 'closed') {
+        const back = await api({ type: 'set_away', code: r.code, away: false });
+        update(back);
+      }
     } catch (e: any) {
       setError(e.message);
       try {
@@ -446,7 +465,13 @@ export default function Home() {
       setBusy(false);
     }
   }
-  function exit() {
+  async function exit() {
+    const r = current.current;
+    const leaving = r?.players.find((p: any) => p.id === r.me && !p.left);
+    if (enableReactions && leaving && !leaving.away && !leaving.pendingSeatAction && r.phase !== 'closed') {
+      if (!await send('set_away', { away: true })) return;
+    }
+    social.setOpen(false);
     demo.current = null;
     current.current = null;
     setRoom(null);
@@ -567,6 +592,7 @@ export default function Home() {
             <i />
             {demo.current ? 'Practice table' : connection === 'connected' ? 'Live table' : connection === 'offline' ? 'Offline' : 'Reconnecting…'}
           </span>
+          {enableReactions && <ChatButton social={social} />}
           <button className="icon-button" onClick={() => setPanel('menu')} aria-label="Table menu">
             <MoreHorizontal size={22} />
           </button>
@@ -660,7 +686,9 @@ export default function Home() {
               }}>
                 {p ? <>
                   {win && <div className="winner-badge"><Trophy size={10} /> +{fmt(win.wonAmount ?? win.amount)}</div>}
-                  {p.id !== room.me && <div className="seat-top">
+                  {p.id !== room.me && <div className="seat-top" data-reaction-target={enableReactions && room.phase !== 'closed' ? s : undefined} onClick={() => {
+                    if (enableReactions && room.phase !== 'closed') reactions.setTarget(reactions.target === s ? null : s);
+                  }}>
                     {p.inHand && p.cards?.length ? <div className="hole-cards">
                       {p.cards.slice(0, visibleCount).map((c: number, i: number) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
                         <Card value={c} small highlight={Boolean(seatHand?.holeCards?.includes(c))} dim={Boolean(seatHand?.holeCards?.length && !seatHand.holeCards.includes(c))} />
@@ -676,21 +704,21 @@ export default function Home() {
                     </div>}
                   </div>}
                   <div className="seat-info"
-                    data-reaction-target={enableReactions && p.id !== room.me && seated && room.phase !== 'closed' ? s : undefined}
-                    role={room.phase !== 'closed' && (p.id === room.me || enableReactions && seated) ? 'button' : undefined}
-                    tabIndex={room.phase !== 'closed' && (p.id === room.me || enableReactions && seated) ? 0 : undefined}
-                    aria-label={room.phase !== 'closed' ? p.id === room.me ? `${p.name}, ${stackLabel(p)}, reload chips` : enableReactions && seated ? `Send reaction to ${p.name}` : undefined : undefined}
-                    aria-expanded={enableReactions && p.id !== room.me && seated ? reactions.target === s : undefined}
+                    data-reaction-target={enableReactions && p.id !== room.me && room.phase !== 'closed' ? s : undefined}
+                    role={room.phase !== 'closed' && (p.id === room.me || enableReactions) ? 'button' : undefined}
+                    tabIndex={room.phase !== 'closed' && (p.id === room.me || enableReactions) ? 0 : undefined}
+                    aria-label={room.phase !== 'closed' ? p.id === room.me ? `${p.name}, ${stackLabel(p)}, reload chips` : enableReactions ? `Send reaction to ${p.name}` : undefined : undefined}
+                    aria-expanded={enableReactions && p.id !== room.me ? reactions.target === s : undefined}
                     onClick={() => {
                       if (room.phase === 'closed') return;
                       if (p.id === room.me) openReload();
-                      else if (enableReactions && seated) reactions.setTarget(reactions.target === s ? null : s);
+                      else if (enableReactions) reactions.setTarget(reactions.target === s ? null : s);
                     }}
                     onKeyDown={e => {
                       if ((e.key === 'Enter' || e.key === ' ') && room.phase !== 'closed') {
                         e.preventDefault();
                         if (p.id === room.me) openReload();
-                        else if (enableReactions && seated) reactions.setTarget(reactions.target === s ? null : s);
+                        else if (enableReactions) reactions.setTarget(reactions.target === s ? null : s);
                       }
                     }}>
 
@@ -718,8 +746,14 @@ export default function Home() {
             })}
 
             <TableMotion room={room} mySeat={me?.seat || 0} effects={effects} />
-            {enableReactions && <TableReactions room={room} mySeat={me?.seat || 0} reactions={reactions} audio={audio.current} />}
+            {enableReactions && <TableReactions room={room} mySeat={me?.seat || 0} reactions={{ ...reactions, send: async reaction => {
+              const target = room.players.find((p: any) => !p.left && p.seat === reactions.target);
+              const sent = await reactions.send(reaction);
+              if (sent && demo.current && target) social.practiceEntry({ kind: 'reaction', reaction, to: { name: target.name, seat: target.seat } });
+              return sent;
+            } }} audio={socialAudio.current} />}
 
+            {enableReactions && <SpeechBubbles room={room} social={social} />}
             <RunoutVote room={room} now={clock + offset.current} busy={busy} send={send} />
             <RunoutAnnouncement room={room} effects={effects} />
 
@@ -748,6 +782,7 @@ export default function Home() {
                 }} />
               </div>)}
             </section>}
+            {me?.pendingSeatAction === 'leave' && <p className="game-status" role="status">Standing up after this hand and payouts. <button className="text-button" disabled={controlsBusy || room.terminationPending} onClick={() => send('cancel_stand_up')}>Cancel</button></p>}
             {room.terminationPending && <p className="game-status" role="status">Game will terminate after this hand.</p>}
             {!seated && room.phase !== 'closed' ? <>
               <p className="game-status">
@@ -917,6 +952,16 @@ export default function Home() {
                 {me.pendingSeatAction === 'sit_out' ? 'Cancel Sit Out' : me.away ? 'Sit In' : 'Sit Out'}
               </button>
             </>}
+            {enableReactions && seated && room.phase !== 'closed' && <button disabled={controlsBusy || room.terminationPending} onClick={() => {
+              if (me.pendingSeatAction === 'leave') void send('cancel_stand_up');
+              else setConfirm('stand_up');
+            }}>{me.pendingSeatAction === 'leave' ? 'Cancel Stand Up' : 'Stand Up'}</button>}
+            {enableReactions && <button onClick={() => { setPanel(''); social.setOpen(true); }}>Game Chat</button>}
+            {enableReactions && <button onClick={() => {
+              const enabled = !socialSound; setSocialSound(enabled); socialAudio.current?.setEnabled(enabled);
+              localStorage.setItem('hg-social-sound', enabled ? 'on' : 'off');
+              if (enabled) socialAudio.current?.unlock();
+            }}>{socialSound ? 'Mute Reaction Sounds' : 'Enable Reaction Sounds'}</button>}
             <button onClick={() => setPanel('ledger')}>Current Game Rankings</button>
             <button onClick={() => setPanel('history')}>Game History</button>
             <button onClick={() => setPanel('info')}>Game Info</button>
@@ -928,14 +973,14 @@ export default function Home() {
           </div>
           {confirm && <div className="confirm">
             <p>
-              {handActive ? 'Terminate the game after this hand?' : 'Terminate the game and cash out all chips?'}
+              {confirm === 'stand_up' ? (handActive || room.phase === 'showdown' && !effects.settled ? 'Stand up and cash out after this hand and payouts? Your seat stays reserved until then. Returning requires a new buy-in.' : 'Stand up, cash out your chips and release your seat? Returning requires a new buy-in.') : handActive ? 'Terminate the game after this hand?' : 'Terminate the game and cash out all chips?'}
             </p>
             <button className="primary" disabled={controlsBusy} onClick={async () => {
               if (await send(confirm)) {
                 setConfirm('');
                 setPanel('');
               }
-            }}>Confirm Terminate Game</button>
+            }}>{confirm === 'stand_up' ? 'Confirm Stand Up' : 'Confirm Terminate Game'}</button><button className="text-button" onClick={() => setConfirm('')}>Cancel</button>
           </div>}
           {error && <p className="error" role="alert">
             {error}
@@ -975,7 +1020,7 @@ export default function Home() {
                 {[...room.players].sort((a: any, b: any) => b.net - a.net).map((p: any) => <tr key={p.id} className={p.id === room.me ? 'your-ranking' : undefined}>
                   <td>
                     {p.name}
-                    {p.id === room.me && p.name !== 'You' ? ' · You' : ''}{p.left ? ' · left' : ''}
+                    {p.id === room.me && p.name !== 'You' ? ' · You' : ''}{p.left ? ' · standing' : ''}
                   </td>
                   <td>
                     {fmt(p.buyins)}
@@ -1043,5 +1088,6 @@ export default function Home() {
       </section>
     </div>}
 
+    {enableReactions && room && <ChatDrawer key={`${room.code}:${room.createdAt}`} room={room} social={social} myTurn={Boolean(myTurn && live)} />}
   </div>;
 }

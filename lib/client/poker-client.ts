@@ -89,7 +89,7 @@ export class PokerClient {
     lobby: any;
     room: Snapshot | null;
   }) => void, status: (state: Connection) => void, expired: () => void,
-    reaction?: (event: any, serverTime: number) => void) {
+    reaction?: (event: any, serverTime: number) => void, social?: (entry: any) => void) {
     let stopped = false,
       socket: WebSocket | undefined,
       retry: ReturnType<typeof setTimeout> | undefined;
@@ -125,6 +125,10 @@ export class PokerClient {
           }
           if (message.type === 'pong') {
             clearTimeout(watchdog);
+            return;
+          }
+          if (message.type === 'social') {
+            social?.(message.entry);
             return;
           }
           if (message.type === 'reaction') {

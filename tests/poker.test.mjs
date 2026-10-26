@@ -810,6 +810,8 @@ test('pending Sit Out can be canceled; Get Up supersedes it and cancels an unapp
     buyin: 1000
   }), /seat is taken/);
   auto(r, () => .9);
+  assert.equal(p.left, false, 'Seat is reserved through payout presentation');
+  tick(r, r.payoutFinishedAt);
   assert.equal(p.left, true);
   assert.equal(p.stack, 0);
   assert.equal(p.buyins, 1000);

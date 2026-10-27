@@ -28,7 +28,7 @@ const assert = require('node:assert/strict'), cp = require('child_process');
   }
   assert(ready, logs);
   const b = await chromium.launch({ headless: true, ...(process.env.POKER_BROWSER_EXECUTABLE ? { executablePath: process.env.POKER_BROWSER_EXECUTABLE } : {}), args: ['--no-sandbox'] });
-  for (const [width, height, game, runs] of [[320, 568, 'PLO5', 1], [390, 844, 'PLO5', 2], [430, 932, 'NLH', 1], [844, 390, 'PLO4', 1]]) {
+  for (const [width, height, game, runs] of (process.env.POKER_RECOVERY_ONLY ? [] : [[320, 568, 'PLO5', 1], [390, 844, 'PLO5', 2], [430, 932, 'NLH', 1], [844, 390, 'PLO4', 1]])) {
     const p = await b.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true });
     let errs = [];
     p.on('pageerror', e => errs.push(e.message));

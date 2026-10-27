@@ -51,7 +51,7 @@ module.exports = async function recoveryBrowser(browser, root) {
       });
     });
     await page.goto('http://127.0.0.1:8787');
-    await page.locator('.personal-hole-cards .card').first().waitFor();
+    try { await page.locator('.personal-hole-cards .card').first().waitFor(); } catch(error) { console.error({scenario,errors,text:await page.locator('body').innerText()}); await page.screenshot({path:'/tmp/dunzo-recovery-failure.png'}); throw error; }
     await page.waitForFunction(()=>{const b=document.querySelector('.check-call');return b&&!b.disabled;});
     fault=scenario;
     if(scenario==='socket_down'){

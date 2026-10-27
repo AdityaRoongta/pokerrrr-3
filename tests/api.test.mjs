@@ -166,6 +166,8 @@ export async function runApiSuite(base, restart, environment = 'staging') {
       }
     });
     peers.push(socket);
+    const heartbeat = setInterval(() => { if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({protocol:4,type:'ping'})); }, 5000);
+    socket.once('close', () => clearInterval(heartbeat));
     socket.on('message', value => messages.push(JSON.parse(value.toString())));
     await new Promise((resolve, reject) => {
       socket.once('open', resolve);
@@ -191,9 +193,37 @@ export async function runApiSuite(base, restart, environment = 'staging') {
     assert.equal(unseated.messages[0].room.code, code);
     assert.ok(unseated.messages[0].room.players.every(p => p.cards === undefined));
     assert.equal(unseated.messages[0].lobby.activeGame.code, code);
-    const h = await peer(host),
-      f = await peer(friend);
+    let h = await peer(host);
+    const f = await peer(friend);
     console.log('Verified player login, shared lobby and private socket snapshots.');
+    // A closed socket changes presence, never seating or the chip ledger.
+    const beforeDisconnect = await api(friend, null, code);
+    assert.equal(beforeDisconnect.players.find(p => p.name === 'Integration Host').disconnected, false);
+    const startPresence = f.messages.length;
+    h.socket.terminate();
+    await waitFor(() => f.messages.slice(startPresence).find(m => m.room?.players.find(p => p.name === 'Integration Host')?.disconnected));
+    h = await peer(host);
+    const restored = h.messages.find(m => m.type === 'state').room;
+    assert.equal(restored.players.find(p => p.id === host).disconnected, false);
+    assert.equal(restored.players.find(p => p.id === host).away, false);
+    assert.equal(restored.players.find(p => p.id === host).stack, 1000);
+    // Simulate an accepted HTTP action whose reply was lost, then a socket retry.
+    const once = commandEnvelope({type:'set_away', code, away:true}, restored);
+    const acceptedPresenceAction = await api(host, once);
+    h.socket.send(JSON.stringify({protocol:4,type:'command',input:once}));
+    const replay = await waitFor(() => h.messages.find(m => m.type === 'command_result' && m.commandId === once.commandId));
+    assert.equal(replay.snapshot.version, acceptedPresenceAction.version);
+    assert.equal(replay.snapshot.ack.commandId, once.commandId);
+    assert.equal(replay.snapshot.players.find(p => p.id === host).away, true);
+    assert.ok(replay.snapshot.players.every(p => p.id === host || !testPlayers.some(t => t.id === p.id)));
+    room = await api(host, commandEnvelope({type:'set_away',code,away:false},replay.snapshot));
+    const stale = commandEnvelope({type:'set_away',code,away:true},restored);
+    h.socket.send(JSON.stringify({protocol:4,type:'command',input:stale}));
+    const rejection = await waitFor(() => h.messages.find(m => m.type === 'command_result' && m.commandId === stale.commandId));
+    assert.equal(rejection.status,409);
+    assert.equal((await api(host,null,code)).version,room.version);
+    console.log('Verified disconnected/reconnected seats, preserved stack/eligibility and cross-transport command deduplication/stale rejection.');
+
     // Cosmetic events use their own endpoint: no betting version/receipt changes.
     const react = (token, body, origin) => request(new URL('/api/reactions', base), {
       method: 'POST', headers: {Cookie: cookies.get(token), 'Content-Type': 'application/json', ...(origin && {Origin: origin})},
@@ -253,7 +283,8 @@ export async function runApiSuite(base, restart, environment = 'staging') {
       await restart();
       const restored = await api(host, null, code);
       assert.equal(restored.version, room.version);
-      assert.deepEqual(restored.players, room.players);
+      assert.deepEqual(restored.players.map(({disconnected,...p}) => p), room.players.map(({disconnected,...p}) => p));
+      assert.ok(restored.players.every(p => p.disconnected), 'Closed sockets must not survive a restart as connected seats');
       if (['staging', 'production'].includes(environment)) {
         const chat = await (await request(new URL(`/api/chat?code=${code}`, base), {headers: {Cookie: cookies.get(host)}})).json();
         assert.equal(chat.entries.filter(e => e.kind === 'message').length, 1);

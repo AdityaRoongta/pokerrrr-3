@@ -148,7 +148,7 @@ export default function Home() {
         token.current = session.player.id;
         setName(session.player.name);
         transport.current = new PokerClient(session.player.id);
-        if (transport.current.hasPending()) setError('An earlier action is unconfirmed. Retry last action to check its saved result.');
+        if (transport.current.hasPending()) setNotice('Restoring your connection…');
         setLobby(await PokerClient.auth('lobby'));
       }
     } catch (e: any) {
@@ -252,7 +252,7 @@ export default function Home() {
       if (r && !demo.current && (current.current && current.current.code === r.code || !current.current && autoResume.current && state.lobby.activeGame?.joined && state.lobby.activeGame?.code === r.code)) update(r);
     }, setConnection, expired, (event, serverTime) => {
       if (!demo.current) reactions.receive(event, serverTime);
-    }, entry => { if (!demo.current) social.receive(entry); });
+    }, entry => { if (!demo.current) social.receive(entry); }, message => { setError(''); setNotice(message); });
   }, [player?.id, authEpoch]);
   useEffect(() => {
     const id = setInterval(() => {
@@ -744,8 +744,8 @@ export default function Home() {
                     </strong>
                     {p.seat === room.dealer && <b className="dealer-chip">D</b>}
                   </div>
-                  {p.away && <span className="seat-state">Sit out</span>}
-                  {p.inHand && !p.away && p.action === 'Check' && !effects.dealing && room.phase !== 'closed' && <span className="player-action">Check</span>}
+                  {p.disconnected && !demo.current ? <span className="seat-state disconnected" role="status">Disconnected</span> : p.away && <span className="seat-state">Sit out</span>}
+                  {p.inHand && !p.away && !p.disconnected && p.action === 'Check' && !effects.dealing && room.phase !== 'closed' && <span className="player-action">Check</span>}
                   {handActive && p.bet > 0 && p.action !== 'Check' && <div className="seat-bet">● {fmt(p.bet)}</div>}
                 </> : <button className="seat-choice" aria-label={`Choose seat ${s + 1}`} disabled={controlsBusy || seated || room.phase === 'closed' || room.terminationPending} onClick={() => chooseSeat(s)}>
                   <span className="empty-seat">

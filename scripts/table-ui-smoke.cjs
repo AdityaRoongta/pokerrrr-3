@@ -169,5 +169,6 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     await p.close();
     console.log(`PASS ${width}×${height} ${game}, ${runs} board(s)`);
   }
+  await require('./recovery-browser.cjs')(b, root);
   await b.close();
 })().catch(e => { console.error(e); process.exit(1); });

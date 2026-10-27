@@ -5,10 +5,12 @@ import { TableService, TableError, nextDeadline } from './table-service.mjs';
 import { PlayerAuth, sessionCookie } from './player-auth.mjs';
 import { PROTOCOL_VERSION } from '../lib/protocol/poker.mjs';
 import { SocialService } from './social-service.mjs';
+import { presenceView } from '../lib/presence.mjs';
 import { reactionsEnabled } from '../lib/reactions.mjs';
 type Peer = {
   playerId: string;
   cookie: string;
+  lastSeenAt?: number;
 };
 const json = (data: unknown, status = 200, headers = {}) => Response.json(data, {
   status,
@@ -114,6 +116,12 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
           code: 'LOGIN_REQUIRED'
         }, 401);
         const token = player.id;
+        if (request.headers.get('X-Poker-Presence') === 'poll') {
+          const leases = await this.ctx.storage.get<Record<string, number>>('presence:http') || {};
+          leases[token] = Date.now();
+          for (const id of Object.keys(leases)) if (leases[id] + 15000 <= Date.now()) delete leases[id];
+          await this.ctx.storage.put('presence:http', leases);
+        }
         if (['/api/reactions', '/api/chat'].includes(url.pathname)) {
           if (!reactionsEnabled(this.env.APP_ENV)) return json({ error: 'Social features are not enabled' }, 404);
           if (url.pathname === '/api/chat' && request.method === 'GET') {
@@ -215,9 +223,10 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
           this.ctx.acceptWebSocket(pair[1]);
           pair[1].serializeAttachment({
             playerId: token,
+            lastSeenAt: Date.now(),
             cookie: sessionCookie(this.auth.token(request), false).split(';')[0]
           });
-          await this.sendState(pair[1]);
+          await this.broadcast();
           return new Response(null, {
             status: 101,
             webSocket: pair[0]
@@ -230,14 +239,14 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
         // Catch overdue work before accepting any new player action.
         const advanced = await this.service.advance();
         if (advanced) await this.broadcast(advanced);
-        if (request.method === 'GET') return json(await this.service.snapshot(token, url.searchParams.get('code') || ''));
+        if (request.method === 'GET') return json(await this.snapshot(token, url.searchParams.get('code') || ''));
         const input = await this.body(request);
         if (['stand_up', 'cancel_stand_up', 'set_away'].includes(input.type) && !reactionsEnabled(this.env.APP_ENV)) throw new TableError('This control is not enabled', 403);
         if (['create', 'join'].includes(input.type)) input.name = player.name;
         const result = await this.service.execute(token, input);
         await this.broadcast(result.snapshot.code);
         return json({
-          ...result.snapshot,
+          ...await this.withPresence(result.snapshot),
           ack: result.ack
         });
       } catch (error) {
@@ -262,26 +271,58 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
   }
   webSocketMessage(socket: WebSocket, message: string | ArrayBuffer) {
     return this.serial(async () => {
+      let commandId: string | undefined;
       try {
-        if (typeof message !== 'string' || message.length > 1024) throw new Error('Invalid message');
+        if (typeof message !== 'string' || message.length > 4096) throw new TableError('Invalid message', 400);
         const input = JSON.parse(message);
-        if (input.protocol !== PROTOCOL_VERSION) throw new Error('Unsupported protocol');
+        if (input.protocol !== PROTOCOL_VERSION) throw new TableError('Unsupported protocol', 400);
         const peer = socket.deserializeAttachment() as Peer | null;
-        if (!peer || !(await this.authorized(peer))) throw new Error('Access expired');
-        this.limit(`message:${peer.playerId}`, 120);
-        if (input.type === 'ping') {
-          socket.send(JSON.stringify({
-            type: 'pong',
-            protocol: PROTOCOL_VERSION
-          }));
-          return;
-        }
-        if (input.type !== 'resync') throw new Error('Unknown message');
-        await this.sendState(socket);
-      } catch {
-        socket.close(1008, 'Connection not authorized');
+        if (!peer || !(await this.authorized(peer))) { socket.close(1008, 'Access expired'); return; }
+        const wasConnected = (await this.presence()).connected.has(peer.playerId);
+        socket.serializeAttachment({ ...peer, lastSeenAt: Date.now() });
+        this.limit(`message:${peer.playerId}`, 180);
+        if (input.type === 'command') {
+          commandId = input.input?.commandId;
+          this.limit(`player:${peer.playerId}`, 180);
+          const player = await this.authorized(peer);
+          if (!player) { socket.close(1008, 'Access expired'); return; }
+          const advanced = await this.service.advance();
+          if (advanced) await this.broadcast(advanced);
+          if (['create', 'join'].includes(input.input?.type)) input.input.name = player.name;
+          const result = await this.service.execute(peer.playerId, input.input);
+          socket.send(JSON.stringify({ protocol: PROTOCOL_VERSION, type: 'command_result', commandId,
+            snapshot: { ...await this.withPresence(result.snapshot), ack: result.ack } }));
+          await this.broadcast(result.snapshot.code);
+        } else if (input.type === 'ping') {
+          socket.send(JSON.stringify({ type: 'pong', protocol: PROTOCOL_VERSION }));
+          if (!wasConnected) await this.broadcast();
+        } else if (input.type === 'resync') await this.sendState(socket);
+        else throw new TableError('Unknown message', 400);
+      } catch (error) {
+        if (commandId) {
+          const status = error instanceof TableError ? error.status : error instanceof SyntaxError || (error as Error)?.name === 'ZodError' || error instanceof Error && !/SQL|storage|internal/i.test(error.message) ? 400 : 503;
+          socket.send(JSON.stringify({ protocol: PROTOCOL_VERSION, type: 'command_result', commandId, status,
+            error: status < 500 ? (error as Error).message : 'Table unavailable. Reconnecting…' }));
+        } else socket.close(1008, 'Please reconnect');
+      } finally {
+        try { await this.maintainSocial(); } catch (error) { console.error('Socket maintenance failed', error); }
       }
     });
+  }
+  private async presence() {
+    const peers = this.ctx.getWebSockets().filter(socket => socket.readyState === WebSocket.OPEN)
+      .map(socket => socket.deserializeAttachment() as Peer);
+    return presenceView(peers, await this.ctx.storage.get<Record<string, number>>('presence:http'));
+  }
+  private async withPresence(room: any) {
+    const { connected } = await this.presence();
+    const raw = await this.ctx.storage.get<any>(`room:${room.code}`);
+    const aliases = new Set(raw?.players.flatMap((player: any, index: number) => connected.has(player.id)
+      ? [player.id === room.me ? player.id : `seat-${player.seat}-${index}`] : []) || []);
+    return { ...room, players: room.players.map((player: any) => ({ ...player, disconnected: !aliases.has(player.id) })) };
+  }
+  private async snapshot(playerId: string, code: string) {
+    return this.withPresence(await this.service.snapshot(playerId, code));
   }
   private async lobby(playerId: string) {
     const code = await this.ctx.storage.get<string>('active');
@@ -313,7 +354,7 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
     let room = null;
     if (code) {
       const raw = await this.ctx.storage.get<any>(`room:${code}`);
-      if (raw) room = await this.service.snapshot(player.id, code);
+      if (raw) room = await this.snapshot(player.id, code);
     }
     socket.send(JSON.stringify({
       protocol: PROTOCOL_VERSION,
@@ -360,7 +401,8 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
     if (!code) return;
     for (const event of await this.social.drain(code)) await this.broadcastReaction(event);
     const room = await this.ctx.storage.get<any>(`room:${code}`);
-    const deadlines = [nextDeadline(room), await this.social.deadline(code)].filter((t): t is number => t !== null);
+    const presenceDeadline = (await this.presence()).deadline;
+    const deadlines = [nextDeadline(room), await this.social.deadline(code), Number.isFinite(presenceDeadline) ? presenceDeadline : null].filter((t): t is number => t !== null);
     if (deadlines.length) await this.ctx.storage.setAlarm(Math.max(Date.now() + 1, Math.min(...deadlines)));
     else await this.ctx.storage.deleteAlarm();
   }
@@ -372,17 +414,16 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
     }));
   }
   webSocketClose(socket: WebSocket, code: number) {
-    try {
-      socket.close(code);
-    } catch { }
+    try { socket.close(code); } catch { }
+    return this.serial(async () => { await this.broadcast(); await this.maintainSocial(); });
   }
-  webSocketError(socket: WebSocket) {
-    try {
-      socket.close(1011, 'Please reconnect');
-    } catch { }
-  }
+  webSocketError(socket: WebSocket) { return this.webSocketClose(socket, 1011); }
   alarm() {
     return this.serial(async () => {
+      for (const socket of this.ctx.getWebSockets()) {
+        const peer = socket.deserializeAttachment() as Peer;
+        if (!peer?.lastSeenAt || peer.lastSeenAt + 15000 <= Date.now()) { try { socket.close(4000, 'Heartbeat expired'); } catch { } }
+      }
       const code = await this.service.advance();
       if (code) await this.broadcast(code);
       try { await this.maintainSocial(); } catch (error) {

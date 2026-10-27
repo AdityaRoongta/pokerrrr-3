@@ -1,5 +1,7 @@
 # Dunzo Club
 
+Current release: **v2.1.0**. See the [changelog](CHANGELOG.md) and [release notes](docs/releases/v2.1.0.md).
+
 Private mixed poker for one group of 6–8 friends. One active session at a time;
 Choose NLH, PLO4 and/or PLO5, rotating through the selected games every 2–4 completed hands. Set an even big blind; the server calculates the small blind as half. Defaults: 25/50 blinds and
 2,500 starting chips, with player-selected starting stacks and automatic reloads.
@@ -145,3 +147,43 @@ not merged or changed. One chip equals one rupee; suggested payments display rup
 
 See [staging history reset](docs/HISTORY_TEST_DATA.md) for the console-triggered
 one-time reset and four sample games using the current roster.
+
+## Table UI
+
+The six-row table menu contains Sit Out/Sit In, Stand Up, Hand History, Game Info,
+Terminate Game and Return to Lobby. Seat actions are hidden for spectators.
+Any signed-in viewer can terminate; Stand Up and termination use a separate
+confirmation dialog and preserve the engine's current-hand/payout completion rules.
+Tap your own stack's + to load chips. Rankings and pause/resume after showdown
+remain directly on the table. The top speaker button controls all game and reaction
+audio using one saved preference.
+
+The compose button is at the bottom-right above the betting controls. It opens
+a single-line input above the keyboard, retaining cards and betting controls.
+While composing, a dedicated typing view shows a slim game/turn header, the complete community board and pot, your cards, action buttons and the composer. The player-seat arrangement, branding, Rankings and raise shortcuts are hidden until composing ends. Live messages
+appear in player bubbles; tap a bubble or expand the composer to read game history.
+Send closes the composer and keyboard immediately; failed sends retain the draft for retry. Unsent drafts survive closing and reopening chat within the same game. Full history is
+a separate reading dialog with a Back to game control and an alert on your turn.
+A rotating light cone points from the felt centre to the acting player. Opponents’ concealed cards peek above their nameplates and reveal fully at showdown. Results appear below each community board, with a combined award when one player wins every pot on that board. Select a winner/pot/run to inspect its hand description and exact five highlighted cards. Your current bet
+appears above your own nameplate, toward the pot.
+
+Uncalled contributions return to the player's stack before runout voting or
+showdown. They are excluded from the contested pot and payout flights, recorded
+in hand history and the transactional accounting audit, and are never displayed
+as winnings. Persisted presentation plans from older hands retain their timing.
+
+The optional browser regression suite is `node scripts/table-ui-smoke.cjs` after
+`pnpm build:staging`. It requires Playwright available to Node (or an absolute
+`POKER_PLAYWRIGHT_MODULE` path) and an installed Chromium browser (optionally
+`POKER_BROWSER_EXECUTABLE`). It starts a local Worker and intercepts test players,
+chat and game snapshots; it never uses deployed data. Checks cover card-back peeks,
+the hero wager's bounds, moving beam, compact composer, draft/history flow,
+immediate Send dismissal, result placement and exact-five highlights across
+four screen sizes, all variants and one/two-board showdowns.
+
+In the typing view, Raise… dismisses the keyboard and restores the full table's
+amount-selection controls; it does not submit a bet. Fold and Check/Call work
+directly without dismissing the composer. The viewport follows native keyboard
+resize and panning offsets. The action-button group has no turn/selection glow;
+seat highlights, the moving beam and deliberately queued individual pre-actions
+remain the turn/selection indicators.

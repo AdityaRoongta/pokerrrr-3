@@ -191,3 +191,18 @@ test('preselection clears across streets, hands, tables and player eligibility',
   }
   assert.equal(preactionValid(queued, null), false);
 });
+
+test('one player winning every pot is one award per board; differing winners retain pot labels', () => {
+  const one = [{id:'a', name:'A', wonAmount:900, pots:[
+    {run:1,label:'Main pot',amount:200},{run:1,label:'Side pot 1',amount:300},
+    {run:2,label:'Main pot',amount:150},{run:2,label:'Side pot 1',amount:250}
+  ]}];
+  assert.deepEqual(payoutAwards(one, 2, true, true).map(a => [a.run,a.label,a.amount]), [[1,'Pot',500],[2,'Pot',400]]);
+  const split = [
+    {id:'a',name:'A',wonAmount:200,pots:[{run:1,label:'Main pot',amount:200}]},
+    {id:'b',name:'B',wonAmount:300,pots:[{run:1,label:'Side pot 1',amount:300}]}
+  ];
+  assert.deepEqual(payoutAwards(split, 1, true, true).map(a => a.label), ['Side pot 1','Main pot']);
+  // Persisted old presentation plans keep their original separate flights.
+  assert.equal(payoutAwards(one, 2).length, 4);
+});

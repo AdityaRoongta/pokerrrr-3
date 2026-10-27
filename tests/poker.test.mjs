@@ -1,7 +1,7 @@
 import test from 'node:test';
 import {payoutEvents} from '../lib/table-presentation.mjs';
 import assert from 'node:assert/strict';
-import { newRoom, command, startHand, legal, act, evaluate, rank5, view, settlement, tick, finish, runoutCardsNeeded } from '../lib/poker.mjs';
+import { newRoom, command, startHand, legal, act, evaluate, rank5, view, settlement, tick, finish, returnUncalled, runoutCardsNeeded } from '../lib/poker.mjs';
 const token = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const card = s => {
   const ranks = '23456789TJQKA',
@@ -274,7 +274,7 @@ test('Omaha winning highlights include exactly two hole cards and three board ca
     assert.equal(h.score, evaluate(cs(hole), cs('Qh Jh Th 9d 2c'), 'PLO5'));
   }
 });
-test('pot awards distinguish winners, side pots and returned uncalled money', () => {
+test('uncalled chips return before awards; side pot winners contain only winnings', () => {
   const r = room(3);
   r.handEvents = [];
   r.phase = 'river';
@@ -289,15 +289,16 @@ test('pot awards distinguish winners, side pots and returned uncalled money', ()
     p.cards = cs(['Ac Ad', 'Kc Kd', 'Qc Qd'][i]);
   });
   finish(r);
-  assert.deepEqual(r.result.map(p => p.wonAmount), [300, 200, 0]);
-  assert.equal(r.result[2].returnedAmount, 100);
-  assert.equal(r.result[2].description, 'Uncalled bet returned');
-  assert.deepEqual(r.result[2].winningCards, []);
+  assert.deepEqual(r.result.map(p => p.wonAmount), [300, 200]);
+  assert.equal(r.players[2].stack, 100);
+  assert.equal(r.uncalledReturns[0].amount, 100);
+  assert.equal(r.lastPot, 500);
+  assert.equal(returnUncalled(r), 0);
   assert.equal(r.result[0].description, 'Pair of Aces');
   assert.equal(r.result[1].pots[0].label, 'Side pot 1');
   assert.equal(r.result[0].winningCards.length, 5);
   const payments = payoutEvents(r, r.showdownAt, r.presentation);
-  assert.deepEqual(payments.map(p => p.label), ['Side pot 1', 'Main pot', 'Uncalled bet returned']);
+  assert.deepEqual(payments.map(p => p.label), ['Side pot 1', 'Main pot']);
   assert.equal(payments.reduce((sum, p) => sum + p.amount, 0), r.lastPot);
   assert.ok(payments.every(p => p.at + p.duration <= r.payoutFinishedAt));
   assert.equal(r.nextDealAt, r.payoutFinishedAt + 3000);
@@ -622,8 +623,8 @@ test('each main/side pot splits per board, odd chip to first board, overbet retu
   });
   finish(r);
   assert.deepEqual(r.players.map(p => p.stack), [152, 351, 100]);
-  assert.equal(r.result[2].returnedAmount, 100);
-  assert.equal(r.result[2].wonAmount, 0);
+  assert.equal(r.uncalledReturns[0].amount, 100);
+  assert.equal(r.result.some(w => w.id === r.players[2].id), false);
   assert.deepEqual(r.result[0].runHands.map(h => h.run), [1]);
   assert.deepEqual(r.result[1].runHands.map(h => h.run), [1, 2]);
   conservation(r);
@@ -996,4 +997,44 @@ test('queued Check never turns into a Call', async () => {
   assert.equal(resolvePreaction('check-fold', 50), 'fold');
   assert.equal(resolvePreaction('check-fold', 0), 'check');
   assert.equal(resolvePreaction('fold', 50), 'fold');
+});
+
+for (const game of ['NLH', 'PLO4', 'PLO5']) test(`${game}: short all-in call returns excess before vote, survives reload, and never returns twice`, () => {
+  const r = room(2, { games: [game], buyin: 1000 });
+  r.players[1].stack = 20; r.players[1].buyins = 20;
+  startHand(r, 10000);
+  // Omaha pot caps may require several full raises before the short call.
+  for (let i = 0; i < 30 && r.phase !== 'runout_vote'; i++) {
+    const l = legal(r, r.turn);
+    act(r, r.turn, r.turn === r.players[0].id && l.canRaise ? 'raise' : l.call ? 'call' : 'check', l.max, 11000 + i);
+  }
+  assert.equal(r.phase, 'runout_vote');
+  assert.equal(r.players[0].stack, 980);
+  assert.deepEqual(r.players.map(p => p.total), [20, 20]);
+  assert.equal(r.uncalledReturns.reduce((n, e) => n + e.amount, 0), game === 'NLH' ? 980 : 10);
+  const restored = structuredClone(r);
+  assert.equal(returnUncalled(restored), 0);
+  for (const v of restored.runVote.voters) command(restored, v.id, { type: 'runout_vote', choice: 2 }, restored.runVote.opensAt);
+  tick(restored, restored.runVote.deadline);
+  assert.equal(restored.lastPot, 40);
+  assert.equal(restored.result.reduce((n, w) => n + w.amount, 0), 40);
+  assert.equal(restored.uncalledReturns.length, r.uncalledReturns.length);
+  assert.equal(restored.history[0].uncalledReturns.reduce((n, e) => n + e.amount, 0), game === 'NLH' ? 980 : 10);
+  conservation(restored);
+});
+test('uncalled return restores a usable stack, updates the wager and records one transaction', () => {
+  const r = room(3);
+  r.players.forEach((p, i) => { p.inHand = true; p.total = [1000, 600, 600][i]; p.bet = [500, 100, 100][i]; p.stack = 0; });
+  r.currentBet = 500; r.phase = 'flop'; r.handEvents = [];
+  assert.equal(returnUncalled(r), 400);
+  assert.equal(r.players[0].stack, 400); assert.equal(r.players[0].bet, 100); assert.equal(r.currentBet, 100);
+  assert.equal(returnUncalled(r), 0); assert.equal(r.handEvents.length, 1);
+});
+test('fold victory returns the unmatched blind before awarding the contested pot', () => {
+  const r = room(2); startHand(r);
+  const big = r.players.find(p => p.id === r.bigBlind);
+  act(r, r.turn, 'fold');
+  assert.equal(r.lastPot, 10); assert.equal(r.result[0].amount, 10);
+  assert.equal(r.uncalledReturns[0].amount, 5);
+  assert.equal(big.stack, 1005); conservation(r);
 });

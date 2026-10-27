@@ -28,15 +28,14 @@
 .chat-error { font-size: 11px; color: #eeb8a1; margin: 4px 12px; }
 .chat-error button { margin-left: 8px; background: none; color: inherit; text-decoration: underline; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-/* Live chat replaces the action deck in-place, keeping the entire felt visible. */
-.in-game .action-zone { position: relative; }
-.in-game .action-zone.chat-open > :not(.chat-drawer) { visibility: hidden; }
-.in-game .action-zone > .chat-drawer { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 12px; padding-bottom: var(--table-safe-bottom, env(safe-area-inset-bottom)); background: #13251f; }
-.in-game .action-zone > .chat-drawer > header { flex: 0 0 auto; padding: 5px 10px; min-height: 38px; }
-.in-game .action-zone > .chat-drawer h2 { font-size: 14px; }
-.in-game .action-zone > .chat-drawer > header small { display: none; }
-.in-game .action-zone > .chat-drawer .chat-turn { padding: 4px 8px; flex: 0 0 auto; }
-.in-game .action-zone > .chat-drawer .chat-messages { padding: 6px 12px; }
-.in-game .action-zone > .chat-drawer .chat-message { margin-bottom: 8px; }
-.in-game .action-zone > .chat-drawer .chat-compose { flex: 0 0 auto; padding: 5px 10px; gap: 3px 6px; }
-@media (max-height: 540px) { .chat-drawer { height: 48dvh; } }
+/* Compose lives below the controls; history is an explicit reading overlay. */
+.speech-bubble { pointer-events: auto; border: 0; text-align: left; cursor: pointer; font-family: inherit; }
+.in-game .chat-composer { flex: 0 0 auto; width: 100%; border-top: 1px solid #b59b6440; background: #13251f; }
+.in-game .chat-compose { flex-wrap: nowrap; padding: 4px 0; border: 0; }
+.in-game .chat-compose input { height: 44px; }
+.in-game .chat-compose button { flex: 0 0 44px; }
+.in-game .chat-compose .chat-expand { background: transparent; color: #dfc58d; }
+.chat-history { position: fixed; inset: auto 10px max(10px, env(safe-area-inset-bottom)); width: min(520px, calc(100vw - 20px)); height: min(560px, calc(var(--app-viewport-height, 100dvh) - 80px)); max-height: calc(var(--app-viewport-height, 100dvh) - 32px); margin: auto; z-index: 150; }
+.chat-back { min-height: 44px; flex: 0 0 auto; border: 0; border-top: 1px solid #b59b6440; background: #243a2d; color: #f4d294; }
+.chat-history > header, .chat-turn { flex-shrink: 0; }
+.chat-history:focus-within { outline: 1px solid #dfc58d; }

@@ -12,8 +12,8 @@ operations are staging-only.
 SQLite namespace, created on first deployment by `dunzo-club-v1`. The object name
 is still `dunzo-club`, but namespaces are separate between Workers. Never add
 `script_name` pointing at staging, rename the production Worker/namespace, delete
-its storage, or import staging games. Production starts with an empty roster and
-history. Provision real players using [PLAYERS.md](PLAYERS.md) against the
+its storage, or import staging games. Only the initial production setup starts with an empty roster and history;
+subsequent releases preserve the existing roster, balances and games. Provision real players using [PLAYERS.md](PLAYERS.md) against the
 **production** namespace. Do not copy browser sessions, test accounts or game data.
 
 ## Validation
@@ -62,3 +62,17 @@ roster is intentional until player records are provisioned.
 For recovery, redeploy a known compatible previous version, preserving the Durable
 Object namespace. Code rollback does not undo saved games or database migrations.
 Keep release commit/version identifiers for support and reconciliation.
+
+## Versioned releases
+
+Maintain package.json, CHANGELOG.md and docs/releases/vX.Y.Z.md together.
+Merge the reviewed release PR, build that exact main commit for production and
+upload it without moving live traffic. The production Workers Builds trigger
+uses build:production and upload:production on main; preview builds are disabled.
+Promote the verified candidate to 100% traffic and confirm the live health commit.
+After verification, commit docs/releases/vX.Y.Z-deployment.json with tag, commit,
+workerVersion, rollbackVersion and verifiedAt fields. The release workflow checks
+the live production health against that exact commit and publishes its GitHub
+release/tag, including Worker and rollback identifiers. Only a deployment receipt
+change on main starts publication; code merges alone do not publish a release. Never treat the staging artifact as
+a production artifact or copy staging state into production.

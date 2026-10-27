@@ -61,6 +61,14 @@ export class TableService {
         });
       }
     }
+    const recordedReturns = previous?.handStartedAt === room.handStartedAt ? previous?.uncalledReturns?.length || 0 : 0;
+    for (const [index, entry] of (room.uncalledReturns || []).entries()) {
+      if (index < recordedReturns) continue;
+      await tx.put(`accounting:${room.code}:${String(room.version).padStart(10, '0')}:return:${index}`, {
+        kind: 'uncalled_return', amount: entry.amount, playerId: entry.id, name: entry.name,
+        at: Date.now(), version: room.version, hand: room.completed + (room.phase === 'showdown' ? 0 : 1), code: room.code
+      });
+    }
     await tx.put(`room:${room.code}`, room);
     if (!previous || previous.phase !== room.phase || previous.completed !== room.completed) {
       for (const hand of room.history.filter(h => h.number > (previous?.completed || 0))) {

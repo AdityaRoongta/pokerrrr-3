@@ -18,7 +18,7 @@ type Award = {
 const fmt = (n: number) => new Intl.NumberFormat('en-IN').format(n);
 
 export function TableAwards({room, effects, run, onFocus}: {
-  room: {phase: string; runCount: number};
+  room: {phase: string; runCount: number; uncontested?: boolean};
   effects: {
     now: number;
     settled: boolean;
@@ -30,7 +30,7 @@ export function TableAwards({room, effects, run, onFocus}: {
 }) {
   const [selectedPot, setSelectedPot] = useState('');
   const timeline = effects.showdown?.plan.runs.find(p => p.run === run),
-    payments = effects.payouts.filter(p => p.run === run);
+    payments = effects.payouts.filter(p => p.run === run && !p.returned);
   if (room.phase !== 'showdown') return null;
   if (!timeline || !payments.length || effects.now < effects.showdown!.startedAt + timeline.resultAt) return <div className="table-awards" aria-hidden="true" />;
   const current = payments.filter(p => p.at <= effects.now).at(-1) || payments[0],
@@ -44,14 +44,13 @@ export function TableAwards({room, effects, run, onFocus}: {
         setSelectedPot(pot);
         onFocus(payments.find(p => p.label === pot)!.id, run);
       }}>{pot}</button>)}
-    </div> : <span className="table-pot-label">{label}{potAwards.some(p => p.tied) ? ' · Split' : ''}</span>}
+    </div> : potAwards.some(p => p.tied) ? <span className="table-pot-label">Split pot</span> : null}
     <div className="table-award-winners" aria-live="polite">
       {awards.map(award => <div key={award.id}>
         <button className="table-winner-name" disabled={!effects.settled || award.returned} onClick={() => onFocus(award.id, run)}>
           <strong>{award.name}</strong> <b>+{fmt(award.wonAmount || award.amount)}</b>
         </button>
-        {!award.returned && award.description && <span className="table-winning-hand">{award.description}</span>}
-        {Boolean(award.returnedAmount) && <small>{fmt(award.returnedAmount!)} uncalled returned</small>}
+        {!award.returned && award.description && <span className="table-winning-hand">{room.uncontested ? 'Wins uncontested' : award.description}</span>}
       </div>)}
     </div>
   </div>;

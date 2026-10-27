@@ -15,6 +15,10 @@ export function useSocial(room: SocialRoom | null, practice: boolean, connection
   const [entries, setEntries] = useState<SocialEntry[]>([]);
   const [bubbles, setBubbles] = useState<SocialEntry[]>([]);
   const [open, setOpenState] = useState(false);
+  const composeBaseline = useRef(0);
+  const [draft, setDraft] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyFocus, setHistoryFocus] = useState<string | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -68,7 +72,7 @@ export function useSocial(room: SocialRoom | null, practice: boolean, connection
   useEffect(() => {
     // Reset the external game's conversation on identity/session changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEntries([]); setSending(false); inFlight.current = null; latest.current = 0; setBubbles([]); setOpen(false); setCursor(null); setError('');
+    setEntries([]); setDraft(''); setHistoryOpen(false); setHistoryFocus(null); setSending(false); inFlight.current = null; latest.current = 0; setBubbles([]); setOpen(false); setCursor(null); setError('');
     seen.current.clear(); retry.current = null;
     void load();
   }, [epoch, load, setOpen]);
@@ -109,6 +113,9 @@ export function useSocial(room: SocialRoom | null, practice: boolean, connection
     } catch (e) { if (started === epochRef.current) setError(`${(e as Error).message}. Send again to retry.`); return false; }
     finally { if (inFlight.current === request.requestId) inFlight.current = null; if (started === epochRef.current) setSending(false); }
   }
-  return { entries, bubbles, open, setOpen, cursor, loading, sending, error, receive, send,
+  function openHistory(id: string | null = null) {
+    setOpen(false); setHistoryFocus(id); setHistoryOpen(true);
+  }
+  return { entries, bubbles, open, setOpen, composeBaseline, draft, setDraft, historyOpen, setHistoryOpen, historyFocus, openHistory, cursor, loading, sending, error, receive, send,
     loadMore: () => cursor ? load(cursor) : load(), practiceEntry };
 }

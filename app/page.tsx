@@ -21,7 +21,7 @@ import { GameHistory } from './game-history';
 import { PlayerLobby, PinSettings } from './player-lobby';
 import { showTestTools } from '../lib/client/environment';
 import { nextRaise, bettingOpportunity } from '../lib/client/raise-selection.mjs';
-import { preactionValid, resolvePreaction } from '../lib/client/preaction.mjs';
+import { preactionValid, resolvePreaction, queuePreaction, waitingCall as queuedCallAmount } from '../lib/client/preaction.mjs';
 type Room = any;
 // Temporary identities for local practice; multiplayer identity comes from the server.
 function playerId() {
@@ -84,13 +84,13 @@ export default function Home() {
     [clock, setClock] = useState(Date.now()),
     [confirm, setConfirm] = useState(''),
     [sound, setSound] = useState(true),
-    [preaction, setPreaction] = useState<'fold' | 'check-fold' | 'check' | null>(null),
+    [preaction, setPreaction] = useState<'check-fold' | 'check' | 'call' | null>(null),
     [selectedWinner, setSelectedWinner] = useState(''),
     [selectedShortcut, setSelectedShortcut] = useState(''),
     [selectedRun, setSelectedRun] = useState(0),
     [selectedSeat, setSelectedSeat] = useState<number | null>(null);
   const appViewport = useAppViewport(Boolean(room));
-  const queuedAction = useRef<{ choice: 'fold' | 'check-fold' | 'check'; player: string; code: string; hand: number; phase: string } | null>(null);
+  const queuedAction = useRef<ReturnType<typeof queuePreaction> | null>(null);
   const lastTurnAlert = useRef('');
   const audio = useRef<PokerAudio | null>(null);
   if (!audio.current) audio.current = new PokerAudio();
@@ -351,6 +351,8 @@ export default function Home() {
       setError('Reconnecting to the table. Wait for a fresh view.');
       return false;
     }
+    // A direct action supersedes any armed intention, even if its reply is lost.
+    if (['fold', 'check', 'call', 'raise'].includes(type)) { queuedAction.current = null; setPreaction(null); }
     pending.current = true;
     setBusy(true);
     setError('');
@@ -501,15 +503,15 @@ export default function Home() {
     myTurn = room?.turn === room?.me,
     l = room?.legal,
     seconds = room?.deadline ? Math.max(0, Math.ceil((room.deadline - clock - offset.current) / 1000)) : 0;
-  function selectPreaction(choice: 'fold' | 'check-fold' | 'check') {
+  function selectPreaction(choice: 'check-fold' | 'check' | 'call') {
     const next = preaction === choice ? null : choice;
-    queuedAction.current = next ? { choice: next, player: room.me, code: room.code, hand: room.handStartedAt, phase: room.phase } : null;
+    queuedAction.current = next ? queuePreaction(next, room) : null;
     setPreaction(next);
     audio.current?.unlock();
   }
   useEffect(() => {
     const queued = queuedAction.current;
-    if (queued && !preactionValid(queued, room)) {
+    if (queued && (!preactionValid(queued, room) || !demo.current && connection !== 'connected')) {
       queuedAction.current = null;
       setPreaction(null);
       return;
@@ -523,9 +525,9 @@ export default function Home() {
     // Consume before sending: rerenders and reconnects must never send it twice.
     queuedAction.current = null;
     setPreaction(null);
-    const action = resolvePreaction(queued.choice, l.call);
+    const action = resolvePreaction(queued, l.call);
     if (action) void send(action);
-  }, [room, myTurn, live, controlsBusy, effects.presentationBusy]);
+  }, [room, myTurn, live, controlsBusy, connection, effects.presentationBusy]);
   const voting = room?.phase === 'runout_vote',
     handActive = live || voting;
   useEffect(() => {
@@ -576,9 +578,9 @@ export default function Home() {
   const readyPlayers = visiblePlayers.filter((p: any) => p.stack > 0 && !p.away).length;
   const turnFraction = Math.max(0, Math.min(1, (room?.deadline - clock - offset.current) / ((room?.settings.timer || 15) * 1000)));
   const nextHandFraction = Math.max(0, Math.min(1, (room?.nextDealAt - clock - offset.current) / 3000));
-  const waitingCall = Math.min(me?.stack || 0, Math.max(0, Math.max(0, ...(room?.players || []).filter((p: any) => p.inHand && !p.folded).map((p: any) => p.bet || 0)) - (me?.bet || 0)));
+  const waitingCall = queuedCallAmount(room);
   const displayedCall = myTurn ? (l?.call || 0) : waitingCall;
-  const canQueueAction = Boolean(!myTurn && me?.inHand && !me.folded && !me.away && me.stack > 0);
+  const canQueueAction = Boolean(live && !myTurn && me?.inHand && !me.folded && !me.away && me.stack > 0);
   const clampRaise = (v: number) => Math.min(raiseMax, Math.max(raiseMin, Math.round(v || raiseMin)));
   return <div ref={appViewport} className={`app ${room ? 'in-game' : ''} ${social.open ? 'composing-chat' : ''}`} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
 
@@ -833,8 +835,14 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="action-buttons">
-                    <button className="fold" disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === (displayedCall ? 'fold' : 'check-fold')} onClick={() => myTurn ? send('fold') : selectPreaction(displayedCall ? 'fold' : 'check-fold')}>{!myTurn && !displayedCall ? 'Check / Fold' : 'Fold'}</button>
-                    <button className="secondary check-call" disabled={controlsBusy || effects.presentationBusy || (!myTurn && (!canQueueAction || Boolean(displayedCall)))} aria-pressed={!myTurn && preaction === 'check'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check')}>{displayedCall ? `Call ${fmt(displayedCall)}` : 'Check'}</button>
+                    <button className={`fold ${!myTurn ? 'preaction-button' : ''}`} role={!myTurn ? 'checkbox' : undefined} aria-checked={!myTurn ? preaction === 'check-fold' : undefined} disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} onClick={() => myTurn ? send('fold') : selectPreaction('check-fold')}>
+                      {!myTurn && <span className="preaction-checkbox" aria-hidden="true">{preaction === 'check-fold' ? '✓' : ''}</span>}
+                      <span>{!myTurn ? 'Check / Fold' : 'Fold'}</span>
+                    </button>
+                    <button className={`secondary check-call ${!myTurn ? 'preaction-button' : ''}`} role={!myTurn ? 'checkbox' : undefined} aria-checked={!myTurn ? preaction === (displayedCall ? 'call' : 'check') : undefined} disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction(displayedCall ? 'call' : 'check')}>
+                      {!myTurn && <span className="preaction-checkbox" aria-hidden="true">{preaction === (displayedCall ? 'call' : 'check') ? '✓' : ''}</span>}
+                      <span>{displayedCall ? `Call ${fmt(displayedCall)}` : 'Check'}</span>
+                    </button>
                     <button className="primary" disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || !raiseValid} onClick={() => {
                       if (social.open) {
                         // The typing-view button opens amount selection only.

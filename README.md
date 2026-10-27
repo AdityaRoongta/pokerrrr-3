@@ -158,7 +158,7 @@ audio using one saved preference.
 
 The compose button is at the bottom-right above the betting controls. It opens
 a single-line input above the keyboard, retaining cards and betting controls.
-Short visible viewports use compact player rows around the board. Live messages
+While composing, a dedicated typing view shows a slim game/turn header, the complete community board and pot, your cards, action buttons and the composer. The player-seat arrangement, branding, Rankings and raise shortcuts are hidden until composing ends. Live messages
 appear in player bubbles; tap a bubble or expand the composer to read game history.
 Send closes the composer and keyboard immediately; failed sends retain the draft for retry. Unsent drafts survive closing and reopening chat within the same game. Full history is
 a separate reading dialog with a Back to game control and an alert on your turn.
@@ -178,3 +178,10 @@ chat and game snapshots; it never uses deployed data. Checks cover card-back pee
 the hero wager's bounds, moving beam, compact composer, draft/history flow,
 immediate Send dismissal, result placement and exact-five highlights across
 four screen sizes, all variants and one/two-board showdowns.
+
+In the typing view, Raise… dismisses the keyboard and restores the full table's
+amount-selection controls; it does not submit a bet. Fold and Check/Call work
+directly without dismissing the composer. The viewport follows native keyboard
+resize and panning offsets. The action-button group has no turn/selection glow;
+seat highlights, the moving beam and deliberately queued individual pre-actions
+remain the turn/selection indicators.

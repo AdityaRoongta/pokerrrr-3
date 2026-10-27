@@ -40,11 +40,15 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     r.players[0].bet = 200;
     r.players[0].total = 200;
     r.players[0].stack = 2300;
+    r.phase = 'flop'; r.board = r.deck.splice(-3);
+    r.players[1].bet = 250; r.players[1].total = 250; r.players[1].stack = 2250; r.currentBet = 250;
     const lobby = { activeGame: { code: r.code, joined: true, players: r.players, settings: r.settings } }, state = () => ({ type: 'state', protocol: PROTOCOL_VERSION, lobby, room: view(r, 'me') });
     let socket;
+    let bettingCommands = 0;
     const entries = [];
     await p.route('**/api/**', async (route) => {
       const request = route.request(), url = new URL(request.url());
+      if (url.pathname === '/api/poker' && request.method() === 'POST') bettingCommands++;
       if (url.pathname === '/api/chat' && request.method() === 'POST') {
         const message = request.postDataJSON();
         const entry = { code: r.code, id: crypto.randomUUID(), sequence: entries.length + 1, kind: 'message', text: message.text, at: Date.now(), sender: { key: 'me', name: 'Layout tester', seat: 0 } };
@@ -80,6 +84,8 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     assert(box.y >= 0 && box.y + box.height <= height, 'Confirmation visible');
     await p.getByRole('button', { name: 'Cancel', exact: true }).click();
     await p.getByRole('button', { name: 'Close', exact: true }).click();
+    r.turn = 'me'; r.deadline = Date.now() + 30000; r.version++; socket.send(JSON.stringify(state()));
+    await p.waitForTimeout(100);
     await p.getByRole('button', { name: 'Write a message', exact: true }).click();
     await p.locator('#chat-message').fill('Keep this draft');
     if (height > 600)
@@ -90,13 +96,47 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     for (const e of bounds)
       assert(e.top >= 0 && e.bottom <= vh, JSON.stringify({ width, height, vh, e }));
     const composer = await p.locator('.chat-composer').boundingBox();
-    assert(composer.width <= width * .81, 'Narrow composer');
+    assert(composer.width <= width * .95, 'Composer fits inside the typing view');
+    assert.equal(await p.locator('.topbar').isVisible(), false, 'Brand header hidden while typing');
+    assert.equal(await p.locator('.slider-shortcuts').isVisible(), false, 'Raise slider hidden while typing');
+    assert.equal(await p.locator('.seat-info').first().isVisible(), false, 'Seat arrangement hidden while typing');
+    assert.equal(await p.locator('.action-buttons').evaluate(e => getComputedStyle(e).boxShadow), 'none', 'No group selection outline');
+    const boardBounds = await p.locator('.table-stage').boundingBox();
+    const cards = await p.locator('.table-stage .board-cards .card').evaluateAll(es => es.map(e => { const b = e.getBoundingClientRect(); return {top:b.top,bottom:b.bottom,left:b.left,right:b.right}; }));
+    assert.equal(cards.length, 5);
+    for (const card of cards) assert(card.top >= boardBounds.y && card.bottom <= boardBounds.y + boardBounds.height && card.left >= 0 && card.right <= width, 'Entire community board visible');
+    // A native keyboard can pan as well as resize the visual viewport.
+    await p.evaluate(() => {
+      Object.defineProperty(window.visualViewport, 'offsetTop', { configurable:true, get:()=>25 });
+      Object.defineProperty(window.visualViewport, 'height', { configurable:true, get:()=>window.innerHeight-25 });
+      window.visualViewport.dispatchEvent(new Event('resize'));
+    });
+    await p.waitForTimeout(100);
+    const panned = await p.locator('.app').boundingBox();
+    assert.equal(panned.y,25,'App follows native visual viewport panning');
+    assert(panned.y+panned.height<=vh,'Panned app remains above keyboard');
+    await p.evaluate(() => {
+      delete window.visualViewport.offsetTop; delete window.visualViewport.height;
+      window.visualViewport.dispatchEvent(new Event('resize'));
+    });
+    await p.waitForTimeout(100);
     await p.screenshot({ path: `/tmp/dunzo-ui-${width}-typing.png` });
     await p.getByRole('button', { name: 'Expand chat history' }).click();
     assert.equal(await p.getByRole('dialog', { name: 'Game chat history' }).count(), 1);
     await p.getByRole('button', { name: 'Back to game', exact: true }).click();
     await p.getByRole('button', { name: 'Write a message', exact: true }).click();
     assert.equal(await p.locator('#chat-message').inputValue(), 'Keep this draft');
+    await p.getByRole('button', { name: 'Raise…', exact: true }).click();
+    assert.equal(await p.locator('#chat-message').count(), 0, 'Raise closes the composer');
+    assert.equal(await p.locator('.slider-shortcuts').isVisible(), true, 'Raise opens normal amount selection');
+    assert.equal(bettingCommands, 0, 'First Raise tap never sends a bet');
+    await p.getByRole('button', { name: 'Write a message', exact: true }).click();
+    assert.equal(await p.locator('#chat-message').inputValue(), 'Keep this draft', 'Raise handoff retains draft');
+    const actionReply = p.waitForResponse(response => response.url().endsWith('/api/poker') && response.request().method()==='POST');
+    await p.getByRole('button', {name:'Call 50',exact:true}).click();
+    await actionReply;
+    assert.equal(bettingCommands,1,'Call works on the first tap while typing');
+    assert.equal(await p.locator('#chat-message').inputValue(),'Keep this draft','Betting retains the draft');
     const sent = p.waitForResponse(response => response.url().includes('/api/chat') && response.request().method() === 'POST');
     await p.getByRole('button', { name: 'Send message' }).click();
     assert.equal(await p.locator('#chat-message').count(), 0, 'Composer closes immediately after Send');

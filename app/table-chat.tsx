@@ -99,7 +99,7 @@ export function ChatDrawer({ room, social, myTurn }: { room: SocialRoom; social:
     {!historyOpen && room.phase !== 'closed' && <form className="chat-compose" onSubmit={async e => { e.preventDefault(); const sentDraft = draft; const request = social.send(sentDraft); input.current?.blur(); social.setOpen(false); if (await request) setDraft(current => current === sentDraft ? '' : current); }}>
       <button type="button" className="chat-expand" onPointerDown={e => e.preventDefault()} aria-label="Expand chat history" onClick={() => { input.current?.blur(); social.openHistory(); }}><Maximize2 size={19} /></button>
       <label className="sr-only" htmlFor="chat-message">Message</label><input ref={input} id="chat-message" onBlur={() => social.setOpen(false)} value={draft} onChange={e => setDraft(e.target.value)} maxLength={500} readOnly={social.sending} placeholder="Message the table…" autoComplete="off" enterKeyHint="send" />
-      <button onPointerDown={e => e.preventDefault()} aria-label="Send message" disabled={social.sending || !draft.trim()}><Send size={20} /></button>
+      <button type="submit" onPointerDown={e => e.preventDefault()} aria-label="Send message" disabled={social.sending || !draft.trim()}><Send size={20} /></button>
     </form>}
   </aside>;
   return historyOpen ? createPortal(content, document.body) : content;

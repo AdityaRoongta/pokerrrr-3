@@ -1,7 +1,7 @@
 'use client';
 import { useLayoutEffect, useRef, useState } from 'react';
 
-// Measure the actual seat, including the compact keyboard layout. Keep angles
+// Measure the actual seat after resizing. Keep angles
 // unwrapped so moving across 0° never spins the beam almost a full revolution.
 export function TurnBeam({ target }: { target: string | null }) {
   const anchor = useRef<SVGSVGElement>(null);
@@ -26,7 +26,7 @@ export function TurnBeam({ target }: { target: string | null }) {
     const observer = new ResizeObserver(measure);
     observer.observe(stage); observer.observe(seat);
     const layout = new MutationObserver(measure);
-    layout.observe(stage.closest('.app')!, { attributes: true, attributeFilter: ['class', 'data-chat-compact'] });
+    layout.observe(stage.closest('.app')!, { attributes: true, attributeFilter: ['class'] });
     return () => { observer.disconnect(); layout.disconnect(); };
   }, [target]);
   return <svg ref={anchor} className={`turn-beam ${target ? 'is-active' : ''}`} aria-hidden="true">

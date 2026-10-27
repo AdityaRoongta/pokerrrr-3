@@ -14,7 +14,8 @@ export function useAppViewport(inGame: boolean) {
       // Do not reflow the table while the user pinch-zooms it.
       if (viewport && Math.abs(viewport.scale - 1) > .01) return;
       const height = viewport?.height || window.innerHeight;
-      element.toggleAttribute('data-chat-compact', height < 700 && element.classList.contains('composing-chat'));
+      element.style.setProperty('--app-viewport-top', `${Math.max(0, viewport?.offsetTop || 0)}px`);
+      element.style.setProperty('--app-viewport-left', `${Math.max(0, viewport?.offsetLeft || 0)}px`);
       if (height > 0) element.style.setProperty('--app-viewport-height', `${Math.floor(height)}px`);
     };
     const resize = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
@@ -27,13 +28,14 @@ export function useAppViewport(inGame: boolean) {
     window.visualViewport?.addEventListener('scroll', resize);
     return () => {
       observer.disconnect();
-      element.removeAttribute('data-chat-compact');
       cancelAnimationFrame(frame);
       window.removeEventListener('resize', resize);
       window.removeEventListener('pageshow', resize);
       window.visualViewport?.removeEventListener('resize', resize);
       window.visualViewport?.removeEventListener('scroll', resize);
       element.style.removeProperty('--app-viewport-height');
+      element.style.removeProperty('--app-viewport-top');
+      element.style.removeProperty('--app-viewport-left');
     };
   }, [inGame]);
   return app;

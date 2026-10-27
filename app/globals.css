@@ -5114,7 +5114,6 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .in-game .seat.acting::before { content: ''; position: absolute; width: 145%; height: 150%; left: -22.5%; top: -15%; pointer-events: none; border-radius: 50%; background: radial-gradient(ellipse, #ffe6a34a, #ebc25e16 52%, transparent 73%); }
 .in-game .seat.acting .seat-info { border-color: #ffe2a0; box-shadow: 0 0 0 2px #edc76c99, 0 0 26px #f1cb6870; background: #35432a; }
 .in-game .seat.acting .seat-info strong { color: #fff3ca; }
-.in-game .action-zone.your-action .action-buttons { border-radius: 13px; box-shadow: 0 0 0 2px #edc76c88, 0 0 18px #e6bd4930; }
 .in-game .card.winning-card { outline: 2px solid #ffe28c; outline-offset: 1px; box-shadow: 0 0 14px #ffd45b99; opacity: 1; filter: none; }
 .in-game .card.dimmed-card { opacity: .4; }
 .table-winning-hand { color: #ffe1a0; font-size: 14px; font-weight: 650; }
@@ -5122,71 +5121,11 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* The viewport hook sets this only when a chat keyboard reduces visible height.
    Keep controls full size and arrange seats in two compact rows around the board. */
 .in-game.composing-chat .action-zone { height: auto; }
-.in-game[data-chat-compact] .topbar { height: 38px; min-height: 38px; padding-block: 0; }
-.in-game[data-chat-compact] { --game-header: 38px; }
-.in-game[data-chat-compact] .brand { font-size: 19px; }
-.in-game[data-chat-compact] .brand small, .in-game[data-chat-compact] .brand-icon, .in-game[data-chat-compact] .connection { display: none; }
-.in-game[data-chat-compact] .topbar .icon-button { width: 34px; height: 34px; }
-.in-game[data-chat-compact] .rotation-bar { height: 24px; min-height: 24px; font-size: 11px; }
-.in-game[data-chat-compact] .action-zone { gap: 3px; padding-top: 2px; overflow-y: visible; }
-.in-game[data-chat-compact] .hand-toolbar { min-height: 20px; height: 20px; flex-basis: 20px; font-size: 11px; }
-.in-game[data-chat-compact] .personal-hand { height: 45px; flex-basis: 45px; padding: 0; }
-.in-game[data-chat-compact] .personal-hole-cards .card.small { height: 43px; width: 32px; padding: 2px; }
-.in-game[data-chat-compact] .personal-hole-cards .card.small b { font-size: 15px; }
-.in-game[data-chat-compact] .personal-hole-cards .card.small > span { font-size: 17px; }
-.in-game[data-chat-compact] .betting-controls { min-height: 0; gap: 3px; }
-.in-game[data-chat-compact] .slider-shortcuts { height: 32px; min-height: 32px; }
-.in-game[data-chat-compact] .action-buttons > button { height: 44px; min-height: 44px; font-size: 13px; }
-.in-game[data-chat-compact] .table-stage { --seat-edge-y: 20px; min-height: 128px; }
-.in-game[data-chat-compact] .felt { inset: 0 4px; border-radius: 35%; }
-.in-game[data-chat-compact] .seat .seat-top { display: none; }
-.in-game[data-chat-compact] .seat.occupied { width: 70px; top: 17px !important; }
-.in-game[data-chat-compact] .seat .seat-info { min-height: 27px; padding: 1px 2px; }
-.in-game[data-chat-compact] .seat .seat-info > span { font-size: 9px; }
-.in-game[data-chat-compact] .seat .seat-info strong { font-size: 11px; }
-.in-game[data-chat-compact] .seat[data-relative-seat='0'], .in-game[data-chat-compact] .seat[data-relative-seat='1'], .in-game[data-chat-compact] .seat[data-relative-seat='2'], .in-game[data-chat-compact] .seat[data-relative-seat='7'] { top: calc(100% - 17px) !important; }
-.in-game[data-chat-compact] .seat[data-relative-seat='0'], .in-game[data-chat-compact] .seat[data-relative-seat='5'] { left: 62.5% !important; }
-.in-game[data-chat-compact] .seat[data-relative-seat='1'], .in-game[data-chat-compact] .seat[data-relative-seat='4'] { left: 37.5% !important; }
-.in-game[data-chat-compact] .seat[data-relative-seat='2'], .in-game[data-chat-compact] .seat[data-relative-seat='3'] { left: 12.5% !important; }
-.in-game[data-chat-compact] .seat[data-relative-seat='6'], .in-game[data-chat-compact] .seat[data-relative-seat='7'] { left: 87.5% !important; }
-.in-game[data-chat-compact] .seat-bet { position: absolute; top: calc(100% + 1px); left: 50%; transform: translateX(-50%); font-size: 10px; padding: 0 3px; margin: 0; }
-.in-game[data-chat-compact] .seat[data-relative-seat='0'] .seat-bet, .in-game[data-chat-compact] .seat[data-relative-seat='1'] .seat-bet, .in-game[data-chat-compact] .seat[data-relative-seat='2'] .seat-bet, .in-game[data-chat-compact] .seat[data-relative-seat='7'] .seat-bet { top: auto; bottom: calc(100% + 1px); }
-.in-game[data-chat-compact] .player-action, .in-game[data-chat-compact] .seat-state { display: none; }
-.in-game[data-chat-compact] .board-zone { padding: 0; }
-.in-game[data-chat-compact] .board-zone .pot-label { display: none; }
-.in-game[data-chat-compact] .board-zone .pot-amount { font-size: 17px; line-height: 1; }
-.in-game[data-chat-compact] .table-stage .board-cards > .board-card-wrap > .card { height: 33px; width: 24px; padding: 1px 2px; }
-.in-game[data-chat-compact] .table-stage .board-cards .card b { font-size: 12px; }
-.in-game[data-chat-compact] .table-stage .board-cards .card > span { font-size: 13px; }
-.in-game[data-chat-compact] .two-runouts { min-height: 170px; }
-.in-game[data-chat-compact] .two-runouts .runout-boards { gap: 2px; }
-.in-game[data-chat-compact] .showdown-summary { max-height: 65px; overflow-y: auto; }
 @media (prefers-reduced-motion: reduce) { .in-game .seat.acting::before { animation: none; } }
 
 /* Seat effects stay beneath dialogs, and compact rows have fixed geometry. */
 .in-game .table-stage { isolation: isolate; }
 .modal-backdrop { z-index: 200; }
-.in-game[data-chat-compact] .seat.occupied { height: 28px; }
-.in-game[data-chat-compact] .seat.occupied .seat-top { display: none; }
-.in-game[data-chat-compact] .seat.occupied .seat-info { height: 28px; min-height: 28px; padding: 1px 2px; }
-.in-game[data-chat-compact] .seat.occupied .seat-info > span { font-size: 9px; }
-.in-game[data-chat-compact] .seat.occupied .seat-info strong { font-size: 11px; margin-top: 0; }
-.in-game[data-chat-compact] .board-zone .pot-amount { margin: 0 0 2px; }
-
-@media (min-width: 620px) {
-  .in-game[data-chat-compact] .action-zone { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.4fr); gap: 3px 12px; }
-  .in-game[data-chat-compact] .hand-toolbar, .in-game[data-chat-compact] .chat-composer, .in-game[data-chat-compact] .showdown-summary, .in-game[data-chat-compact] .between-hands, .in-game[data-chat-compact] .game-status { grid-column: 1 / -1; }
-  .in-game[data-chat-compact] .personal-hand { height: 80px; }
-  .in-game[data-chat-compact] .betting-controls { margin: 0; }
-}
-
-.in-game[data-chat-compact] .speech-bubble { top: 40px !important; transform: translateX(-50%); max-width: 110px; }
-.in-game[data-chat-compact] .speech-bubble-content { max-height: 38px; padding: 4px 6px; }
-.in-game[data-chat-compact] .speech-bubble:is([data-relative-seat='0'],[data-relative-seat='1'],[data-relative-seat='2'],[data-relative-seat='7']) { top: auto !important; bottom: 40px; }
-.in-game[data-chat-compact] .speech-bubble:is([data-relative-seat='0'],[data-relative-seat='5']) { left: 62.5% !important; }
-.in-game[data-chat-compact] .speech-bubble:is([data-relative-seat='1'],[data-relative-seat='4']) { left: 37.5% !important; }
-.in-game[data-chat-compact] .speech-bubble:is([data-relative-seat='2'],[data-relative-seat='3']) { left: clamp(55px,12.5%,calc(100% - 55px)) !important; }
-.in-game[data-chat-compact] .speech-bubble:is([data-relative-seat='6'],[data-relative-seat='7']) { left: clamp(55px,87.5%,calc(100% - 55px)) !important; }
 
 /* Card backs occupy only a peek; revealed cards retain their full footprint. */
 .in-game .seat.cards-concealed:not(.your-seat) .seat-top { height: 10px; position: relative; z-index: 0; overflow: visible; }
@@ -5220,3 +5159,63 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .in-game .table-stage:has(.table-awards) .board-zone { left: 50%; right: auto; transform: translateX(-50%); }
 .in-game .table-stage:has(.table-awards) .runout-boards, .in-game .table-stage:has(.table-awards) .runout-board { width: 100%; min-width: 0; }
 .in-game .runout-board .table-winning-hand { white-space: normal; overflow-wrap: anywhere; }
+
+/* Typing is a complete game view, rather than a clipped/shrunken oval table.
+   Keep one board and one set of controls in the DOM so focus/turns remain stable. */
+.typing-turn-status, .typing-hole-label { display: none; }
+.app.in-game { top: var(--app-viewport-top, 0px); left: var(--app-viewport-left, 0px); }
+.app.in-game.composing-chat .topbar { display: none; }
+.app.in-game.composing-chat .game-layout { padding: max(4px, var(--table-safe-top, env(safe-area-inset-top))) max(6px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left)); }
+.app.in-game.composing-chat .play-area { grid-template-rows: 34px minmax(80px,1fr) auto; background: #10231c; }
+.app.in-game.composing-chat .rotation-bar { height: 34px; min-height: 34px; padding: 0 10px; gap: 8px; }
+.app.in-game.composing-chat .rotation-bar > span:not(.table-stakes):not(.typing-turn-status),
+.app.in-game.composing-chat .rotation-bar .next-variant { display: none; }
+.app.in-game.composing-chat .table-stakes { margin-left: 0; font-size: 12px; }
+.app.in-game.composing-chat .typing-turn-status { display: block; margin-left: auto; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app.in-game.composing-chat .table-stage { min-height: 0; padding: 0; overflow: hidden; }
+.app.in-game.composing-chat .table-stage > .seat,
+.app.in-game.composing-chat .table-stage > .turn-beam,
+.app.in-game.composing-chat .table-stage > .speech-layer { display: none; }
+.app.in-game.composing-chat .felt { inset: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
+.app.in-game.composing-chat .felt-inner { display: none; }
+.app.in-game.composing-chat .table-stage .board-zone { inset: 0; width: 100%; transform: none; padding: 4px 8px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 24px auto; align-content: center; gap: 6px; }
+.app.in-game.composing-chat .pot-label { display: block; justify-self: end; align-self: center; font-size: 10px; letter-spacing: 1px; }
+.app.in-game.composing-chat .pot-amount { justify-self: start; align-self: center; font-size: 23px; margin: 0; line-height: 1; }
+.app.in-game.composing-chat .runout-boards { grid-column: 1 / -1; width: 100%; gap: 5px; }
+.app.in-game.composing-chat .runout-board { width: 100%; gap: 3px; }
+.app.in-game.composing-chat .table-stage .board-cards { justify-content: center; gap: 5px; }
+.app.in-game.composing-chat .table-stage .board-cards > .board-card-wrap > .card { width: clamp(42px,14vw,60px); height: clamp(58px,19vw,84px); padding: 3px; }
+.app.in-game.composing-chat .table-stage .board-cards .card b { font-size: 20px; }
+.app.in-game.composing-chat .table-stage .board-cards .card > span { font-size: 23px; }
+.app.in-game.composing-chat .action-zone { height: auto; padding: 4px 8px max(4px, var(--table-safe-bottom, env(safe-area-inset-bottom))); gap: 6px; display: flex; flex-direction: column; overflow-y: auto; }
+.app.in-game.composing-chat .hand-toolbar,
+.app.in-game.composing-chat .slider-shortcuts,
+.app.in-game.composing-chat .pending-buyins { display: none; }
+.app.in-game.composing-chat .personal-hand { flex: 0 0 auto; width: 100%; height: auto; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.app.in-game.composing-chat .typing-hole-label { display: block; font-size: 10px; color: #98a89f; text-transform: uppercase; letter-spacing: 1px; }
+.app.in-game.composing-chat .personal-hole-cards { flex: 0 0 auto; justify-content: center; gap: 5px; }
+.app.in-game.composing-chat .personal-hole-cards .card.small { width: clamp(36px,11vw,50px); height: 64px; flex: 0 1 auto; padding: 3px; }
+.app.in-game.composing-chat .personal-hole-cards .card.small b { font-size: 19px; }
+.app.in-game.composing-chat .personal-hole-cards .card.small > span { font-size: 22px; }
+.app.in-game.composing-chat .betting-controls { min-height: 0; height: auto; display: flex; margin: 0; gap: 0; }
+.app.in-game.composing-chat .action-buttons { box-shadow: none; outline: none; gap: 7px; }
+.app.in-game.composing-chat .action-buttons > button { height: 48px; min-height: 48px; font-size: 15px; }
+.app.in-game.composing-chat .raise-button-label { font-size: 15px; }
+.app.in-game.composing-chat .action-zone > .chat-composer { width: min(94%,440px); margin-left: auto; border: 0; }
+.app.in-game.composing-chat .chat-compose { padding: 0; gap: 4px; }
+.app.in-game.composing-chat .chat-compose input { height: 36px; padding: 4px 8px; box-shadow: none; outline: none; border: 1px solid #b49a6459; }
+.app.in-game.composing-chat .chat-compose input:focus { box-shadow: none; outline: none; border-color: #b49a64; }
+.app.in-game.composing-chat .chat-compose button { background: transparent; color: #e1bd78; }
+.app.in-game.composing-chat .chat-compose button[type=submit] { background: #d9bb82; color: #14251c; }
+@media (max-height:420px) {
+  .app.in-game.composing-chat .play-area { grid-template-rows: 28px minmax(64px,1fr) auto; }
+  .app.in-game.composing-chat .rotation-bar { height: 28px; min-height: 28px; }
+  .app.in-game.composing-chat .action-zone { gap: 4px; padding-top: 0; }
+  .app.in-game.composing-chat .typing-hole-label { display: none; }
+  .app.in-game.composing-chat .personal-hole-cards .card.small { height: 48px; width: 35px; }
+  .app.in-game.composing-chat .table-stage .board-cards > .board-card-wrap > .card { height: 48px; width: 35px; }
+  .app.in-game.composing-chat .action-buttons > button { height: 44px; min-height: 44px; }
+}
+
+.app.in-game.composing-chat .table-motion, .app.in-game.composing-chat .reaction-overlay, .app.in-game.composing-chat .reaction-picker { display: none; }
+.app.in-game.composing-chat .typing-turn-status.is-your-turn { color: #a5e9c1; font-weight: 700; }

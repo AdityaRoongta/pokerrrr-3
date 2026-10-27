@@ -624,6 +624,9 @@ export default function Home() {
             <strong>{room.game || room.settings.games?.[0] || 'NLH'}</strong>
             <span className="table-stakes">{fmt(room.settings.sb)}/{fmt(room.settings.bb)}</span>
             <span>Hand {room.phase === 'lobby' ? 0 : room.completed + (['showdown', 'closed'].includes(room.phase) ? 0 : 1)}</span>
+            <span className={`typing-turn-status ${myTurn && live ? 'is-your-turn' : ''}`} role="status">
+              {myTurn && live ? `Your turn · ${seconds}s` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : voting ? 'Runout vote' : room.phase === 'showdown' ? 'Showdown' : room.game}
+            </span>
             {(room.settings.games?.length || 0) > 1 && room.phase !== 'closed' && <small className="next-variant">
               {room.settings.games[(gameIndex + 1) % room.settings.games.length]} {room.settings.rotation === room.handsIntoRotation ? 'next hand' : `in ${room.settings.rotation - room.handsIntoRotation} ${room.settings.rotation - room.handsIntoRotation === 1 ? 'hand' : 'hands'}`}
             </small>}
@@ -772,7 +775,7 @@ export default function Home() {
             // Keep the composer focused so the first betting tap cannot move the
             // button by dismissing the keyboard before its click is delivered.
             if (social.open && (e.target as HTMLElement).closest('.betting-controls button, .pause-deal')) e.preventDefault();
-          }} className={`action-zone ${myTurn && live && !effects.presentationBusy ? 'your-action' : ''}`}>
+          }} className="action-zone">
             <div className="hand-toolbar">
               <span className={`turn-status ${myTurn && live && !effects.presentationBusy ? 'is-your-turn' : ''}`} role="status">
                 {myTurn && live && !effects.presentationBusy ? `Your turn · ${seconds}s` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : room.game}
@@ -782,6 +785,7 @@ export default function Home() {
               </div>
             </div>
             {seated && <div className="personal-hand" aria-label="Your cards">
+              <span className="typing-hole-label" aria-hidden="true">Your cards</span>
               <div className="personal-hole-cards" aria-label="Your cards">
                 {me?.inHand && me.cards?.length ? me.cards.map((c: number, i: number) => <Card key={`${room.handStartedAt || 0}:${i}`} value={c} small highlight={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.holeCards?.includes(c))} dim={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />) : <span className="personal-cards-placeholder">{room.game || 'NLH'} · Your cards</span>}
               </div>
@@ -825,9 +829,18 @@ export default function Home() {
                   <div className="action-buttons">
                     <button className="fold" disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === (displayedCall ? 'fold' : 'check-fold')} onClick={() => myTurn ? send('fold') : selectPreaction(displayedCall ? 'fold' : 'check-fold')}>{!myTurn && !displayedCall ? 'Check / Fold' : 'Fold'}</button>
                     <button className="secondary check-call" disabled={controlsBusy || effects.presentationBusy || (!myTurn && (!canQueueAction || Boolean(displayedCall)))} aria-pressed={!myTurn && preaction === 'check'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check')}>{displayedCall ? `Call ${fmt(displayedCall)}` : 'Check'}</button>
-                    <button className="primary" disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || !raiseValid} onClick={() => send('raise', { amount: raise })}>
-                      <span className="raise-button-label">Raise</span>
-                      <span className="raise-button-amount">{myTurn && l?.canRaise ? fmt(raise) : '—'}</span>
+                    <button className="primary" disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || !raiseValid} onClick={() => {
+                      if (social.open) {
+                        // The typing-view button opens amount selection only.
+                        // A second explicit tap on the normal Raise button bets.
+                        (document.getElementById('chat-message') as HTMLInputElement | null)?.blur();
+                        social.setOpen(false);
+                        return;
+                      }
+                      void send('raise', { amount: raise });
+                    }}>
+                      <span className="raise-button-label">{social.open ? 'Raise…' : 'Raise'}</span>
+                      {!social.open && <span className="raise-button-amount">{myTurn && l?.canRaise ? fmt(raise) : '—'}</span>}
                     </button>
                   </div>
                 </div>

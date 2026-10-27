@@ -1,0 +1,11 @@
+{
+  "tag": "v2.1.0",
+  "commit": "dfbd962de881bf8e0abdd327a9aa0a368ef6072b",
+  "workerVersion": "27a3ad26-45d4-4684-8536-7522700b8d7c",
+  "deploymentId": "d2f418e4-d1d2-48e9-a8d8-7abdd665e5f7",
+  "rollbackVersion": "92c7cd46-0ce3-44e6-bbca-1f4c21a37b01",
+  "verifiedAt": "2026-10-27T15:39:12.430Z",
+  "productionUrl": "https://dunzo-club.arun-devanathan.workers.dev/",
+  "trafficPercent": 100,
+  "validation": "CI checks, staging/production artifacts and isolated multiplayer smokes passed; production health matches deployed source and reports multiplayerReady=true."
+}

@@ -1,0 +1,11 @@
+{
+  "tag": "v2.1.1",
+  "commit": "f9154a75af55e3a53cfeec96c685cd891503b82f",
+  "workerVersion": "ee3617d1-8b7e-41ce-954e-45940d5de07f",
+  "deploymentId": "9d5add79-1b08-4c04-a7b9-edbc1692a535",
+  "rollbackVersion": "27a3ad26-45d4-4684-8536-7522700b8d7c",
+  "verifiedAt": "2026-10-27T20:26:15.207Z",
+  "productionUrl": "https://dunzo-club.arun-devanathan.workers.dev/",
+  "trafficPercent": 100,
+  "validation": "119 tests, TypeScript, all three merged-commit CI jobs including production multiplayer smoke passed; five compiled-browser fault scenarios passed. Live health matches deployed source and multiplayerReady=true; existing production namespace preserved."
+}

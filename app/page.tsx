@@ -138,23 +138,28 @@ export default function Home() {
   }
   const raiseRef = useRef(raise);
   raiseRef.current = raise;
-  // Restore the HttpOnly login before subscribing to the table.
+  const identityRetry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // An offline reload must retry identity restoration instead of stranding the login screen.
   async function refreshIdentity() {
+    clearTimeout(identityRetry.current);
+    let answered = false;
     try {
       const [list, session] = await Promise.all([PokerClient.auth('players'), PokerClient.auth('session')]);
+      answered = true;
       setPlayers(list.players);
       setPlayer(session.player);
       if (session.player) {
         token.current = session.player.id;
         setName(session.player.name);
         transport.current = new PokerClient(session.player.id);
-        if (transport.current.hasPending()) setError('An earlier action is unconfirmed. Retry last action to check its saved result.');
-        setLobby(await PokerClient.auth('lobby'));
+        if (transport.current.hasPending()) setNotice('Restoring your connection…');
+        setError('');
       }
-    } catch (e: any) {
-      setError(e.message);
+    } catch {
+      setError('Reconnecting… Restoring your sign-in automatically.');
+      identityRetry.current = setTimeout(() => void refreshIdentity(), 3000);
     } finally {
-      setAuthLoading(false);
+      setAuthLoading(!answered);
     }
   }
   function expired() {
@@ -239,6 +244,7 @@ export default function Home() {
     const timer = setInterval(() => setClock(Date.now()), 500);
     return () => {
       clearInterval(timer);
+      clearTimeout(identityRetry.current);
       document.removeEventListener('pointerdown', unlockSocial);
       document.removeEventListener('keydown', unlockSocial);
       window.removeEventListener('beforeinstallprompt', installer);
@@ -252,7 +258,7 @@ export default function Home() {
       if (r && !demo.current && (current.current && current.current.code === r.code || !current.current && autoResume.current && state.lobby.activeGame?.joined && state.lobby.activeGame?.code === r.code)) update(r);
     }, setConnection, expired, (event, serverTime) => {
       if (!demo.current) reactions.receive(event, serverTime);
-    }, entry => { if (!demo.current) social.receive(entry); });
+    }, entry => { if (!demo.current) social.receive(entry); }, message => { setError(''); setNotice(message); });
   }, [player?.id, authEpoch]);
   useEffect(() => {
     const id = setInterval(() => {
@@ -744,8 +750,8 @@ export default function Home() {
                     </strong>
                     {p.seat === room.dealer && <b className="dealer-chip">D</b>}
                   </div>
-                  {p.away && <span className="seat-state">Sit out</span>}
-                  {p.inHand && !p.away && p.action === 'Check' && !effects.dealing && room.phase !== 'closed' && <span className="player-action">Check</span>}
+                  {p.disconnected && !demo.current ? <span className="seat-state disconnected" role="status">Disconnected</span> : p.away && <span className="seat-state">Sit out</span>}
+                  {p.inHand && !p.away && !p.disconnected && p.action === 'Check' && !effects.dealing && room.phase !== 'closed' && <span className="player-action">Check</span>}
                   {handActive && p.bet > 0 && p.action !== 'Check' && <div className="seat-bet">● {fmt(p.bet)}</div>}
                 </> : <button className="seat-choice" aria-label={`Choose seat ${s + 1}`} disabled={controlsBusy || seated || room.phase === 'closed' || room.terminationPending} onClick={() => chooseSeat(s)}>
                   <span className="empty-seat">

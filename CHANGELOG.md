@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.1.1 — 28 October 2026
+
+Priority connection-recovery fix.
+
+- Automatically reconcile pending actions after connection loss or reload; stale actions cannot block later turns or execute on a new hand.
+- Reuse durable command receipts across HTTP and authenticated WebSocket delivery, preventing duplicate bets when replies are lost.
+- Fall back to HTTP snapshots when the socket is unavailable; reconnect without an HTTP session preflight.
+- Verify sessions before signing players out on socket policy closes; retry identity restoration after an offline reload.
+- Show Disconnected on seats using heartbeat/poll leases while retaining chips, seats and future-hand eligibility. Existing timers continue normal check/fold behaviour.
+- Added nine recovery tests, actual-Worker presence/receipt coverage and five browser fault-injection scenarios.
+
+Full release notes: [v2.1.1](docs/releases/v2.1.1.md).
+
 ## v2.1.0 — 27 October 2026
 
 Production update from baseline `309fd214b02015a111b1026a89cadecf0b1d6135`.

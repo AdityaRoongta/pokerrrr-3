@@ -1,4 +1,4 @@
-# Connection recovery (staging)
+# Connection recovery
 
 A lost connection preserves the seat, stack and eligibility for subsequent hands.
 It does not set Away/Sit Out. The server keeps the turn timer running and applies
@@ -76,4 +76,4 @@ Use https://dunzo-club-staging.arun-devanathan.workers.dev/ with test chips only
 
 Browser fault injection is deterministic. Physical Android/iOS keyboard,
 background-suspension and network-switch behaviour still need the phone checks.
-Production is not changed by this staging iteration.
+This recovery behaviour ships in production v2.1.1. Use staging for deliberate fault injection.

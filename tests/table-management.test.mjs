@@ -82,3 +82,25 @@ test('another player sitting out during payouts cannot flush a pending departure
   assert.equal(waiting.left, false); assert.equal(waiting.cashout, 0);
   tick(r, r.payoutFinishedAt); assert.equal(waiting.left, true);
 });
+
+test('uncalled return, accounting entry and receipt survive restart without double credit', async () => {
+  const storage = new MemoryStorage(); let service = new TableService(storage);
+  let result = await service.execute(ids[0], commandEnvelope({type:'create',name:'Alice',games:['NLH'],buyin:1000,bb:10}), 10000);
+  const code = result.snapshot.code;
+  await service.execute(ids[1], commandEnvelope({type:'join',code,name:'Bob',buyin:20}), 10001);
+  let snapshot = await service.snapshot(ids[0], code);
+  result = await service.execute(ids[0], commandEnvelope({type:'deal',code}, snapshot), 10002);
+  snapshot = result.snapshot;
+  result = await service.execute(ids[0], commandEnvelope({type:'raise',code,amount:1000}, snapshot), 10003);
+  snapshot = await service.snapshot(ids[1], code);
+  const call = commandEnvelope({type:'call',code}, snapshot);
+  await service.execute(ids[1], call, 10004);
+  service = new TableService(storage);
+  const retry = await service.execute(ids[1], call, 10005);
+  assert.equal(retry.replayed, true);
+  const room = await storage.get(`room:${code}`);
+  assert.equal(room.phase, 'runout_vote'); assert.equal(room.players[0].stack, 980);
+  assert.equal(room.uncalledReturns.length, 1);
+  const ledger = [...(await storage.list({prefix:`accounting:${code}:`})).values()].filter(e => e.kind === 'uncalled_return');
+  assert.equal(ledger.length, 1); assert.equal(ledger[0].amount, 980);
+});

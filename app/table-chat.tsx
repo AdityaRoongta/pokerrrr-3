@@ -78,7 +78,7 @@ export function ChatDrawer({ room, social, myTurn }: { room: SocialRoom; social:
     resize();
     return () => viewport.removeEventListener('resize', resize);
   }, [social.open, social.setOpen]);
-  if (!social.open && !historyOpen) return null;
+  if (!social.open && !historyOpen) return social.error ? <button className="chat-retry" onClick={() => { flushSync(() => social.setOpen(true)); input.current?.focus(); }}>Message not sent · Tap to retry</button> : null;
   const content = <aside ref={historyOpen ? history : undefined} className={historyOpen ? 'chat-drawer chat-history' : 'chat-composer'} role={historyOpen ? 'dialog' : 'region'} aria-modal={historyOpen || undefined} aria-label={historyOpen ? 'Game chat history' : 'Write a message'}>
     {historyOpen && <><header><div><h2>Game chat</h2><small>{room.phase === 'closed' ? 'Read-only · Game ended' : 'This game only'}</small></div><button className="icon-button" aria-label="Close game chat" onClick={() => social.setHistoryOpen(false)}><X size={20} /></button></header>
     {myTurn && <button className="chat-turn" onClick={() => social.setHistoryOpen(false)}>Your turn · Back to game</button>}
@@ -96,7 +96,7 @@ export function ChatDrawer({ room, social, myTurn }: { room: SocialRoom; social:
       </article>)}
     </div><button className="chat-back" onClick={() => social.setHistoryOpen(false)}>Back to game</button></>}
     {social.error && <p className="chat-error" role="status">{social.error}<button onClick={() => void social.loadMore()}>Refresh</button></p>}
-    {!historyOpen && room.phase !== 'closed' && <form className="chat-compose" onSubmit={async e => { e.preventDefault(); const sentDraft = draft; if (await social.send(sentDraft)) setDraft(current => current === sentDraft ? '' : current); }}>
+    {!historyOpen && room.phase !== 'closed' && <form className="chat-compose" onSubmit={async e => { e.preventDefault(); const sentDraft = draft; const request = social.send(sentDraft); input.current?.blur(); social.setOpen(false); if (await request) setDraft(current => current === sentDraft ? '' : current); }}>
       <button type="button" className="chat-expand" onPointerDown={e => e.preventDefault()} aria-label="Expand chat history" onClick={() => { input.current?.blur(); social.openHistory(); }}><Maximize2 size={19} /></button>
       <label className="sr-only" htmlFor="chat-message">Message</label><input ref={input} id="chat-message" onBlur={() => social.setOpen(false)} value={draft} onChange={e => setDraft(e.target.value)} maxLength={500} readOnly={social.sending} placeholder="Message the table…" autoComplete="off" enterKeyHint="send" />
       <button onPointerDown={e => e.preventDefault()} aria-label="Send message" disabled={social.sending || !draft.trim()}><Send size={20} /></button>

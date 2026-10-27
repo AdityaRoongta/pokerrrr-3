@@ -160,8 +160,21 @@ The compose button is at the bottom-right above the betting controls. It opens
 a single-line input above the keyboard, retaining cards and betting controls.
 Short visible viewports use compact player rows around the board. Live messages
 appear in player bubbles; tap a bubble or expand the composer to read game history.
-Drafts survive closing and reopening chat within the same game. Full history is
+Send closes the composer and keyboard immediately; failed sends retain the draft for retry. Unsent drafts survive closing and reopening chat within the same game. Full history is
 a separate reading dialog with a Back to game control and an alert on your turn.
-The acting player has a gold spotlight. At showdown, select a winner/pot/run to
-inspect its hand description and exact five highlighted cards. Your current bet
+A rotating light cone points from the felt centre to the acting player. Opponents’ concealed cards peek above their nameplates and reveal fully at showdown. Results appear below each community board, with a combined award when one player wins every pot on that board. Select a winner/pot/run to inspect its hand description and exact five highlighted cards. Your current bet
 appears above your own nameplate, toward the pot.
+
+Uncalled contributions return to the player's stack before runout voting or
+showdown. They are excluded from the contested pot and payout flights, recorded
+in hand history and the transactional accounting audit, and are never displayed
+as winnings. Persisted presentation plans from older hands retain their timing.
+
+The optional browser regression suite is `node scripts/table-ui-smoke.cjs` after
+`pnpm build:staging`. It requires Playwright available to Node (or an absolute
+`POKER_PLAYWRIGHT_MODULE` path) and an installed Chromium browser (optionally
+`POKER_BROWSER_EXECUTABLE`). It starts a local Worker and intercepts test players,
+chat and game snapshots; it never uses deployed data. Checks cover card-back peeks,
+the hero wager's bounds, moving beam, compact composer, draft/history flow,
+immediate Send dismissal, result placement and exact-five highlights across
+four screen sizes, all variants and one/two-board showdowns.

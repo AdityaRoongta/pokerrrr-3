@@ -8,6 +8,7 @@ import { useTableEffects } from '../lib/use-table-effects';
 import { seatPosition } from '../lib/table-presentation.mjs';
 import { RunoutVote, RunoutAnnouncement } from './runout-vote';
 import { TableMotion } from './table-motion';
+import { TurnBeam } from './turn-beam';
 import { TableAwards } from './table-awards';
 import { ChatButton, ChatDrawer, SpeechBubbles } from './table-chat';
 import { useSocial } from '../lib/client/use-social';
@@ -629,6 +630,7 @@ export default function Home() {
           </div>
 
           <div className={`table-stage ${room.runCount === 2 ? 'two-runouts' : ''} ${room.runVote ? 'has-run-vote' : ''}`}>
+            <TurnBeam target={live && !effects.presentationBusy ? room.turn : null} />
             <div className="felt">
               <div className="felt-inner" />
 
@@ -664,6 +666,9 @@ export default function Home() {
                           </div>;
                         })}
                       </div>
+                      {room.phase === 'showdown' && <TableAwards room={room} effects={effects} run={runIndex + 1} onFocus={(id, run) => {
+                        setSelectedWinner(id); setSelectedRun(run);
+                      }} />}
                     </div>)}
                   </div>
                 </>}
@@ -681,7 +686,7 @@ export default function Home() {
                 win = effects.resultReady ? winners.find((w: any) => w.id === p?.id) : null,
                 cardCount = room.game === 'NLH' ? 2 : room.game === 'PLO4' ? 4 : 5,
                 visibleCount = effects.visibleHoleCards(s, cardCount);
-              return <div key={s} data-seat-index={s} data-relative-seat={(s - (me?.seat || 0) + room.settings.seats) % room.settings.seats} className={`seat ${p ? 'occupied' : 'open'} ${live && !effects.presentationBusy && p?.id === room.turn ? 'acting' : ''} ${p?.folded && handActive ? 'folded' : ''} ${p?.id === room.me ? 'your-seat' : ''} ${cardCount > 2 ? 'omaha-seat' : ''} ${win ? 'winner-seat' : ''}`} data-card-count={cardCount} style={{
+              return <div key={s} data-seat-index={s} data-relative-seat={(s - (me?.seat || 0) + room.settings.seats) % room.settings.seats} className={`seat ${p ? 'occupied' : 'open'} ${live && !effects.presentationBusy && p?.id === room.turn ? 'acting' : ''} ${p?.folded && handActive ? 'folded' : ''} ${p?.id === room.me ? 'your-seat' : ''} ${p?.cards?.length ? 'cards-revealed' : 'cards-concealed'} ${cardCount > 2 ? 'omaha-seat' : ''} ${win ? 'winner-seat' : ''}`} data-card-count={cardCount} style={{
                 left: `clamp(var(--seat-edge-x), ${x}%, calc(100% - var(--seat-edge-x)))`,
                 top: `clamp(var(--seat-edge-y), ${y}%, calc(100% - var(--seat-edge-y)))`
               }}>
@@ -781,15 +786,6 @@ export default function Home() {
                 {me?.inHand && me.cards?.length ? me.cards.map((c: number, i: number) => <Card key={`${room.handStartedAt || 0}:${i}`} value={c} small highlight={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.holeCards?.includes(c))} dim={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />) : <span className="personal-cards-placeholder">{room.game || 'NLH'} · Your cards</span>}
               </div>
             </div>}
-            {room.phase === 'showdown' && <section className={`showdown-summary ${room.runCount === 2 ? 'two-run-summary' : ''}`} aria-label="Showdown results">
-              {Array.from({length: room.runCount || 1}, (_, i) => <div className="run-summary" key={`${room.handStartedAt}:${i}`}>
-                {room.runCount === 2 && <h3>Run {i + 1}</h3>}
-                <TableAwards room={room} effects={effects} run={i + 1} onFocus={(id, run) => {
-                  setSelectedWinner(id);
-                  setSelectedRun(run);
-                }} />
-              </div>)}
-            </section>}
             {me?.pendingSeatAction === 'leave' && <p className="game-status" role="status">Standing up after this hand and payouts. <button className="text-button" disabled={controlsBusy || room.terminationPending} onClick={() => send('cancel_stand_up')}>Cancel</button></p>}
             {room.terminationPending && <p className="game-status" role="status">Game will terminate after this hand.</p>}
             {!seated && room.phase !== 'closed' ? <>

@@ -5187,3 +5187,36 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .in-game[data-chat-compact] .speech-bubble:is([data-relative-seat='1'],[data-relative-seat='4']) { left: 37.5% !important; }
 .in-game[data-chat-compact] .speech-bubble:is([data-relative-seat='2'],[data-relative-seat='3']) { left: clamp(55px,12.5%,calc(100% - 55px)) !important; }
 .in-game[data-chat-compact] .speech-bubble:is([data-relative-seat='6'],[data-relative-seat='7']) { left: clamp(55px,87.5%,calc(100% - 55px)) !important; }
+
+/* Card backs occupy only a peek; revealed cards retain their full footprint. */
+.in-game .seat.cards-concealed:not(.your-seat) .seat-top { height: 10px; position: relative; z-index: 0; overflow: visible; }
+.in-game .seat.cards-concealed:not(.your-seat) .hole-cards { position: absolute; bottom: -17px; left: 50%; transform: translateX(-50%); }
+.in-game .seat.cards-concealed .seat-info { z-index: 1; }
+.in-game .your-seat .seat-bet { top: auto; bottom: calc(100% + 5px); height: auto; }
+.in-game .seat.acting::before { display: none; }
+.turn-beam { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; opacity: 0; overflow: hidden; }
+.turn-beam.is-active { opacity: 1; }
+.turn-beam-direction { transform-origin: 0 0; transition: transform 280ms ease-in-out; }
+.in-game .board-zone { z-index: 2; }
+.in-game .table-stage:has(.table-awards) .board-zone { width: min(65%, 340px); }
+.in-game .runout-board .table-awards { min-height: 42px; margin-top: 8px; text-align: center; }
+.in-game .table-stage:has(.table-awards) .pot-amount { margin-bottom: 6px; }
+.in-game .runout-board .table-winning-hand { font-size: 12px; line-height: 1.3; }
+.in-game .runout-board .table-winner-name { text-align: center; font-size: 13px; }
+.in-game .table-pot-tabs { justify-content: center; gap: 5px; }
+.in-game .table-award-winners > div + div { margin-top: 3px; }
+.in-game .chat-composer { width: min(80%, 360px); margin-left: auto; border-top: 0; }
+.in-game .chat-compose { padding: 2px 0; gap: 4px; }
+.in-game .chat-compose input { height: 36px; padding: 4px 8px; }
+.chat-retry { border: 0; background: transparent; color: #efc393; font-size: 12px; min-height: 32px; align-self: flex-end; }
+@media (prefers-reduced-motion: reduce) { .turn-beam-direction { transition: none; } }
+@media (max-height: 600px) {
+  .in-game .runout-board .table-awards { min-height: 30px; margin-top: 3px; }
+  .in-game .runout-board .table-winning-hand { font-size: 10px; }
+}
+/* Outrank the chat module's defaults regardless of stylesheet load order. */
+.in-game.composing-chat .action-zone > .chat-composer { width: min(80%, 360px); justify-self: end; margin-left: auto; }
+.in-game.composing-chat .chat-compose input { height: 36px; padding: 4px 8px; }
+.in-game .table-stage:has(.table-awards) .board-zone { left: 50%; right: auto; transform: translateX(-50%); }
+.in-game .table-stage:has(.table-awards) .runout-boards, .in-game .table-stage:has(.table-awards) .runout-board { width: 100%; min-width: 0; }
+.in-game .runout-board .table-winning-hand { white-space: normal; overflow-wrap: anywhere; }

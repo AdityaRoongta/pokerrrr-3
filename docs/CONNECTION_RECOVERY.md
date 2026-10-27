@@ -6,6 +6,8 @@ the existing automatic check/fold rule when time expires.
 
 ## Recovery behaviour
 
+- An offline reload retries identity restoration automatically, without requiring
+  another sign-in or refresh.
 - The client heartbeats every three seconds and replaces an unresponsive socket.
 - No HTTP session preflight gates a new WebSocket connection. A socket close,
   including code 1008, is not proof of logout; only a confirmed missing session
@@ -48,7 +50,7 @@ POKER_BROWSER_EXECUTABLE=/path/to/chromium node scripts/table-ui-smoke.cjs
 The browser suite runs the compiled React UI with intercepted local APIs and
 real TableService fixtures. It deliberately drops HTTP requests before delivery,
 drops a reply after acceptance, disables both transports until a turn expires,
-and disables WebSockets while HTTP works. It asserts recovery without another
+disables WebSockets while HTTP works, and boots offline before connectivity returns. It asserts recovery without another
 sign-in or manual Retry, exact-once chip changes, and no page errors. It also
 runs the existing mobile layout checks at four viewport sizes.
 

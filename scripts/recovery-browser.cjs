@@ -5,7 +5,7 @@ module.exports = async function recoveryBrowser(browser, root) {
   const {TableService} = await import(root+'/server/table-service.mjs');
   const {MemoryStorage} = await import(root+'/tests/memory-storage.mjs');
   const {commandEnvelope} = await import(root+'/lib/protocol/poker.mjs');
-  for (const scenario of ['http_down','lost_reply','both_down','socket_down']) {
+  for (const scenario of ['http_down','lost_reply','both_down','socket_down','offline_reload']) {
     const host=crypto.randomUUID(), other=crypto.randomUUID(), third=crypto.randomUUID();
     const storage=new MemoryStorage(), service=new TableService(storage);
     let room=(await service.execute(host,commandEnvelope({type:'create',name:'Recovery tester',sb:5,bb:10,seats:3,buyin:1000,games:['NLH'],timer:10}))).snapshot;
@@ -17,9 +17,9 @@ module.exports = async function recoveryBrowser(browser, root) {
     assert.equal(room.turn,host);
     const raw=await storage.get('room:'+code); raw.paused=true; await storage.put('room:'+code,raw);
     const lobby={activeGame:{code,joined:true,players:room.players,settings:room.settings}};
-    const sockets=new Set(), commandIds=[]; let fault='none', httpAccepted=0;
+    const sockets=new Set(), commandIds=[]; let fault=scenario==='offline_reload'?'both_down':'none', httpAccepted=0;
     const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
-    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    const errors=[], consoleErrors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
     async function state(){return {protocol:4,type:'state',lobby,room:await service.snapshot(host,code)};}
     async function broadcast(){const msg=JSON.stringify(await state());for(const ws of sockets)try{ws.send(msg);}catch{}}
     async function execute(input){await service.advance();const result=await service.execute(host,input);return {...result.snapshot,ack:result.ack};}
@@ -33,7 +33,7 @@ module.exports = async function recoveryBrowser(browser, root) {
         try {const json=await execute(input);await broadcast();return route.fulfill({json});}
         catch(error){return route.fulfill({status:error.status||400,json:{error:error.message}});}
       }
-      const data=path==='/api/players'?{players:[{id:host,name:'Recovery tester'}]}:path==='/api/session'?{player:{id:host,name:'Recovery tester'}}:path==='/api/lobby'?lobby:path==='/api/chat'?{entries:[],nextCursor:null}:await service.snapshot(host,code);
+      const data=path==='/api/history'?{games:[],nextCursor:null,demo:false,demoAvailable:false,viewerKey:host}:path==='/api/players'?{players:[{id:host,name:'Recovery tester'}]}:path==='/api/session'?{player:{id:host,name:'Recovery tester'}}:path==='/api/lobby'?lobby:path==='/api/chat'?{entries:[],nextCursor:null}:await service.snapshot(host,code);
       return route.fulfill({json:data});
     });
     await page.routeWebSocket('**/api/poker/socket',async ws=>{
@@ -50,10 +50,11 @@ module.exports = async function recoveryBrowser(browser, root) {
         }
       });
     });
+    if(scenario==='offline_reload') setTimeout(()=>{fault='none';},1000);
     await page.goto('http://127.0.0.1:8787');
-    try { await page.locator('.personal-hole-cards .card').first().waitFor(); } catch(error) { console.error({scenario,errors,text:await page.locator('body').innerText()}); await page.screenshot({path:'/tmp/dunzo-recovery-failure.png'}); throw error; }
+    try { await page.locator('.personal-hole-cards .card').first().waitFor(); } catch(error) { console.error({scenario,errors,consoleErrors,text:await page.locator('body').innerText()}); await page.screenshot({path:'/tmp/dunzo-recovery-failure.png'}); throw error; }
     await page.waitForFunction(()=>{const b=document.querySelector('.check-call');return b&&!b.disabled;});
-    fault=scenario;
+    fault=scenario==='offline_reload'?'none':scenario;
     if(scenario==='socket_down'){
       for(const ws of sockets)ws.close();
       await page.waitForTimeout(1500);
@@ -88,6 +89,7 @@ module.exports = async function recoveryBrowser(browser, root) {
     }
     assert.equal(await page.getByRole('button',{name:'Sign in',exact:true}).count(),0);
     assert.deepEqual(errors,[]);
+    assert.deepEqual(consoleErrors.filter(e=>/TypeError|above error occurred/i.test(e)),[]);
     await page.screenshot({path:'/tmp/dunzo-recovery-'+scenario+'.png'});
     await page.close();console.log('PASS browser recovery: '+scenario);
   }

@@ -138,10 +138,14 @@ export default function Home() {
   }
   const raiseRef = useRef(raise);
   raiseRef.current = raise;
-  // Restore the HttpOnly login before subscribing to the table.
+  const identityRetry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // An offline reload must retry identity restoration instead of stranding the login screen.
   async function refreshIdentity() {
+    clearTimeout(identityRetry.current);
+    let answered = false;
     try {
       const [list, session] = await Promise.all([PokerClient.auth('players'), PokerClient.auth('session')]);
+      answered = true;
       setPlayers(list.players);
       setPlayer(session.player);
       if (session.player) {
@@ -149,12 +153,13 @@ export default function Home() {
         setName(session.player.name);
         transport.current = new PokerClient(session.player.id);
         if (transport.current.hasPending()) setNotice('Restoring your connection…');
-        setLobby(await PokerClient.auth('lobby'));
+        setError('');
       }
-    } catch (e: any) {
-      setError(e.message);
+    } catch {
+      setError('Reconnecting… Restoring your sign-in automatically.');
+      identityRetry.current = setTimeout(() => void refreshIdentity(), 3000);
     } finally {
-      setAuthLoading(false);
+      setAuthLoading(!answered);
     }
   }
   function expired() {
@@ -239,6 +244,7 @@ export default function Home() {
     const timer = setInterval(() => setClock(Date.now()), 500);
     return () => {
       clearInterval(timer);
+      clearTimeout(identityRetry.current);
       document.removeEventListener('pointerdown', unlockSocial);
       document.removeEventListener('keydown', unlockSocial);
       window.removeEventListener('beforeinstallprompt', installer);

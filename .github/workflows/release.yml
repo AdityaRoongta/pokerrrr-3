@@ -1,0 +1,20 @@
+name: Publish verified production release
+on:
+  push:
+    branches: [main]
+    paths: ['docs/releases/*-deployment.json']
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify production and publish release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publish-release.mjs

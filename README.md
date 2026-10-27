@@ -145,3 +145,23 @@ not merged or changed. One chip equals one rupee; suggested payments display rup
 
 See [staging history reset](docs/HISTORY_TEST_DATA.md) for the console-triggered
 one-time reset and four sample games using the current roster.
+
+## Table UI
+
+The six-row table menu contains Sit Out/Sit In, Stand Up, Hand History, Game Info,
+Terminate Game and Return to Lobby. Seat actions are hidden for spectators.
+Any signed-in viewer can terminate; Stand Up and termination use a separate
+confirmation dialog and preserve the engine's current-hand/payout completion rules.
+Tap your own stack's + to load chips. Rankings and pause/resume after showdown
+remain directly on the table. The top speaker button controls all game and reaction
+audio using one saved preference.
+
+The compose button is at the bottom-right above the betting controls. It opens
+a single-line input above the keyboard, retaining cards and betting controls.
+Short visible viewports use compact player rows around the board. Live messages
+appear in player bubbles; tap a bubble or expand the composer to read game history.
+Drafts survive closing and reopening chat within the same game. Full history is
+a separate reading dialog with a Back to game control and an alert on your turn.
+The acting player has a gold spotlight. At showdown, select a winner/pot/run to
+inspect its hand description and exact five highlighted cards. Your current bet
+appears above your own nameplate, toward the pot.

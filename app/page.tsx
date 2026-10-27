@@ -83,7 +83,6 @@ export default function Home() {
     [clock, setClock] = useState(Date.now()),
     [confirm, setConfirm] = useState(''),
     [sound, setSound] = useState(true),
-    [socialSound, setSocialSound] = useState(true),
     [preaction, setPreaction] = useState<'fold' | 'check-fold' | 'check' | null>(null),
     [selectedWinner, setSelectedWinner] = useState(''),
     [selectedShortcut, setSelectedShortcut] = useState(''),
@@ -221,15 +220,13 @@ export default function Home() {
     return input ? transport.current.send(input, current.current || undefined) : transport.current.snapshot(roomCode || current.current?.code || '');
   }
   useEffect(() => {
-    const reactionSound = localStorage.getItem('hg-social-sound') !== 'off';
-    setSocialSound(reactionSound);
-    socialAudio.current?.setEnabled(reactionSound);
     const unlockSocial = () => socialAudio.current?.unlock();
     document.addEventListener('pointerdown', unlockSocial);
     document.addEventListener('keydown', unlockSocial);
     const enabled = localStorage.getItem('hg-sound') !== 'off';
     setSound(enabled);
     audio.current?.setEnabled(enabled);
+    socialAudio.current?.setEnabled(enabled);
     token.current = playerId();
     void refreshIdentity();
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => { });
@@ -319,9 +316,12 @@ export default function Home() {
     const enabled = !sound;
     setSound(enabled);
     audio.current?.setEnabled(enabled);
+    socialAudio.current?.setEnabled(enabled);
     localStorage.setItem('hg-sound', enabled ? 'on' : 'off');
+    localStorage.removeItem('hg-social-sound');
     if (enabled) {
       audio.current?.unlock();
+      socialAudio.current?.unlock();
       audio.current?.play('deal', 100);
     }
   }
@@ -474,6 +474,7 @@ export default function Home() {
       if (!await send('set_away', { away: true })) return;
     }
     social.setOpen(false);
+    social.setHistoryOpen(false);
     demo.current = null;
     current.current = null;
     setRoom(null);
@@ -572,7 +573,7 @@ export default function Home() {
   const displayedCall = myTurn ? (l?.call || 0) : waitingCall;
   const canQueueAction = Boolean(!myTurn && me?.inHand && !me.folded && !me.away && me.stack > 0);
   const clampRaise = (v: number) => Math.min(raiseMax, Math.max(raiseMin, Math.round(v || raiseMin)));
-  return <div ref={appViewport} className={`app ${room ? 'in-game' : ''}`} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
+  return <div ref={appViewport} className={`app ${room ? 'in-game' : ''} ${social.open ? 'composing-chat' : ''}`} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
 
     <header className="topbar">
       <button className="brand" onClick={room ? exit : undefined} aria-label="Dunzo Club">
@@ -580,7 +581,7 @@ export default function Home() {
         <span>Dunzo Club<span className="brand-dot">.</span>{isStaging && <small className="staging-badge">STAGING</small>}</span>
       </button>
       <div className="top-right">
-        <button className="icon-button sound-toggle" onClick={toggleSound} aria-label={sound ? 'Mute sound effects' : 'Enable sound effects'} aria-pressed={sound} title={sound ? 'Sound on' : 'Sound off'}>
+        <button className="icon-button sound-toggle" onClick={toggleSound} aria-label={sound ? 'Mute all sounds' : 'Enable all sounds'} aria-pressed={sound} title={sound ? 'Sound on' : 'Sound off'}>
           {sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
         </button>
         {player && <button className="text-button" onClick={() => {
@@ -594,7 +595,6 @@ export default function Home() {
             <i />
             {demo.current ? 'Practice table' : connection === 'connected' ? 'Live table' : connection === 'offline' ? 'Offline' : 'Reconnecting…'}
           </span>
-          {enableReactions && <ChatButton social={social} />}
           <button className="icon-button" onClick={() => setPanel('menu')} aria-label="Table menu">
             <MoreHorizontal size={22} />
           </button>
@@ -679,10 +679,9 @@ export default function Home() {
                   y
                 } = seatPosition(s, me?.seat || 0, room.settings.seats),
                 win = effects.resultReady ? winners.find((w: any) => w.id === p?.id) : null,
-                seatHand = win?.runHands?.find((h: any) => h.run === focusedRunNumber) || win?.runHands?.[0] || win,
                 cardCount = room.game === 'NLH' ? 2 : room.game === 'PLO4' ? 4 : 5,
                 visibleCount = effects.visibleHoleCards(s, cardCount);
-              return <div key={s} data-seat-index={s} className={`seat ${p ? 'occupied' : 'open'} ${p?.id === room.turn ? 'acting' : ''} ${p?.folded && handActive ? 'folded' : ''} ${p?.id === room.me ? 'your-seat' : ''} ${cardCount > 2 ? 'omaha-seat' : ''} ${win ? 'winner-seat' : ''}`} data-card-count={cardCount} style={{
+              return <div key={s} data-seat-index={s} data-relative-seat={(s - (me?.seat || 0) + room.settings.seats) % room.settings.seats} className={`seat ${p ? 'occupied' : 'open'} ${live && !effects.presentationBusy && p?.id === room.turn ? 'acting' : ''} ${p?.folded && handActive ? 'folded' : ''} ${p?.id === room.me ? 'your-seat' : ''} ${cardCount > 2 ? 'omaha-seat' : ''} ${win ? 'winner-seat' : ''}`} data-card-count={cardCount} style={{
                 left: `clamp(var(--seat-edge-x), ${x}%, calc(100% - var(--seat-edge-x)))`,
                 top: `clamp(var(--seat-edge-y), ${y}%, calc(100% - var(--seat-edge-y)))`
               }}>
@@ -693,7 +692,7 @@ export default function Home() {
                   }}>
                     {p.inHand && p.cards?.length ? <div className="hole-cards">
                       {p.cards.slice(0, visibleCount).map((c: number, i: number) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
-                        <Card value={c} small highlight={Boolean(seatHand?.holeCards?.includes(c))} dim={Boolean(seatHand?.holeCards?.length && !seatHand.holeCards.includes(c))} />
+                        <Card value={c} small highlight={Boolean(effects.resultReady && focusedWinner?.id === p.id && focusedHand?.holeCards?.includes(c))} dim={Boolean(effects.resultReady && focusedWinner?.id === p.id && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />
                       </span>)}
                     </div> : p.inHand && handActive ? <div className="hole-cards">
                       {Array.from({
@@ -711,6 +710,7 @@ export default function Home() {
                     tabIndex={room.phase !== 'closed' && (p.id === room.me || enableReactions) ? 0 : undefined}
                     aria-label={room.phase !== 'closed' ? p.id === room.me ? `${p.name}, ${stackLabel(p)}, reload chips` : enableReactions ? `Send reaction to ${p.name}` : undefined : undefined}
                     aria-expanded={enableReactions && p.id !== room.me ? reactions.target === s : undefined}
+                    title={p.id === room.me ? 'Load chips' : undefined}
                     onClick={() => {
                       if (room.phase === 'closed') return;
                       if (p.id === room.me) openReload();
@@ -730,6 +730,7 @@ export default function Home() {
                     <span>
                       {p.name}
                     </span>
+                    {p.id === room.me && room.phase !== 'closed' && <span className="reload-hint" aria-hidden="true">+</span>}
                     <strong className={stackLabel(p) === 'Busted' ? 'busted-label' : ''}>
                       {stackLabel(p)}
                     </strong>
@@ -762,16 +763,22 @@ export default function Home() {
 
           </div>
 
-          <div className={`action-zone ${social.open ? 'chat-open' : ''}`}>
+          <div onPointerDownCapture={e => {
+            // Keep the composer focused so the first betting tap cannot move the
+            // button by dismissing the keyboard before its click is delivered.
+            if (social.open && (e.target as HTMLElement).closest('.betting-controls button, .pause-deal')) e.preventDefault();
+          }} className={`action-zone ${myTurn && live && !effects.presentationBusy ? 'your-action' : ''}`}>
             <div className="hand-toolbar">
               <span className={`turn-status ${myTurn && live && !effects.presentationBusy ? 'is-your-turn' : ''}`} role="status">
                 {myTurn && live && !effects.presentationBusy ? `Your turn · ${seconds}s` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : room.game}
               </span>
-              <button className="text-button" onClick={() => setPanel('ledger')}>Rankings</button>
+              <div className="hand-toolbar-actions"><button className="text-button" onClick={() => setPanel('ledger')}>Rankings</button>
+                {enableReactions && !social.open && <ChatButton social={social} readOnly={room.phase === 'closed'} />}
+              </div>
             </div>
             {seated && <div className="personal-hand" aria-label="Your cards">
               <div className="personal-hole-cards" aria-label="Your cards">
-                {me?.inHand && me.cards?.length ? me.cards.map((c: number, i: number) => <Card key={`${room.handStartedAt || 0}:${i}`} value={c} small highlight={Boolean(focusedHand?.holeCards?.includes(c))} dim={Boolean(focusedHand?.holeCards?.length && !focusedHand.holeCards.includes(c))} />) : <span className="personal-cards-placeholder">{room.game || 'NLH'} · Your cards</span>}
+                {me?.inHand && me.cards?.length ? me.cards.map((c: number, i: number) => <Card key={`${room.handStartedAt || 0}:${i}`} value={c} small highlight={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.holeCards?.includes(c))} dim={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />) : <span className="personal-cards-placeholder">{room.game || 'NLH'} · Your cards</span>}
               </div>
             </div>}
             {room.phase === 'showdown' && <section className={`showdown-summary ${room.runCount === 2 ? 'two-run-summary' : ''}`} aria-label="Showdown results">
@@ -855,7 +862,7 @@ export default function Home() {
       setPanel('');
       setConfirm('');
     }}>
-      <section role="dialog" aria-modal="true" aria-label={panel === 'ledger' ? 'Current Game Rankings' : panel === 'info' ? 'Game Info' : 'Table controls'} className={`modal ${panel === 'ledger' ? 'wide' : ''} ${room && ['info', 'ledger'].includes(panel) ? 'table-sheet' : ''}`} onClick={e => e.stopPropagation()}>
+      <section role="dialog" aria-modal="true" aria-label={panel === 'confirm' ? (confirm === 'stand_up' ? 'Confirm stand up' : 'Confirm terminate game') : panel === 'ledger' ? 'Current Game Rankings' : panel === 'info' ? 'Game Info' : 'Table controls'} className={`modal ${panel === 'menu' ? 'compact-menu' : ''} ${panel === 'confirm' ? 'confirmation-dialog' : ''} ${panel === 'ledger' ? 'wide' : ''} ${room && ['info', 'ledger'].includes(panel) ? 'table-sheet' : ''}`} onClick={e => e.stopPropagation()}>
         <button className="modal-close icon-button" onClick={() => {
           setPanel('');
           setConfirm('');
@@ -947,47 +954,39 @@ export default function Home() {
           <h2>Table Menu</h2>
           <div className="menu-list">
             {showTestTools && demo.current && <button onClick={previewAllIn}><Layers3 size={18} /> Preview all-in vote</button>}
-            {room.host && room.phase !== 'closed' && <button disabled={room.terminationPending} onClick={() => send('pause')}>{room.paused ? <Play size={18} /> : <Pause size={18} />} {room.paused ? 'Resume Auto-deal' : 'Pause Auto-deal'}</button>}
             {seated && room.phase !== 'closed' && <>
-              <button onClick={openReload} disabled={room.terminationPending || me.pendingSeatAction === 'leave'}>Load Chips</button>
               <button onClick={() => send('ready')} disabled={controlsBusy || me.pendingSeatAction === 'leave' || room.terminationPending}>
                 {me.pendingSeatAction === 'sit_out' ? 'Cancel Sit Out' : me.away ? 'Sit In' : 'Sit Out'}
               </button>
             </>}
             {enableReactions && seated && room.phase !== 'closed' && <button disabled={controlsBusy || room.terminationPending} onClick={() => {
               if (me.pendingSeatAction === 'leave') void send('cancel_stand_up');
-              else setConfirm('stand_up');
+              else { setConfirm('stand_up'); setPanel('confirm'); }
             }}>{me.pendingSeatAction === 'leave' ? 'Cancel Stand Up' : 'Stand Up'}</button>}
-            {enableReactions && <button onClick={() => { setPanel(''); social.setOpen(true); }}>Game Chat</button>}
-            {enableReactions && <button onClick={() => {
-              const enabled = !socialSound; setSocialSound(enabled); socialAudio.current?.setEnabled(enabled);
-              localStorage.setItem('hg-social-sound', enabled ? 'on' : 'off');
-              if (enabled) socialAudio.current?.unlock();
-            }}>{socialSound ? 'Mute Reaction Sounds' : 'Enable Reaction Sounds'}</button>}
-            <button onClick={() => setPanel('ledger')}>Current Game Rankings</button>
-            <button onClick={() => setPanel('history')}>Game History</button>
+            <button onClick={() => setPanel('history')}>Hand History</button>
             <button onClick={() => setPanel('info')}>Game Info</button>
             {showTestTools && demo.current && live && <button disabled={effects.presentationBusy} onClick={previewShowdown}>Preview showdown</button>}
-            {room.phase !== 'closed' && <button className="danger" disabled={controlsBusy || room.terminationPending} onClick={() => setConfirm('end')}>
+            {room.phase !== 'closed' && <button className="danger" disabled={controlsBusy || room.terminationPending} onClick={() => { setConfirm('end'); setPanel('confirm'); }}>
               {room.terminationPending ? 'Termination Pending' : 'Terminate Game'}
             </button>}
             <button onClick={exit}>Return to Lobby</button>
           </div>
-          {confirm && <div className="confirm">
+        </>}
+
+        {panel === 'confirm' && <div className="confirm">
+            <h2>{confirm === 'stand_up' ? 'Stand up?' : 'Terminate this game?'}</h2>
             <p>
-              {confirm === 'stand_up' ? (handActive || room.phase === 'showdown' && !effects.settled ? 'Stand up and cash out after this hand and payouts? Your seat stays reserved until then. Returning requires a new buy-in.' : 'Stand up, cash out your chips and release your seat? Returning requires a new buy-in.') : handActive ? 'Terminate the game after this hand?' : 'Terminate the game and cash out all chips?'}
+              {confirm === 'stand_up' ? (handActive || room.phase === 'showdown' && !effects.settled ? 'Stand up and cash out after this hand and payouts? Your seat stays reserved until then. Returning requires a new buy-in.' : 'Stand up, cash out your chips and release your seat? Returning requires a new buy-in.') : handActive ? 'End the game for everyone after this hand and payouts? All players’ remaining chips will be cashed out.' : room.phase === 'showdown' && !effects.settled ? 'End the game for everyone after payouts finish and cash out all remaining chips?' : 'End the game for everyone and cash out all remaining chips?'}
             </p>
-            <button className="primary" disabled={controlsBusy} onClick={async () => {
+            <div className="confirm-actions"><button className="secondary" disabled={busy} onClick={() => { setConfirm(''); setPanel('menu'); }}>Cancel</button>
+            <button className="primary" disabled={controlsBusy || Boolean(room.terminationPending)} onClick={async () => {
               if (await send(confirm)) {
                 setConfirm('');
                 setPanel('');
               }
-            }}>{confirm === 'stand_up' ? 'Confirm Stand Up' : 'Confirm Terminate Game'}</button><button className="text-button" onClick={() => setConfirm('')}>Cancel</button>
+            }}>{busy ? 'Processing…' : confirm === 'stand_up' ? 'Stand Up' : 'Terminate Game'}</button></div>
+          {error && <p className="error" role="alert">{error}</p>}
           </div>}
-          {error && <p className="error" role="alert">
-            {error}
-          </p>}
-        </>}
 
         {panel === 'info' && <>
           <h2>Game Info</h2>

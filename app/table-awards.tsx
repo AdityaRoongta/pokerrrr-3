@@ -18,7 +18,7 @@ type Award = {
 const fmt = (n: number) => new Intl.NumberFormat('en-IN').format(n);
 
 export function TableAwards({room, effects, run, onFocus}: {
-  room: {phase: string; runCount: number};
+  room: {phase: string; runCount: number; uncontested?: boolean};
   effects: {
     now: number;
     settled: boolean;
@@ -50,7 +50,7 @@ export function TableAwards({room, effects, run, onFocus}: {
         <button className="table-winner-name" disabled={!effects.settled || award.returned} onClick={() => onFocus(award.id, run)}>
           <strong>{award.name}</strong> <b>+{fmt(award.wonAmount || award.amount)}</b>
         </button>
-        {!award.returned && award.description && <span className="table-winning-hand">{award.description}</span>}
+        {!award.returned && award.description && <span className="table-winning-hand">{room.uncontested ? 'Wins uncontested' : award.description}</span>}
         {Boolean(award.returnedAmount) && <small>{fmt(award.returnedAmount!)} uncalled returned</small>}
       </div>)}
     </div>

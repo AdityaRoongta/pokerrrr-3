@@ -28,12 +28,12 @@ const assert = require('node:assert/strict'), cp = require('child_process');
   }
   assert(ready, logs);
   const b = await chromium.launch({ headless: true, ...(process.env.POKER_BROWSER_EXECUTABLE ? { executablePath: process.env.POKER_BROWSER_EXECUTABLE } : {}), args: ['--no-sandbox'] });
-  for (const [width, height, game, runs] of (process.env.POKER_RECOVERY_ONLY ? [] : [[320, 568, 'PLO5', 1], [390, 844, 'PLO5', 2], [430, 932, 'NLH', 1], [844, 390, 'PLO4', 1]])) {
+  for (const [width, height, game, runs, seats = 8] of (process.env.POKER_RECOVERY_ONLY ? [] : [[320, 568, 'PLO5', 1], [390, 844, 'PLO5', 2], [430, 932, 'NLH', 1], [844, 390, 'PLO4', 1], [844, 390, 'PLO4', 2], [390, 740, 'NLH', 2, 6], [390, 740, 'PLO4', 2, 6], [390, 740, 'PLO5', 2, 6]]).filter(item=>!process.env.POKER_LAYOUT_HEIGHT||item[1]===Number(process.env.POKER_LAYOUT_HEIGHT))) {
     const p = await b.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true });
     let errs = [];
     p.on('pageerror', e => errs.push(e.message));
-    const r = newRoom('UITEST', 'me', { name: 'Layout tester', sb: 25, bb: 50, buyin: 2500, seats: 8, games: [game], rotation: 3, timer: 30 });
-    for (let i = 1; i < 8; i++)
+    const r = newRoom('UITEST', 'me', { name: 'Layout tester', sb: 25, bb: 50, buyin: 2500, seats, games: [game], rotation: 3, timer: 30 });
+    for (let i = 1; i < seats; i++)
       command(r, 'p' + i, { type: 'join', name: 'Player ' + i, buyin: 2500 });
     r.paused = true;
     startHand(r, Date.now() - 10000);
@@ -196,6 +196,7 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     assert.equal(entries.length, 1);
     await p.setViewportSize({ width, height });
     await p.waitForTimeout(150);
+    await p.locator('.speech-bubble').waitFor({state:'hidden',timeout:15000});
     const beforeShowdownGeometry = await geometry();
     const beforeShowdownBoard=await firstBoard();
     r.board = r.deck.slice(0, 5);
@@ -217,18 +218,50 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     assert(await p.locator('.table-winning-hand').count() > 0);
     assert.equal(await p.locator('.card.winning-card').count(), 5);
     assert.equal(await p.locator('.seat.acting').count(), 0);
-    const placement = await p.locator('.runout-board').first().evaluate(e => { const cards = e.querySelector('.board-cards').getBoundingClientRect(), award = e.querySelector('.table-awards').getBoundingClientRect(); return { cards: cards.bottom, result: award.top, bottom: award.bottom }; });
+    const placement = await p.locator('.runout-boards').evaluate(e => { const cards = [...e.querySelectorAll('.board-cards')].at(-1).getBoundingClientRect(), award = e.querySelector('.board-results').getBoundingClientRect(); return { cards: cards.bottom, result: award.top, bottom: award.bottom }; });
     assert(placement.result >= placement.cards, 'Win info below board');
     assert.equal(await p.locator('.action-zone .table-awards').count(), 0);
+    if(height>700&&await p.locator('.board-results .table-award-winners > div').count()===1){
+      const readableResult=await p.locator('.board-results').evaluate(e=>({client:e.clientHeight,scroll:e.scrollHeight,text:e.textContent}));
+      assert(readableResult.scroll<=readableResult.client+1,'One winner and hand description visible without scrolling: '+JSON.stringify(readableResult));
+      const unmasked=await p.locator('.table-winning-hand').evaluate(e=>{const range=document.createRange();range.selectNodeContents(e);return [...range.getClientRects()].flatMap(b=>[b.left+2,b.left+b.width/2,b.right-2].map(x=>({ok:Boolean(document.elementFromPoint(x,b.top+b.height/2)?.closest('.board-results')),x,y:b.top+b.height/2,target:document.elementFromPoint(x,b.top+b.height/2)?.outerHTML.slice(0,150),text:e.textContent})));});
+      assert(unmasked.every(p=>p.ok),'Felt curve and seats cannot mask result text: '+JSON.stringify(unmasked));
+    }
+
     assert.equal(await p.locator('.turn-beam.is-active').count(), 0);
-    await p.screenshot({ path: `/tmp/dunzo-ui-${width}-winner.png` });
+    await p.screenshot({ path: `/tmp/dunzo-readable-${width}-${height}-${game}-winner.png` });
+    if(runs===2){
+      const rows=await p.locator('.board-cards').evaluateAll(es=>es.map(e=>{const b=e.getBoundingClientRect();return {top:b.top,bottom:b.bottom};}));
+      assert(rows[1].top-rows[0].bottom<=14,'Two boards have a compact gap');
+      const ownSeat=await p.locator('.your-seat .seat-top').boundingBox();
+      assert(placement.bottom<=ownSeat.y,'Both boards and result clear the local seat: '+JSON.stringify({placement,ownSeat}));
+      await p.getByRole('button',{name:'Run 1',exact:true}).click();
+      assert.equal(await p.getByRole('button',{name:'Run 1',exact:true}).getAttribute('aria-pressed'),'true');
+      assert.deepEqual(await firstBoard(),beforeShowdownBoard,'Switching run result cannot move cards');
+      await p.getByRole('button',{name:'Run 2',exact:true}).click();
+    }
+    const indices=await p.locator('.cards-revealed .hole-cards').evaluateAll(groups=>groups.flatMap(group=>[...group.querySelectorAll('.card')].map((card,i,cards)=>{
+      const face=card.getBoundingClientRect(),rank=card.querySelector('b').getBoundingClientRect(),suit=card.querySelector('span').getBoundingClientRect(),next=cards[i+1]?.getBoundingClientRect();
+      return {face:{left:face.left,right:face.right,top:face.top,bottom:face.bottom},rank:{left:rank.left,right:rank.right,top:rank.top,bottom:rank.bottom},suit:{left:suit.left,right:suit.right,top:suit.top,bottom:suit.bottom},next:next?.left};
+    })));
+    assert(indices.length>0,'Opponent cards are revealed');
+    const communityFaces=await p.locator('.board-cards .card').evaluateAll(es=>es.map(e=>{const b=e.getBoundingClientRect();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom};}));
+    for(const {face,rank,suit,next} of indices){
+      for(const board of communityFaces) assert(face.right<=board.left+.5||board.right<=face.left+.5||face.bottom<=board.top+.5||board.bottom<=face.top+.5,'Opponent face clear of community cards: '+JSON.stringify({width,height,face,board}));
+      for(const mark of [rank,suit]){
+        assert(mark.left>=0&&mark.right<=width,'Card indices stay on screen');
+        assert(mark.left>=face.left&&mark.right<=face.right+.5&&mark.top>=face.top&&mark.bottom<=face.bottom+.5,'Rank/suit contained in card: '+JSON.stringify({width,height,face,rank,suit,next}));
+        assert(next===undefined||mark.right<=next+.5,'Neighbouring card cannot cover rank or suit: '+JSON.stringify({width,height,face,rank,suit,next}));
+      }
+    }
+    await p.screenshot({ path: `/tmp/dunzo-readable-${width}-${height}-${game}-winner.png` });
     r.phase='closed';r.terminationPending=false;r.version++;socket.send(JSON.stringify(state()));await p.waitForTimeout(100);
     for(const button of await p.locator('.game-ended-actions button').all()){const box=await button.boundingBox();assert(box.y>=0&&box.y+box.height<=height,'Ended-game navigation visible');}
     assert.deepEqual(errs, []);
     await p.close();
     console.log(`PASS ${width}×${height} ${game}, ${runs} board(s)`);
   }
-  await require('./recovery-browser.cjs')(b, root);
+  if(!process.env.POKER_LAYOUT_HEIGHT) await require('./recovery-browser.cjs')(b, root);
   await b.close();
   try { process.kill(-srv.pid, 'SIGTERM'); } catch { }
   srv.stdout.destroy(); srv.stderr.destroy(); srv.unref();

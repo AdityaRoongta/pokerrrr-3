@@ -677,10 +677,15 @@ export default function Home() {
                           </div>;
                         })}
                       </div>
-                      {room.phase === 'showdown' && <TableAwards room={room} effects={effects} run={runIndex + 1} onFocus={(id, run) => {
-                        setSelectedWinner(id); setSelectedRun(run);
-                      }} />}
                     </div>)}
+                    {room.phase === 'showdown' && <div className="board-results">
+                      {room.runCount === 2 && effects.settled && <div className="board-result-runs" aria-label="Run results">
+                        {[1, 2].map(run => <button key={run} aria-pressed={displayedRun === run} onClick={() => { setSelectedWinner(''); setSelectedRun(run); }}>Run {run}</button>)}
+                      </div>}
+                      <TableAwards key={displayedRun} room={room} effects={effects} run={displayedRun} onFocus={(id, run) => {
+                        setSelectedWinner(id); setSelectedRun(run);
+                      }} />
+                    </div>}
                   </div>
                 </>}
               </div>

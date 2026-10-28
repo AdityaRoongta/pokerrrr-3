@@ -60,8 +60,9 @@ seat's layout height. The local seat has the same concealed-card peek; its full
 private cards remain in the personal hand below the felt.
 
 The board origin, pot footprint and card dimensions do not depend on showdown
-content or run count. Winner information is positioned below its board without
-recentering the board; the second run grows downward from the reserved spacing.
+content or run count. Both boards form one compact stack. A shared result area beneath the stack
+follows the active run; after payouts, Run 1/Run 2 selectors also change the
+winning-card highlights. Results never insert space between the board rows.
 The explicit keyboard/chat view retains its separate responsive layout.
 
 Pending termination uses the existing toolbar with the turn indicator, replacing
@@ -74,3 +75,33 @@ The browser suite additionally compares the first board's exact bounds during
 voting/showdown/two-run display, verifies centre-facing wagers and the hero peek,
 compares action-button bounds with termination pending, and checks completed-game
 navigation remains within the viewport.
+
+
+## Revealed-card readability
+
+Concealed cards keep their small peek. On reveal, opponent cards have separate,
+non-overlapping faces with rank and suit together at the left edge, including
+four- and five-card Omaha. Face-up cards keep a fixed nameplate anchor rather
+than moving the player when the cards expand. Winning five-card highlights are
+retained; other revealed cards use reduced dimming so their suits remain readable.
+Redundant payout badges are hidden during showdown so they cannot cover card
+indices; the amount and winning player remain in the common result area. The
+felt oval does not clip result text at its curved edge.
+
+Community cards use the larger normal-hand dimensions on both runs. The first
+row remains anchored from betting through payouts, while the second follows
+with a small fixed gap. Result space is bounded for multi-winner/side-pot content; very
+short screens retain scrollable result details within the available footprint.
+
+Browser coverage additionally includes six players at 390×740 for NLH, PLO4 and
+PLO5 with two runs. It checks that every exposed rank/suit stays inside its card,
+is not covered by the neighbouring card, and stays on screen. It also rejects
+any overlap between opponent faces and community cards. It checks board
+spacing, clearance from the local seat, run-result switching without board
+movement, and that one-winner results on portrait phones are not scrolled or
+masked by the oval.
+
+Short landscape phones place the table beside the controls so the board and
+revealed hands retain enough vertical space. This arrangement stays fixed
+through hand phases, with both single- and double-run cases covered. Opening
+the chat composer still uses the dedicated typing layout.

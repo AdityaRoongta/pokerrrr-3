@@ -4491,6 +4491,8 @@ html:has(.app.in-game),body:has(.app.in-game) {
   font-size: 26px;
   margin: 0;
 }
+.history-toolbar > span,.post-hand-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.build-disclosure { color: var(--muted); font-size: 10px; margin-left: auto; white-space: nowrap; }
 
 .history-table-scroll {
   overflow-x: auto;
@@ -4859,6 +4861,12 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .table-winner-name b {color: #b7edb9;}
 .table-winner-name:disabled {opacity: 1; cursor: default;}
 .table-winning-hand {display: block; font-size: 12px; line-height: 1.35; color: #d1dec5; overflow-wrap: anywhere;}
+.table-awards .best-five { justify-content: center; gap: 8px; margin: 6px 0 2px; }
+.table-awards .best-five > span { color: #ffe1a0; font-size: 8px; }
+.table-awards .best-five > div { gap: 3px; }
+.table-awards .best-five .card.small { width: 22px; height: 31px; min-width: 22px; padding: 2px; }
+.table-awards .best-five .card.small b { font-size: 10px; }
+.table-awards .best-five .card.small > span { font-size: 12px; }
 .table-award-winners small {display: block; font-size: 11px; color: var(--muted);}
 .in-game .action-zone:has(.showdown-summary) .between-hands {min-height: 24px; margin-top: auto; flex-shrink: 0;}
 @media(max-width:360px) {
@@ -5371,3 +5379,12 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .app.in-game:not(.composing-chat) .table-stage .board-cards .card b { font-size: 16px; }
   .app.in-game:not(.composing-chat) .table-stage .board-cards .card > span { font-size: 19px; }
 }
+
+/* Opponent wagers stay close below the nameplate; the local wager stays above. */
+.in-game .seat:not(.your-seat) .seat-info .seat-bet { top: calc(100% + 3px); bottom: auto; left: 50%; right: auto; transform: translateX(-50%); margin: 0; }
+/* Build metadata must never widen the table or the keyboard typing view. */
+.in-game .rotation-bar .build-disclosure { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.app.in-game.composing-chat .rotation-bar .build-disclosure { display: none; }
+.app.in-game .play-area { grid-template-columns: minmax(0,1fr); }
+.app.in-game .rotation-bar { min-width: 0; max-width: 100%; overflow: hidden; }
+.in-game .rotation-bar .build-disclosure { flex: 0 1 auto; }

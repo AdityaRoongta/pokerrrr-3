@@ -54,8 +54,8 @@ This iteration is staged for review; production is unchanged.
 
 ## Follow-up: board, wagers and termination
 
-Wagers are anchored to the nameplate toward the centre: above bottom seats,
-below top seats and inward beside side seats. They do not contribute to the
+Opponent wagers are centred close below their nameplates with a 3px CSS offset.
+The local player’s wager stays above their nameplate. They do not contribute to the
 seat's layout height. The local seat has the same concealed-card peek; its full
 private cards remain in the personal hand below the felt.
 
@@ -72,7 +72,7 @@ It never adds an action-panel row. The completed-game view hides the personal
 hand and includes rankings and Return to Lobby in the reserved panel.
 
 The browser suite additionally compares the first board's exact bounds during
-voting/showdown/two-run display, verifies centre-facing wagers and the hero peek,
+voting/showdown/two-run display, verifies centred wagers below nameplates and the hero peek,
 compares action-button bounds with termination pending, and checks completed-game
 navigation remains within the viewport.
 
@@ -105,3 +105,46 @@ Short landscape phones place the table beside the controls so the board and
 revealed hands retain enough vertical space. This arrangement stays fixed
 through hand phases, with both single- and double-run cases covered. Opening
 the chat composer still uses the dedicated typing layout.
+
+## Phase 1 integration with player hand history (PR #35)
+
+Aditya's hand-history changes are integrated into the staging feature branch,
+with all opponent wagers centred 3px below their nameplates and the local wager
+above. The simulation/start-game redesign is a separate feature.
+
+The authenticated `/api/hand-history?code=CODE&format=json|csv` endpoint exports
+only hands in which the requesting player was dealt. It includes their own hole
+cards, public showdown cards and voluntary reveals. Private archive records and
+player identifiers are excluded. New hand records and post-hand updates persist
+atomically with the command receipt. Rabbit Hunt does not change the actual board,
+awards or chips; its speculative board is displayed in Hand History. Voluntary
+reveals appear at the seat and in history. The actions are available only between
+hands; pause auto-deal to allow more time to test them.
+
+Compatibility: hands completed before this update have no private-card archive or
+structured action log and are omitted from player exports. An in-progress hand
+upgraded mid-hand can only log actions after the update. Use newly dealt hands
+for export acceptance tests. No historical private cards or actions are inferred.
+
+Integration corrections: CSV now includes blind sizes and position labels for
+2–8-player tables. Build metadata is truncated in the normal toolbar and hidden
+while typing. The existing exact-five highlights are retained rather than adding
+a duplicate row of winning cards that would crowd the board result area.
+
+Acceptance checks for Aditya:
+
+1. Refresh staging, start a new hand and pause auto-deal. Test NLH, PLO4 and PLO5.
+2. Finish an uncontested hand; download JSON/CSV as two different players. Each
+   should see only their own hole cards until someone chooses Reveal my cards.
+3. Reveal folded/winning cards. Another device must see them at the correct seat
+   and in history; all other unrevealed cards must remain hidden.
+4. Run Rabbit Hunt after a fold ends the hand before the river. Open Hand History
+   to inspect the completed speculative board. Verify stacks and awards unchanged.
+5. Repeat downloads from the previous-game view and after refreshing/reconnecting.
+   Check blind sizes, action order, short-table positions and both runouts.
+6. Check the small-phone typing view, five-card revealed hands and two-board result
+   layout. Opponent wagers stay close below seats; your wager stays above.
+
+Automated coverage includes authenticated HTTP JSON/CSV exports, retry deduplication
+for both post-hand commands, public-view privacy, durable restart recovery and
+blind/position CSV regression tests, plus the existing mobile and recovery suite.

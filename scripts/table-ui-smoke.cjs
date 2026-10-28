@@ -65,7 +65,7 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     await p.waitForTimeout(200);
     assert.equal(await p.locator('.topbar .chat-toggle').count(), 0);
     const wager = await p.locator('.your-seat .seat-bet').boundingBox(), hero = await p.locator('.your-seat .seat-info').boundingBox();
-    assert(wager && wager.y + wager.height <= hero.y, 'Hero bet is above nameplate');
+    assert(wager && wager.y + wager.height <= hero.y, 'Hero bet stays above nameplate');
     const peek = await p.locator('.your-seat').evaluate(e => { const card = e.querySelector('.card.back').getBoundingClientRect(), name = e.querySelector('.seat-info').getBoundingClientRect(); return name.top - card.top; });
     assert(peek >= 6 && peek <= 14, 'Card-back peek: ' + peek);
     assert.equal(await p.locator('.turn-beam.is-active').count(), 1);
@@ -111,7 +111,11 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     r.terminationPending=false;r.version++;socket.send(JSON.stringify(state()));await p.waitForTimeout(100);
     for(const seat of await p.locator('.seat:has(.seat-bet)').all()){
       const direction=await seat.getAttribute('data-bet-direction'),name=await seat.locator('.seat-info').boundingBox(),bet=await seat.locator('.seat-bet').boundingBox();
-      assert(direction==='above'?bet.y+bet.height<=name.y:direction==='below'?bet.y>=name.y+name.height:direction==='right'?bet.x>=name.x+name.width:bet.x+bet.width<=name.x,'Wager faces centre: '+direction);
+      const isSelf=await seat.evaluate(e=>e.classList.contains('your-seat'));
+      assert(isSelf?bet.y+bet.height<=name.y:bet.y>=name.y+name.height&&bet.y<=name.y+name.height+4,'Own wager above; opponents close below');
+      assert(Math.abs(bet.x+bet.width/2-(name.x+name.width/2))<.5,'Every wager is centred under player');
+      const stage=await p.locator('.table-stage').boundingBox();
+      assert(bet.y+bet.height<=stage.y+stage.height+.5,'Wager remains fully above controls');
       for(const card of await p.locator('.board-cards .card').all()){const c=await card.boundingBox();assert(bet.x+bet.width<=c.x||c.x+c.width<=bet.x||bet.y+bet.height<=c.y||c.y+c.height<=bet.y,'Wager clear of community cards');}
     }
     r.phase='runout_vote';r.runVote={deadline:Date.now()+60000,opensAt:Date.now()-1,canTwice:true,revealed:false,voters:r.players.map(player=>({id:player.id,name:player.name,choice:null}))};r.version++;socket.send(JSON.stringify(state()));await p.waitForTimeout(150);
@@ -148,7 +152,7 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     for (const e of bounds)
       assert(e.top >= 0 && e.bottom <= vh, JSON.stringify({ width, height, vh, e }));
     const composer = await p.locator('.chat-composer').boundingBox();
-    assert(composer.width <= width * .95, 'Composer fits inside the typing view');
+    assert(composer.width <= width * .95, 'Composer fits inside the typing view: '+JSON.stringify({width,height,composer}));
     assert.equal(await p.locator('.topbar').isVisible(), false, 'Brand header hidden while typing');
     assert.equal(await p.locator('.slider-shortcuts').isVisible(), false, 'Raise slider hidden while typing');
     assert.equal(await p.locator('.seat-info').first().isVisible(), false, 'Seat arrangement hidden while typing');
@@ -249,7 +253,7 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     for(const {face,rank,suit,next} of indices){
       for(const board of communityFaces) assert(face.right<=board.left+.5||board.right<=face.left+.5||face.bottom<=board.top+.5||board.bottom<=face.top+.5,'Opponent face clear of community cards: '+JSON.stringify({width,height,face,board}));
       for(const mark of [rank,suit]){
-        assert(mark.left>=0&&mark.right<=width,'Card indices stay on screen');
+        assert(mark.left>=0&&mark.right<=width,'Card indices stay on screen: '+JSON.stringify({width,height,face,rank,suit,next}));
         assert(mark.left>=face.left&&mark.right<=face.right+.5&&mark.top>=face.top&&mark.bottom<=face.bottom+.5,'Rank/suit contained in card: '+JSON.stringify({width,height,face,rank,suit,next}));
         assert(next===undefined||mark.right<=next+.5,'Neighbouring card cannot cover rank or suit: '+JSON.stringify({width,height,face,rank,suit,next}));
       }

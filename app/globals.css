@@ -4861,6 +4861,12 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .table-winner-name b {color: #b7edb9;}
 .table-winner-name:disabled {opacity: 1; cursor: default;}
 .table-winning-hand {display: block; font-size: 12px; line-height: 1.35; color: #d1dec5; overflow-wrap: anywhere;}
+.table-awards .best-five { justify-content: center; gap: 8px; margin: 6px 0 2px; }
+.table-awards .best-five > span { color: #ffe1a0; font-size: 8px; }
+.table-awards .best-five > div { gap: 3px; }
+.table-awards .best-five .card.small { width: 22px; height: 31px; min-width: 22px; padding: 2px; }
+.table-awards .best-five .card.small b { font-size: 10px; }
+.table-awards .best-five .card.small > span { font-size: 12px; }
 .table-award-winners small {display: block; font-size: 11px; color: var(--muted);}
 .in-game .action-zone:has(.showdown-summary) .between-hands {min-height: 24px; margin-top: auto; flex-shrink: 0;}
 @media(max-width:360px) {

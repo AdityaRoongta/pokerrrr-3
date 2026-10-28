@@ -11,11 +11,18 @@ type Award = {
   wonAmount: number;
   at: number;
   description?: string;
+  winningCards?: number[];
   returnedAmount?: number;
   returned?: boolean;
   tied?: boolean;
 };
 const fmt = (n: number) => new Intl.NumberFormat('en-IN').format(n);
+function WinningCard({value}: {value: number}) {
+  const rank = '23456789TJQKA'[value % 13], suit = ['♣', '♦', '♥', '♠'][Math.floor(value / 13)];
+  return <div className={`card small winning-card ${'♦♥'.includes(suit) ? 'red' : ''}`} aria-label={`${rank === 'T' ? '10' : rank} ${suit}`}>
+    <b>{rank === 'T' ? '10' : rank}</b><span>{suit}</span>
+  </div>;
+}
 
 export function TableAwards({room, effects, run, onFocus}: {
   room: {phase: string; runCount: number; uncontested?: boolean};
@@ -51,6 +58,9 @@ export function TableAwards({room, effects, run, onFocus}: {
           <strong>{award.name}</strong> <b>+{fmt(award.wonAmount || award.amount)}</b>
         </button>
         {!award.returned && award.description && <span className="table-winning-hand">{room.uncontested ? 'Wins uncontested' : award.description}</span>}
+        {!award.returned && award.winningCards?.length === 5 && <div className="best-five" aria-label={`${award.name}'s winning five cards`}>
+          <span>BEST 5</span><div>{award.winningCards.map((card, index) => <WinningCard key={`${card}-${index}`} value={card} />)}</div>
+        </div>}
       </div>)}
     </div>
   </div>;

@@ -108,7 +108,8 @@ export default function Home() {
       activeGame: null
     }),
     [authLoading, setAuthLoading] = useState(true),
-    [authEpoch, setAuthEpoch] = useState(0);
+    [authEpoch, setAuthEpoch] = useState(0),
+    [buildInfo, setBuildInfo] = useState<{ builtAt?: string; revision?: string; dirty?: boolean } | null>(null);
   const autoResume = useRef(true);
   const [connection, setConnection] = useState<Connection>('connecting');
   const transport = useRef<PokerClient | null>(null);
@@ -251,6 +252,15 @@ export default function Home() {
     };
   }, []);
   useEffect(() => {
+    let active = true;
+    fetch('/build-info.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : null).then(info => {
+      if (active) setBuildInfo(info as { builtAt?: string; revision?: string; dirty?: boolean } | null);
+    }).catch(() => {
+      if (active) setBuildInfo(null);
+    });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
     if (!player || !transport.current) return;
     return transport.current.connect(state => {
       setLobby(state.lobby);
@@ -378,6 +388,25 @@ export default function Home() {
     } finally {
       setBusy(false);
       pending.current = false;
+    }
+  }
+  async function downloadHandHistory(format: 'csv' | 'json') {
+    const code = current.current?.code;
+    if (!code) return;
+    setError('');
+    try {
+      const response = await fetch(`/api/hand-history?${new URLSearchParams({ code, format })}`, { cache: 'no-store' });
+      if (!response.ok) {
+        const body: any = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Could not prepare hand history');
+      }
+      const url = URL.createObjectURL(await response.blob()), anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `dunzo-club-hand-history-${code}.${format}`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setError(e.message || 'Could not prepare hand history');
     }
   }
   async function openTable(settings: any) {
@@ -580,6 +609,7 @@ export default function Home() {
   const displayedCall = myTurn ? (l?.call || 0) : waitingCall;
   const canQueueAction = Boolean(!myTurn && me?.inHand && !me.folded && !me.away && me.stack > 0);
   const clampRaise = (v: number) => Math.min(raiseMax, Math.max(raiseMin, Math.round(v || raiseMin)));
+  const buildDisclosure = buildInfo?.builtAt ? `Updated ${new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(buildInfo.builtAt))} · ${buildInfo.revision}${buildInfo.dirty ? ' + local changes' : ''}` : 'Build information unavailable';
   return <div ref={appViewport} className={`app ${room ? 'in-game' : ''} ${social.open ? 'composing-chat' : ''}`} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
 
     <header className="topbar">
@@ -636,6 +666,7 @@ export default function Home() {
             {(room.settings.games?.length || 0) > 1 && room.phase !== 'closed' && <small className="next-variant">
               {room.settings.games[(gameIndex + 1) % room.settings.games.length]} {room.settings.rotation === room.handsIntoRotation ? 'next hand' : `in ${room.settings.rotation - room.handsIntoRotation} ${room.settings.rotation - room.handsIntoRotation === 1 ? 'hand' : 'hands'}`}
             </small>}
+            <small className="build-disclosure" title={buildDisclosure}>{buildDisclosure}</small>
           </div>
 
           <div className={`table-stage ${room.runCount === 2 ? 'two-runouts' : ''} ${room.runVote ? 'has-run-vote' : ''}`}>
@@ -852,6 +883,10 @@ export default function Home() {
                 </div>
               </> : <div className="between-hands">
                 {room.paused && <span className="paused-state">Auto-deal paused</span>}
+                {room.phase === 'showdown' && seated && <div className="post-hand-actions">
+                  {me?.inHand && <button className="secondary" disabled={controlsBusy || room.history?.[0]?.reveals?.some((p: any) => p.seat === me.seat)} onClick={() => void send('voluntary_reveal')}>Reveal my cards</button>}
+                  {room.history?.[0]?.board?.length < 5 && <button className="secondary" disabled={controlsBusy || Boolean(room.history?.[0]?.rabbitHunt)} onClick={() => void send('rabbit_hunt')}>Rabbit Hunt</button>}
+                </div>}
                 {room.phase === 'closed' ? <button className="primary" onClick={() => setPanel('ledger')}>Current Game Rankings <ArrowUpRight size={16} /></button> : room.phase === 'showdown' ? <div className="auto-deal-status" role="status">
                   {room.nextDealAt && <div className="next-hand-timer" role="timer" aria-label="Next hand countdown"><i style={{transform: `scaleX(${nextHandFraction})`}} /></div>}
                   {room.host && <button className="secondary pause-deal" disabled={controlsBusy} onClick={() => send('pause')} aria-label={room.paused ? 'Resume auto-deal' : 'Pause auto-deal'}>
@@ -1068,7 +1103,7 @@ export default function Home() {
         </>}
 
         {panel === 'history' && <>
-          <h2>Hand History</h2>
+          <div className="history-toolbar"><h2>Hand History</h2><span><button className="secondary" onClick={() => void downloadHandHistory('csv')}>Action Log CSV</button><button className="secondary" onClick={() => void downloadHandHistory('json')}>JSON</button></span></div>
           {room.history.length === 0 ? <p>No completed hands.</p> : <div className="history-list">
             {room.history.map((h: any) => <details key={h.number}>
               <summary>
@@ -1091,6 +1126,8 @@ export default function Home() {
                   </span>
                   {p.cards.map((c: number, i: number) => <Card key={i} value={c} small />)}
                 </div>)}
+                {h.reveals?.map((p: any) => <div className="history-hole" key={`reveal-${p.seat}`}><span>{p.name} · revealed</span>{p.cards.map((c: number, i: number) => <Card key={i} value={c} small />)}</div>)}
+                {h.rabbitHunt && <div className="history-hole"><span>Rabbit Hunt · {h.rabbitHunt.requestedBy.name}</span>{h.rabbitHunt.board.map((c: number, i: number) => <Card key={i} value={c} small />)}</div>}
                 <div className="history-actions">
                   {h.actions.map((a: string, i: number) => <div key={i}>
                     {a}

@@ -4491,6 +4491,8 @@ html:has(.app.in-game),body:has(.app.in-game) {
   font-size: 26px;
   margin: 0;
 }
+.history-toolbar > span,.post-hand-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.build-disclosure { color: var(--muted); font-size: 10px; margin-left: auto; white-space: nowrap; }
 
 .history-table-scroll {
   overflow-x: auto;

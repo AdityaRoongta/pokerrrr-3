@@ -65,7 +65,8 @@ recentering the board; the second run grows downward from the reserved spacing.
 The explicit keyboard/chat view retains its separate responsive layout.
 
 Pending termination uses the existing toolbar with the turn indicator, replacing
-the Rankings shortcut while pending (rankings remain accessible from the menu).
+the Rankings shortcut while pending. Rankings are available again when the game
+ends, including from the completed-game panel.
 It never adds an action-panel row. The completed-game view hides the personal
 hand and includes rankings and Return to Lobby in the reserved panel.
 

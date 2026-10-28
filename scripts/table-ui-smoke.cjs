@@ -66,7 +66,7 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     assert.equal(await p.locator('.topbar .chat-toggle').count(), 0);
     const wager = await p.locator('.your-seat .seat-bet').boundingBox(), hero = await p.locator('.your-seat .seat-info').boundingBox();
     assert(wager && wager.y + wager.height <= hero.y, 'Hero bet is above nameplate');
-    const peek = await p.locator('.cards-concealed:not(.your-seat)').first().evaluate(e => { const card = e.querySelector('.card.back').getBoundingClientRect(), name = e.querySelector('.seat-info').getBoundingClientRect(); return name.top - card.top; });
+    const peek = await p.locator('.your-seat').evaluate(e => { const card = e.querySelector('.card.back').getBoundingClientRect(), name = e.querySelector('.seat-info').getBoundingClientRect(); return name.top - card.top; });
     assert(peek >= 6 && peek <= 14, 'Card-back peek: ' + peek);
     assert.equal(await p.locator('.turn-beam.is-active').count(), 1);
     const firstAngle = await p.locator('.turn-beam-direction').getAttribute('style');
@@ -102,8 +102,21 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     r.players[0].bet=200;r.players[1].bet=250;r.currentBet=250;r.version++;socket.send(JSON.stringify(state()));await p.waitForTimeout(100);
     const geometry=async()=>Promise.all(['.felt','.table-stage','.action-zone','.your-seat .seat-info'].map(selector=>p.locator(selector).boundingBox()));
     const stableGeometry=await geometry();
+    const firstBoard=()=>p.locator('.board-cards').first().boundingBox();
+    const stableBoard=await firstBoard();
+    const stableButtons=await p.locator('.action-buttons').boundingBox();
+    r.terminationPending=true;r.version++;socket.send(JSON.stringify(state()));await p.waitForTimeout(100);
+    assert.deepEqual(await p.locator('.action-buttons').boundingBox(),stableButtons,'Termination notice cannot move action buttons');
+    assert(stableButtons.y+stableButtons.height<=height,'All controls visible with termination pending');
+    r.terminationPending=false;r.version++;socket.send(JSON.stringify(state()));await p.waitForTimeout(100);
+    for(const seat of await p.locator('.seat:has(.seat-bet)').all()){
+      const direction=await seat.getAttribute('data-bet-direction'),name=await seat.locator('.seat-info').boundingBox(),bet=await seat.locator('.seat-bet').boundingBox();
+      assert(direction==='above'?bet.y+bet.height<=name.y:direction==='below'?bet.y>=name.y+name.height:direction==='right'?bet.x>=name.x+name.width:bet.x+bet.width<=name.x,'Wager faces centre: '+direction);
+      for(const card of await p.locator('.board-cards .card').all()){const c=await card.boundingBox();assert(bet.x+bet.width<=c.x||c.x+c.width<=bet.x||bet.y+bet.height<=c.y||c.y+c.height<=bet.y,'Wager clear of community cards');}
+    }
     r.phase='runout_vote';r.runVote={deadline:Date.now()+60000,opensAt:Date.now()-1,canTwice:true,revealed:false,voters:r.players.map(player=>({id:player.id,name:player.name,choice:null}))};r.version++;socket.send(JSON.stringify(state()));await p.waitForTimeout(150);
     assert.equal(await p.getByRole('region',{name:'Choose runout count'}).count(),1);
+    assert.deepEqual(await firstBoard(),stableBoard,'Voting keeps board fixed');
     assert.deepEqual(await geometry(),stableGeometry,'Voting does not resize felt, panel or move hero seat');
     r.phase='flop';r.runVote=null;r.version++;socket.send(JSON.stringify(state()));await p.waitForTimeout(100);
     assert.deepEqual(await geometry(),stableGeometry,'Returning from vote does not resize table');
@@ -184,6 +197,7 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     await p.setViewportSize({ width, height });
     await p.waitForTimeout(150);
     const beforeShowdownGeometry = await geometry();
+    const beforeShowdownBoard=await firstBoard();
     r.board = r.deck.slice(0, 5);
     if (runs === 2) {
       r.runBoards = [r.board, r.deck.slice(5, 10)];
@@ -198,6 +212,7 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     r.serverTime = Date.now();
     socket.send(JSON.stringify(state()));
     await p.waitForTimeout(500);
+    assert.deepEqual(await firstBoard(),beforeShowdownBoard,'Showdown/second board/winner cannot move or resize first board');
     assert.deepEqual(await geometry(),beforeShowdownGeometry,'Showdown/result text does not resize felt or bottom panel');
     assert(await p.locator('.table-winning-hand').count() > 0);
     assert.equal(await p.locator('.card.winning-card').count(), 5);
@@ -207,6 +222,8 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     assert.equal(await p.locator('.action-zone .table-awards').count(), 0);
     assert.equal(await p.locator('.turn-beam.is-active').count(), 0);
     await p.screenshot({ path: `/tmp/dunzo-ui-${width}-winner.png` });
+    r.phase='closed';r.terminationPending=false;r.version++;socket.send(JSON.stringify(state()));await p.waitForTimeout(100);
+    for(const button of await p.locator('.game-ended-actions button').all()){const box=await button.boundingBox();assert(box.y>=0&&box.y+box.height<=height,'Ended-game navigation visible');}
     assert.deepEqual(errs, []);
     await p.close();
     console.log(`PASS ${width}×${height} ${game}, ${runs} board(s)`);

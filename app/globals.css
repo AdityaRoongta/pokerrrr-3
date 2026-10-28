@@ -5248,3 +5248,47 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 @media(max-height:700px) {
   .app.in-game:not(.composing-chat) .play-area { --stable-hand-height: 80px; --stable-button-height: 50px; }
 }
+
+/* Nameplates anchor both card peeks and wagers; neither changes seat geometry. */
+.in-game .seat.cards-concealed .seat-top { display: flex; height: 10px; position: relative; z-index: 0; overflow: visible; }
+.in-game .seat.cards-concealed .hole-cards { position: absolute; bottom: -17px; left: 50%; transform: translateX(-50%); }
+.in-game .your-seat .hole-cards > span { width: auto; min-width: 0; }
+.in-game .your-seat .hole-cards > span:last-child { width: auto; }
+.in-game .seat.your-seat .hole-cards .card.small { width: 23px; height: 27px; margin-left: -10px; border-radius: 3px; padding: 0; transform: none; }
+.in-game .your-seat.omaha-seat .hole-cards .card.small { width: 20px; margin-left: 0; }
+.in-game .seat .seat-info .seat-bet { position: absolute; width: max-content; height: auto; margin: 0; pointer-events: none; }
+.in-game .seat[data-bet-direction=above] .seat-bet { top: auto; bottom: calc(100% + 17px); left: 50%; right: auto; transform: translateX(-50%); }
+.in-game .seat[data-bet-direction=below] .seat-bet { top: calc(100% + 5px); bottom: auto; left: 50%; right: auto; transform: translateX(-50%); }
+.in-game .seat[data-bet-direction=right] .seat-bet { top: 50%; bottom: auto; left: calc(100% + 5px); right: auto; transform: translateY(-50%); }
+.in-game .seat[data-bet-direction=left] .seat-bet { top: 50%; bottom: auto; right: calc(100% + 5px); left: auto; transform: translateY(-50%); }
+
+/* Winner content grows down from a fixed board origin, never recentres it. */
+.app.in-game:not(.composing-chat) .table-stage .board-zone { inset: auto; top: calc(50% - 64px); left: 50%; width: min(65%,340px); height: auto; padding: 0; transform: translateX(-50%); justify-content: flex-start; }
+.app.in-game:not(.composing-chat) .board-zone .pot-label { height: 12px; line-height: 12px; }
+.app.in-game:not(.composing-chat) .table-stage .pot-amount { height: 44px; line-height: 44px; margin: 0 0 8px; }
+.app.in-game:not(.composing-chat) .table-stage .runout-boards { width: 100%; gap: 0; }
+.app.in-game:not(.composing-chat) .table-stage .runout-board { position: relative; width: 100%; flex: 0 0 auto; min-height: 0; gap: 0; }
+.app.in-game:not(.composing-chat) .table-stage .runout-board + .runout-board { margin-top: 48px; }
+.app.in-game:not(.composing-chat) .table-stage .run-board-label { position: absolute; right: calc(100% + 4px); top: 4px; white-space: nowrap; }
+.app.in-game:not(.composing-chat) .table-stage .runout-board .table-awards { position: absolute; top: 100%; left: 0; width: 100%; margin-top: 5px; }
+.in-game .hand-toolbar { gap: 6px; min-width: 0; }
+.termination-status { color: #dfc589; font-size: 10px; line-height: 1.2; max-width: 88px; }
+.in-game .hand-toolbar .turn-status { min-width: 0; flex: 1; }
+.in-game .hand-toolbar:has(.termination-status) .hand-toolbar-actions > .text-button { display: none; }
+.game-ended-actions { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.game-ended-actions > span { font-size: 12px; color: var(--muted); }
+.in-game .between-hands:has(.game-ended-actions) { min-height: 0; overflow-y: auto; }
+.in-game .action-zone:has(.game-ended-actions) .personal-hand { display: none; }
+/* Side wagers sit on the inward upper corner, clear of the community row. */
+.in-game .seat[data-bet-direction=right] .seat-bet,
+.in-game .seat[data-bet-direction=left] .seat-bet { top: auto; bottom: calc(100% + 5px); transform: none; }
+/* Reserve the same readable, two-run-safe card footprint from the first street. */
+.app.in-game:not(.composing-chat) .table-stage .board-cards > .board-card-wrap > .card,
+.app.in-game:not(.composing-chat) .table-stage.two-runouts .board-cards > .board-card-wrap > .card { width: clamp(28px,7.6vw,38px); height: clamp(39px,10.5vw,52px); }
+@media(max-width:360px) {
+  .app.in-game:not(.composing-chat) .table-stage .board-cards > .board-card-wrap > .card,
+  .app.in-game:not(.composing-chat) .table-stage.two-runouts .board-cards > .board-card-wrap > .card { width: 26px; height: 36px; }
+}
+@media(max-width:360px) {
+  .in-game .seat-bet { font-size: 12px; padding: 2px 4px; }
+}

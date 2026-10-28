@@ -697,20 +697,20 @@ export default function Home() {
                 win = effects.resultReady ? winners.find((w: any) => w.id === p?.id) : null,
                 cardCount = room.game === 'NLH' ? 2 : room.game === 'PLO4' ? 4 : 5,
                 visibleCount = effects.visibleHoleCards(s, cardCount);
-              return <div key={s} data-seat-index={s} data-relative-seat={(s - (me?.seat || 0) + room.settings.seats) % room.settings.seats} className={`seat ${p ? 'occupied' : 'open'} ${live && !effects.presentationBusy && p?.id === room.turn ? 'acting' : ''} ${p?.folded && handActive ? 'folded' : ''} ${p?.id === room.me ? 'your-seat' : ''} ${p?.cards?.length ? 'cards-revealed' : 'cards-concealed'} ${cardCount > 2 ? 'omaha-seat' : ''} ${win ? 'winner-seat' : ''}`} data-card-count={cardCount} style={{
+              return <div key={s} data-bet-direction={y >= 70 ? 'above' : y <= 28 ? 'below' : x < 50 ? 'right' : 'left'} data-seat-index={s} data-relative-seat={(s - (me?.seat || 0) + room.settings.seats) % room.settings.seats} className={`seat ${p ? 'occupied' : 'open'} ${live && !effects.presentationBusy && p?.id === room.turn ? 'acting' : ''} ${p?.folded && handActive ? 'folded' : ''} ${p?.id === room.me ? 'your-seat' : ''} ${p?.id !== room.me && p?.cards?.length ? 'cards-revealed' : 'cards-concealed'} ${cardCount > 2 ? 'omaha-seat' : ''} ${win ? 'winner-seat' : ''}`} data-card-count={cardCount} style={{
                 left: `clamp(var(--seat-edge-x), ${x}%, calc(100% - var(--seat-edge-x)))`,
                 top: `clamp(var(--seat-edge-y), ${y}%, calc(100% - var(--seat-edge-y)))`
               }}>
                 {p ? <>
                   {win && <div className="winner-badge"><Trophy size={10} /> +{fmt(win.wonAmount ?? win.amount)}</div>}
-                  {p.id !== room.me && <div className="seat-top" data-reaction-target={enableReactions && room.phase !== 'closed' ? s : undefined} onClick={() => {
-                    if (enableReactions && room.phase !== 'closed') reactions.setTarget(reactions.target === s ? null : s);
+                  <div className="seat-top" data-reaction-target={p.id !== room.me && enableReactions && room.phase !== 'closed' ? s : undefined} onClick={() => {
+                    if (p.id !== room.me && enableReactions && room.phase !== 'closed') reactions.setTarget(reactions.target === s ? null : s);
                   }}>
-                    {p.inHand && p.cards?.length ? <div className="hole-cards">
+                    {p.id !== room.me && p.inHand && p.cards?.length ? <div className="hole-cards">
                       {p.cards.slice(0, visibleCount).map((c: number, i: number) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
                         <Card value={c} small highlight={Boolean(effects.resultReady && focusedWinner?.id === p.id && focusedHand?.holeCards?.includes(c))} dim={Boolean(effects.resultReady && focusedWinner?.id === p.id && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />
                       </span>)}
-                    </div> : p.inHand && handActive ? <div className="hole-cards">
+                    </div> : p.inHand && (handActive || p.id === room.me && room.phase === 'showdown') ? <div className="hole-cards">
                       {Array.from({
                         length: visibleCount
                       }, (_, i) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
@@ -719,7 +719,7 @@ export default function Home() {
                     </div> : <div className="avatar">
                       {p.name.slice(0, 2).toUpperCase()}
                     </div>}
-                  </div>}
+                  </div>
                   <div className="seat-info"
                     data-reaction-target={enableReactions && p.id !== room.me && room.phase !== 'closed' ? s : undefined}
                     role={room.phase !== 'closed' && (p.id === room.me || enableReactions) ? 'button' : undefined}
@@ -751,10 +751,10 @@ export default function Home() {
                       {stackLabel(p)}
                     </strong>
                     {p.seat === room.dealer && <b className="dealer-chip">D</b>}
+                    {handActive && p.bet > 0 && p.action !== 'Check' && <div className="seat-bet">● {fmt(p.bet)}</div>}
                   </div>
                   {p.disconnected && !demo.current ? <span className="seat-state disconnected" role="status">Disconnected</span> : p.away && <span className="seat-state">Sit out</span>}
                   {p.inHand && !p.away && !p.disconnected && p.action === 'Check' && !effects.dealing && room.phase !== 'closed' && <span className="player-action">Check</span>}
-                  {handActive && p.bet > 0 && p.action !== 'Check' && <div className="seat-bet">● {fmt(p.bet)}</div>}
                 </> : <button className="seat-choice" aria-label={`Choose seat ${s + 1}`} disabled={controlsBusy || seated || room.phase === 'closed' || room.terminationPending} onClick={() => chooseSeat(s)}>
                   <span className="empty-seat">
                     <Plus size={15} />
@@ -788,6 +788,7 @@ export default function Home() {
               <span className={`turn-status ${myTurn && live && !effects.presentationBusy ? 'is-your-turn' : ''}`} role="status">
                 {myTurn && live && !effects.presentationBusy ? `Your turn · ${seconds}s` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : room.game}
               </span>
+              {room.terminationPending && <span className="termination-status" role="status">Ends after this hand</span>}
               <div className="hand-toolbar-actions"><button className="text-button" onClick={() => setPanel('ledger')}>Rankings</button>
                 {enableReactions && !social.open && <ChatButton social={social} readOnly={room.phase === 'closed'} />}
               </div>
@@ -799,7 +800,6 @@ export default function Home() {
               </div>
             </div>}
             {me?.pendingSeatAction === 'leave' && <p className="game-status" role="status">Standing up after this hand and payouts. <button className="text-button" disabled={controlsBusy || room.terminationPending} onClick={() => send('cancel_stand_up')}>Cancel</button></p>}
-            {room.terminationPending && <p className="game-status" role="status">Game will terminate after this hand.</p>}
             {!seated && room.phase !== 'closed' ? <>
               <p className="game-status">
                 {room.terminationPending ? 'Game termination pending.' : 'Select an empty seat, then load chips.'}
@@ -860,7 +860,7 @@ export default function Home() {
                 </div>
               </> : <div className="between-hands">
                 {room.paused && <span className="paused-state">Auto-deal paused</span>}
-                {room.phase === 'closed' ? <button className="primary" onClick={() => setPanel('ledger')}>Current Game Rankings <ArrowUpRight size={16} /></button> : room.phase === 'showdown' ? <div className="auto-deal-status" role="status">
+                {room.phase === 'closed' ? <div className="game-ended-actions"><span role="status">Game ended · Chips cashed out</span><button className="primary" onClick={() => setPanel('ledger')}>Current Game Rankings <ArrowUpRight size={16} /></button><button className="text-button" onClick={exit}>Return to Lobby</button></div> : room.phase === 'showdown' ? <div className="auto-deal-status" role="status">
                   {room.nextDealAt && <div className="next-hand-timer" role="timer" aria-label="Next hand countdown"><i style={{transform: `scaleX(${nextHandFraction})`}} /></div>}
                   {room.host && <button className="secondary pause-deal" disabled={controlsBusy} onClick={() => send('pause')} aria-label={room.paused ? 'Resume auto-deal' : 'Pause auto-deal'}>
                     {room.paused ? <Play size={16} /> : <Pause size={16} />}

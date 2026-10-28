@@ -51,3 +51,25 @@ an all-in/run-it-twice vote and watch the felt and bottom panel: neither should
 resize when the vote opens, closes or enters showdown.
 
 This iteration is staged for review; production is unchanged.
+
+## Follow-up: board, wagers and termination
+
+Wagers are anchored to the nameplate toward the centre: above bottom seats,
+below top seats and inward beside side seats. They do not contribute to the
+seat's layout height. The local seat has the same concealed-card peek; its full
+private cards remain in the personal hand below the felt.
+
+The board origin, pot footprint and card dimensions do not depend on showdown
+content or run count. Winner information is positioned below its board without
+recentering the board; the second run grows downward from the reserved spacing.
+The explicit keyboard/chat view retains its separate responsive layout.
+
+Pending termination uses the existing toolbar with the turn indicator, replacing
+the Rankings shortcut while pending (rankings remain accessible from the menu).
+It never adds an action-panel row. The completed-game view hides the personal
+hand and includes rankings and Return to Lobby in the reserved panel.
+
+The browser suite additionally compares the first board's exact bounds during
+voting/showdown/two-run display, verifies centre-facing wagers and the hero peek,
+compares action-button bounds with termination pending, and checks completed-game
+navigation remains within the viewport.

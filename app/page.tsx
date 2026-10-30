@@ -850,14 +850,18 @@ export default function Home() {
                 <div className="betting-controls">
                   <div className="slider-shortcuts">
                     <div className="raise-slider-control">
-                      <input type="range" aria-label="Raise amount slider" min={0} max={1000} step={1} value={raiseMax > raiseMin ? Math.round(Math.sqrt((raiseValue - raiseMin) / (raiseMax - raiseMin)) * 1000) : 0} disabled={!myTurn || controlsBusy || !l?.canRaise || raiseMin === raiseMax} onChange={e => {
+                      <output className="raise-slider-readout" htmlFor="raise-amount-slider" aria-label={myTurn && l?.canRaise ? `Raise to ${fmt(raiseValue)}` : 'Raise unavailable'}>
+                        <span>Raise to</span>
+                        <strong>{myTurn && l?.canRaise ? fmt(raiseValue) : '—'}</strong>
+                      </output>
+                      <input id="raise-amount-slider" type="range" aria-label="Raise amount slider" aria-valuetext={myTurn && l?.canRaise ? `Raise to ${fmt(raiseValue)}` : 'Raise unavailable'} min={0} max={1000} step={1} value={raiseMax > raiseMin ? Math.round((raiseValue - raiseMin) / (raiseMax - raiseMin) * 1000) : 0} disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || raiseMin === raiseMax} onChange={e => {
                         setSelectedShortcut('');
                         const fraction = Number(e.target.value) / 1000;
-                        const raw = raiseMin + (raiseMax - raiseMin) * fraction * fraction;
+                        const raw = raiseMin + (raiseMax - raiseMin) * fraction;
                         const blind = Math.max(1, Number(room.settings?.bb || 50));
                         const snapped = Math.round(raw / blind) * blind;
                         setRaise(Number(e.target.value) === 1000 ? raiseMax : clampRaise(snapped));
-                      }} style={{ '--range-fill': `${raiseMax > raiseMin ? Math.sqrt((raiseValue - raiseMin) / (raiseMax - raiseMin)) * 100 : 0}%` } as React.CSSProperties} />
+                      }} style={{ '--range-fill': `${raiseMax > raiseMin ? (raiseValue - raiseMin) / (raiseMax - raiseMin) * 100 : 0}%` } as React.CSSProperties} />
                     </div>
                     <div className="quick-bets" aria-label="Raise shortcuts">
                       {([['½', .5], ['Pot', 1]] as const).map(([label, n]) => <button className="bet-shortcut" key={label} title={label === '½' ? 'Half pot' : 'Pot'} disabled={!myTurn || controlsBusy || !l?.canRaise} aria-pressed={selectedShortcut === label} onClick={() => {

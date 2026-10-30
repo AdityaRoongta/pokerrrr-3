@@ -124,8 +124,8 @@ export async function runApiSuite(base, restart, environment = 'staging') {
     takeSeat: false,
     rotation: 2,
     seats: 8,
-    sb: 5,
-    bb: 10,
+    sb: 10,
+    bb: 20,
     buyin: 1000
   });
   let room = await api(host, create),

@@ -28,12 +28,12 @@ const assert = require('node:assert/strict'), cp = require('child_process');
   }
   assert(ready, logs);
   const b = await chromium.launch({ headless: true, ...(process.env.POKER_BROWSER_EXECUTABLE ? { executablePath: process.env.POKER_BROWSER_EXECUTABLE } : {}), args: ['--no-sandbox'] });
-  for (const [width, height, game, runs] of (process.env.POKER_RECOVERY_ONLY ? [] : [[320, 568, 'PLO5', 1], [390, 844, 'PLO5', 2], [430, 932, 'NLH', 1], [844, 390, 'PLO4', 1]])) {
+  for (const [width, height, game, runs, seats = 8] of (process.env.POKER_RECOVERY_ONLY ? [] : [[320, 568, 'PLO5', 1], [390, 844, 'PLO5', 2], [430, 932, 'NLH', 1], [844, 390, 'PLO4', 1], [390, 740, 'NLH', 2, 6], [390, 740, 'PLO4', 2, 6], [390, 740, 'PLO5', 2, 6]]).filter(item => !process.env.POKER_LAYOUT_HEIGHT || item[1] === Number(process.env.POKER_LAYOUT_HEIGHT))) {
     const p = await b.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true });
     let errs = [];
     p.on('pageerror', e => errs.push(e.message));
-    const r = newRoom('UITEST', 'me', { name: 'Layout tester', sb: 25, bb: 50, buyin: 2500, seats: 8, games: [game], rotation: 3, timer: 30 });
-    for (let i = 1; i < 8; i++)
+    const r = newRoom('UITEST', 'me', { name: 'Layout tester', sb: 25, bb: 50, buyin: 2500, seats, games: [game], rotation: 3, timer: 30 });
+    for (let i = 1; i < seats; i++)
       command(r, 'p' + i, { type: 'join', name: 'Player ' + i, buyin: 2500 });
     r.paused = true;
     startHand(r, Date.now() - 10000);
@@ -64,6 +64,23 @@ const assert = require('node:assert/strict'), cp = require('child_process');
     await p.locator('.personal-hole-cards .card').first().waitFor({ timeout: 5000 });
     await p.waitForTimeout(200);
     assert.equal(await p.locator('.topbar .chat-toggle').count(), 0);
+    const readout = await p.locator('.raise-slider-readout').boundingBox();
+    const slider = await p.getByRole('slider', {name: 'Raise amount slider'}).boundingBox();
+    const shortcuts = await p.locator('.slider-shortcuts .quick-bets').boundingBox();
+    const actions = await p.locator('.action-buttons').boundingBox();
+    assert(readout && slider && shortcuts && actions, 'Betting controls are visible');
+    assert(readout.x + readout.width <= slider.x && slider.x + slider.width <= shortcuts.x,
+      'Raise amount, slider and shortcuts share one row without overlap');
+    assert(Math.abs(readout.y - slider.y) <= 2 && slider.width > 24,
+      'Slider stays beside the readout with room to drag');
+    assert(Math.max(readout.y + readout.height, slider.y + slider.height, shortcuts.y + shortcuts.height) <= actions.y,
+      'Slider row stays above the action buttons');
+    if (width >= 1000) {
+      assert.deepEqual(errs, []);
+      await p.close();
+      continue;
+    }
+
     const wager = await p.locator('.your-seat .seat-bet').boundingBox(), hero = await p.locator('.your-seat .seat-info').boundingBox();
     assert(wager && wager.y + wager.height <= hero.y, 'Hero bet is above nameplate');
     const peek = await p.locator('.cards-concealed:not(.your-seat)').first().evaluate(e => { const card = e.querySelector('.card.back').getBoundingClientRect(), name = e.querySelector('.seat-info').getBoundingClientRect(); return name.top - card.top; });

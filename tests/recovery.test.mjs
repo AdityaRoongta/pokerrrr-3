@@ -23,7 +23,7 @@ function browser(t, handler, socketCommand) {
     readyState=1;
     constructor(){sockets.push(this);queueMicrotask(()=>this.emit(state));}
     emit(data){this.onmessage?.({data:JSON.stringify(data)});}
-    send(raw){const data=JSON.parse(raw); if(data.type==='command') socketCommand?.(this,data.input); else if(data.type==='ping')this.emit({protocol:4,type:'pong'}); else if(data.type==='resync')this.emit(state);}
+    send(raw){const data=JSON.parse(raw); if(data.type==='command') socketCommand?.(this,data.input); else if(data.type==='ping' && navigator.onLine)this.emit({protocol:4,type:'pong'}); else if(data.type==='resync')this.emit(state);}
     close(code=1000){this.readyState=3;this.onclose?.({code});}
   }
   const fakeFetch=async(url,options={})=>{
@@ -73,6 +73,64 @@ test('confirmed expired session signs out, ordinary socket closure does not',asy
 test('HTTP snapshot fallback supplies fresh state when socket is unavailable',async t=>{
   const f=browser(t,async()=>undefined);await settle();f.sockets[0].close();
   await settle();assert.ok(f.updates.length>=2);assert.equal(f.statuses.at(-1),'connected');
+});
+test('going back online refreshes the turn even when the old socket still answers pings',async t=>{
+  const f = browser(t, async () => { throw new TypeError('HTTP unavailable'); });
+  await settle();
+  navigator.onLine = false;
+  window.dispatchEvent(new Event('offline'));
+  assert.equal(f.statuses.at(-1), 'offline');
+  navigator.onLine = true;
+  window.dispatchEvent(new Event('online'));
+  await settle();
+  assert.equal(f.sockets.length, 1);
+  assert.ok(f.updates.length >= 2);
+  assert.equal(f.statuses.at(-1), 'connected');
+});
+test('a definitive access rejection releases the command slot for the next valid move',async t=>{
+  let posts = 0;
+  const f = browser(t, async (_url, options) => {
+    if (options.method === 'POST' && ++posts === 1) return {status:403,data:{error:'Access denied'}};
+  });
+  await settle();
+  await assert.rejects(f.client.send({type:'call',code:f.room.code},f.room), /Access denied/);
+  assert.equal(f.client.hasPending(), false);
+  await f.client.send({type:'fold',code:f.room.code},f.room);
+  assert.equal(posts, 2);
+});
+test('rate-limited bets back off and a newer snapshot unblocks the next move',async t=>{
+  let posts = 0;
+  const f = browser(t, async (_url, options) => {
+    if (options.method === 'POST' && ++posts === 1) return {status:429,data:{error:'Too many requests'}};
+  });
+  await settle();
+  await assert.rejects(f.client.send({type:'call',code:f.room.code},f.room), /Too many requests/);
+  f.sockets[0].emit(f.state);
+  t.mock.timers.tick(3100);
+  await settle();
+  assert.equal(posts, 1);
+  assert.equal(f.client.hasPending(), true);
+  const nextRoom = {...f.room, version:f.room.version + 1};
+  f.sockets[0].emit({...f.state,room:nextRoom});
+  assert.equal(f.client.hasPending(), false);
+  assert.equal(f.statuses.at(-1), 'connected');
+  await f.client.send({type:'fold',code:nextRoom.code},nextRoom);
+  assert.equal(posts, 2);
+});
+test('a command acknowledgment restores controls if the preceding push arrived while it was pending',async t=>{
+  let release;
+  const reply = new Promise(resolve => { release = resolve; });
+  const f = browser(t, async (_url, options) => {
+    if (options.method === 'POST') await reply;
+  });
+  await settle();
+  const command = f.client.send({type:'call',code:f.room.code},f.room);
+  f.sockets[0].emit(f.state);
+  assert.equal(f.statuses.at(-1), 'reconnecting');
+  release();
+  await command;
+  assert.equal(f.client.hasPending(), false);
+  assert.equal(f.statuses.at(-1), 'connected');
 });
 test('reload restores a persisted pending action automatically without another tap',async t=>{
   const pending=commandEnvelope({type:'call',code:'ABC234'},{version:4,handStartedAt:123});let delivered;

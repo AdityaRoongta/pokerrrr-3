@@ -514,7 +514,7 @@ export default function Home() {
       setPreaction(null);
       return;
     }
-    if (!myTurn || !live || !l || effects.presentationBusy || controlsBusy) return;
+    if (!myTurn || !live || !l || controlsBusy) return;
     const alertKey = bettingOpportunity(room) || '';
     if (lastTurnAlert.current !== alertKey) {
       lastTurnAlert.current = alertKey;
@@ -525,7 +525,7 @@ export default function Home() {
     setPreaction(null);
     const action = resolvePreaction(queued.choice, l.call);
     if (action) void send(action);
-  }, [room, myTurn, live, controlsBusy, effects.presentationBusy]);
+  }, [room, myTurn, live, controlsBusy]);
   const voting = room?.phase === 'runout_vote',
     handActive = live || voting;
   useEffect(() => {
@@ -666,7 +666,7 @@ export default function Home() {
                         {Array.from({
                           length: 5
                         }, (_, i) => {
-                          const shown = effects.boardVisible(i, runIndex),
+                          const shown = (myTurn && live) || effects.boardVisible(i, runIndex),
                             value = shown ? board[i] : undefined,
                             winningBoard = effects.resultReady && runIndex + 1 === focusedRunNumber ? focusedHand?.boardCards || [] : [],
                             timeline = runIndex === 1 ? effects.board2 : effects.board;
@@ -783,8 +783,8 @@ export default function Home() {
             if (social.open && (e.target as HTMLElement).closest('.betting-controls button, .pause-deal')) e.preventDefault();
           }} className="action-zone">
             <div className="hand-toolbar">
-              <span className={`turn-status ${myTurn && live && !effects.presentationBusy ? 'is-your-turn' : ''}`} role="status">
-                {myTurn && live && !effects.presentationBusy ? `Your turn · ${seconds}s` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : room.game}
+              <span className={`turn-status ${myTurn && live ? 'is-your-turn' : ''}`} role="status">
+                {myTurn && live ? `Your turn · ${seconds}s` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : room.game}
               </span>
               <div className="hand-toolbar-actions"><button className="text-button" onClick={() => setPanel('ledger')}>Rankings</button>
                 {enableReactions && !social.open && <ChatButton social={social} readOnly={room.phase === 'closed'} />}
@@ -816,7 +816,7 @@ export default function Home() {
                 <div className="betting-controls">
                   <div className="slider-shortcuts">
                     <div className="raise-slider-control">
-                      <input type="range" aria-label="Raise amount slider" min={0} max={1000} step={1} value={raiseMax > raiseMin ? Math.round(Math.sqrt((raiseValue - raiseMin) / (raiseMax - raiseMin)) * 1000) : 0} disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || raiseMin === raiseMax} onChange={e => {
+                      <input type="range" aria-label="Raise amount slider" min={0} max={1000} step={1} value={raiseMax > raiseMin ? Math.round(Math.sqrt((raiseValue - raiseMin) / (raiseMax - raiseMin)) * 1000) : 0} disabled={!myTurn || controlsBusy || !l?.canRaise || raiseMin === raiseMax} onChange={e => {
                         setSelectedShortcut('');
                         const fraction = Number(e.target.value) / 1000;
                         const raw = raiseMin + (raiseMax - raiseMin) * fraction * fraction;
@@ -826,16 +826,16 @@ export default function Home() {
                       }} style={{ '--range-fill': `${raiseMax > raiseMin ? Math.sqrt((raiseValue - raiseMin) / (raiseMax - raiseMin)) * 100 : 0}%` } as React.CSSProperties} />
                     </div>
                     <div className="quick-bets" aria-label="Raise shortcuts">
-                      {([['½', .5], ['Pot', 1]] as const).map(([label, n]) => <button className="bet-shortcut" key={label} title={label === '½' ? 'Half pot' : 'Pot'} disabled={!myTurn || controlsBusy || !l?.canRaise || effects.presentationBusy} aria-pressed={selectedShortcut === label} onClick={() => {
+                      {([['½', .5], ['Pot', 1]] as const).map(([label, n]) => <button className="bet-shortcut" key={label} title={label === '½' ? 'Half pot' : 'Pot'} disabled={!myTurn || controlsBusy || !l?.canRaise} aria-pressed={selectedShortcut === label} onClick={() => {
                         setSelectedShortcut(label); setRaise(shortcutRaiseTo(current.current, token.current, n));
                       }}>{label}</button>)}
-                      <button className="bet-shortcut" title="All-in" disabled={!myTurn || controlsBusy || !l?.canRaise || effects.presentationBusy} aria-pressed={selectedShortcut === 'All'} onClick={() => { setSelectedShortcut('All'); setRaise(l.max); }}>All</button>
+                      <button className="bet-shortcut" title="All-in" disabled={!myTurn || controlsBusy || !l?.canRaise} aria-pressed={selectedShortcut === 'All'} onClick={() => { setSelectedShortcut('All'); setRaise(l.max); }}>All</button>
                     </div>
                   </div>
                   <div className="action-buttons">
-                    <button className="fold" disabled={controlsBusy || effects.presentationBusy || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === (displayedCall ? 'fold' : 'check-fold')} onClick={() => myTurn ? send('fold') : selectPreaction(displayedCall ? 'fold' : 'check-fold')}>{!myTurn && !displayedCall ? 'Check / Fold' : 'Fold'}</button>
-                    <button className="secondary check-call" disabled={controlsBusy || effects.presentationBusy || (!myTurn && (!canQueueAction || Boolean(displayedCall)))} aria-pressed={!myTurn && preaction === 'check'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check')}>{displayedCall ? `Call ${fmt(displayedCall)}` : 'Check'}</button>
-                    <button className="primary" disabled={!myTurn || controlsBusy || effects.presentationBusy || !l?.canRaise || !raiseValid} onClick={() => {
+                    <button className="fold" disabled={controlsBusy || (myTurn && !l) || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === (displayedCall ? 'fold' : 'check-fold')} onClick={() => myTurn ? send('fold') : selectPreaction(displayedCall ? 'fold' : 'check-fold')}>{!myTurn && !displayedCall ? 'Check / Fold' : 'Fold'}</button>
+                    <button className="secondary check-call" disabled={controlsBusy || (myTurn && !l) || (!myTurn && (!canQueueAction || Boolean(displayedCall)))} aria-pressed={!myTurn && preaction === 'check'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check')}>{displayedCall ? `Call ${fmt(displayedCall)}` : 'Check'}</button>
+                    <button className="primary" disabled={!myTurn || controlsBusy || !l?.canRaise || !raiseValid} onClick={() => {
                       if (social.open) {
                         // The typing-view button opens amount selection only.
                         // A second explicit tap on the normal Raise button bets.

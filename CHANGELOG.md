@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.1.2 — 15 November 2026
+
+- Refresh the table after reconnecting or foregrounding the app, even when the existing WebSocket still responds.
+- Release betting controls after a command is acknowledged, definitively rejected, or superseded by newer table state. Back off rate-limited retries.
+- Show the current board and enable legal betting on your turn while deal and board animations run.
+
+Full release notes: [v2.1.2](docs/releases/v2.1.2.md).
+
 ## v2.1.1 — 28 October 2026
 
 Priority connection-recovery fix.

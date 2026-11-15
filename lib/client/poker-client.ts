@@ -2,12 +2,14 @@ import { commandEnvelope, PROTOCOL_VERSION } from '../protocol/poker.mjs';
 type Snapshot = { code: string; version: number; handStartedAt?: number } & Record<string, any>;
 export type Connection = 'connecting' | 'connected' | 'reconnecting' | 'offline';
 type TableState = { lobby: any; room: Snapshot | null };
+const RATE_LIMIT_RETRY_MS = 5000;
 export class PokerClient {
   private socket?: WebSocket;
   private replies = new Map<string, { resolve: (value: Snapshot) => void; reject: (error: any) => void }>();
   private delivery?: Promise<Snapshot>;
-  private changed?: () => void;
+  private changed?: (accepted?: Snapshot) => void;
   private roomCode = '';
+  private retryAfter = 0;
   constructor(private playerId: string) { }
   static async auth(path: string, body?: Record<string, unknown>) {
     const response = await fetch(`/api/${path}`, {
@@ -31,8 +33,30 @@ export class PokerClient {
   snapshot(code: string) { this.roomCode = code; return this.request(undefined, code); }
   private get pendingKey() { return `dunzo-club-command:${this.playerId}`; }
   hasPending() { return Boolean(localStorage.getItem(this.pendingKey)); }
+  private forgetCommand(commandId: string) {
+    const stored = localStorage.getItem(this.pendingKey);
+    if (!stored) return;
+    let input;
+    try { input = JSON.parse(stored); } catch { return; }
+    if (input?.commandId === commandId) localStorage.removeItem(this.pendingKey);
+  }
+  private clearSupersededBet(room: Snapshot | null) {
+    if (!room || this.delivery) return false;
+    const stored = localStorage.getItem(this.pendingKey);
+    if (!stored) return false;
+    let input;
+    try { input = JSON.parse(stored); } catch { return false; }
+    // The server checks receipts first, then requires the exact table version.
+    // A newer view is authoritative even if the original reply was lost.
+    if (!input || !['fold', 'check', 'call', 'raise'].includes(input.type) ||
+        input.code !== room.code || !Number.isSafeInteger(input.version) || room.version <= input.version) return false;
+    localStorage.removeItem(this.pendingKey);
+    this.retryAfter = 0;
+    return true;
+  }
   async retryPending() {
     if (this.delivery) return this.delivery;
+    if (Date.now() < this.retryAfter) throw new Error('The table is rate limiting requests. Retrying shortly.');
     const stored = localStorage.getItem(this.pendingKey);
     if (!stored) return null;
     return this.deliver(JSON.parse(stored));
@@ -58,6 +82,7 @@ export class PokerClient {
   }
   private deliver(input: Record<string, any>): Promise<Snapshot> {
     if (this.delivery) return this.delivery;
+    let accepted: Snapshot | undefined;
     const work = async () => {
       try {
         let result: Snapshot;
@@ -67,15 +92,17 @@ export class PokerClient {
           // Lost HTTP replies and WebSocket retries share the same durable receipt.
           result = await this.socketRequest(input);
         }
-        localStorage.removeItem(this.pendingKey);
+        this.forgetCommand(input.commandId);
+        accepted = result;
         return result;
       } catch (error: any) {
-        if (error.status && error.status < 500 && ![401, 403, 429].includes(error.status)) localStorage.removeItem(this.pendingKey);
+        if (error.status === 429) this.retryAfter = Date.now() + RATE_LIMIT_RETRY_MS;
+        else if (error.status && error.status < 500 && error.status !== 401) this.forgetCommand(input.commandId);
         if (!error.status || error.status >= 500) throw new Error('Reconnecting… Your action will be checked automatically.');
         throw error;
       }
     };
-    this.delivery = work().finally(() => { this.delivery = undefined; this.changed?.(); });
+    this.delivery = work().finally(() => { this.delivery = undefined; this.changed?.(accepted); });
     return this.delivery;
   }
   connect(update: (state: TableState) => void, status: (state: Connection) => void, expired: () => void,
@@ -83,15 +110,23 @@ export class PokerClient {
     recovered?: (message: string) => void) {
     let stopped = false, retry: ReturnType<typeof setTimeout> | undefined, attempts = 0;
     let lastContact = 0, lastHttpSnapshot = 0, lastPoll = 0, polling = false, recovering = false, dialing = false, authChecking = false;
-    let lastLobby: any = { activeGame: null };
+    let lastLobby: any = { activeGame: null }, latestRoom: Snapshot | null = null, waitingForCommand = false;
     const publish = (state: TableState) => {
       if (stopped) return;
       lastLobby = state.lobby;
-      if (state.room) this.roomCode = state.room.code;
+      if (state.room) {
+        this.roomCode = state.room.code;
+        if (latestRoom?.code !== state.room.code || state.room.version >= latestRoom.version) latestRoom = state.room;
+      }
       update(state);
-      status(this.hasPending() ? 'reconnecting' : 'connected');
+      if (this.clearSupersededBet(latestRoom)) recovered?.('Table updated. Check the current action before playing.');
+      waitingForCommand = this.hasPending();
+      status(waitingForCommand ? 'reconnecting' : 'connected');
     };
-    const unavailable = () => status(!navigator.onLine ? 'offline' : !this.hasPending() && lastHttpSnapshot && Date.now() - lastHttpSnapshot < 6000 ? 'connected' : 'reconnecting');
+    const unavailable = () => {
+      waitingForCommand = this.hasPending();
+      status(!navigator.onLine ? 'offline' : !waitingForCommand && lastHttpSnapshot && Date.now() - lastHttpSnapshot < 6000 ? 'connected' : 'reconnecting');
+    };
     const checkSession = async () => {
       if (authChecking || stopped) return;
       authChecking = true;
@@ -101,6 +136,12 @@ export class PokerClient {
     };
     const recover = async () => {
       if (stopped || recovering || this.delivery || !this.hasPending()) return;
+      if (this.clearSupersededBet(latestRoom)) {
+        recovered?.('Table updated. Check the current action before playing.');
+        refresh();
+        return;
+      }
+      if (Date.now() < this.retryAfter) return;
       recovering = true;
       unavailable();
       try {
@@ -113,9 +154,8 @@ export class PokerClient {
         if (error.status === 401) void checkSession();
         // A stale version/hand is a definitive rejection: unblock the next turn.
         if (!this.hasPending()) {
-          recovered?.('Back at the table. Your previous action was not applied.');
-          if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify({ protocol: PROTOCOL_VERSION, type: 'resync' }));
-          lastPoll = 0;
+          recovered?.(error.status === 403 ? 'Table access changed. Review the latest state.' : 'Back at the table. Your previous action was not applied.');
+          refresh();
         }
       } finally {
         recovering = false;
@@ -187,8 +227,25 @@ export class PokerClient {
       if (!lastContact || Date.now() - lastContact > 6000 || this.hasPending()) void poll();
       void recover();
     };
-    const resume = () => { if (!document.hidden) { lastPoll = 0; heartbeat(); } };
-    this.changed = () => { if (!stopped && this.hasPending()) unavailable(); };
+    const refresh = () => {
+      lastPoll = 0;
+      if (this.socket?.readyState === WebSocket.OPEN) {
+        try { this.socket.send(JSON.stringify({ protocol: PROTOCOL_VERSION, type: 'resync' })); }
+        catch { this.socket?.close(); }
+      }
+      void poll();
+    };
+    const resume = () => {
+      if (document.hidden || !navigator.onLine) return;
+      refresh();
+      heartbeat();
+    };
+    this.changed = accepted => {
+      if (stopped) return;
+      if (this.hasPending()) unavailable();
+      else if (waitingForCommand && accepted) publish({ lobby: lastLobby, room: accepted });
+      else if (waitingForCommand) refresh();
+    };
     const timer = setInterval(heartbeat, 3000);
     window.addEventListener('online', resume); window.addEventListener('offline', heartbeat);
     document.addEventListener('visibilitychange', resume);

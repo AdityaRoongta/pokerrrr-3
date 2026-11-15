@@ -191,6 +191,51 @@ test('stale hand/version and unauthorized host operations cannot mutate state', 
   }), /hand has changed/);
   assert.equal((await f.service.snapshot(f.players[0], f.code)).version, room.version);
 });
+test('a legal call survives unrelated table changes, but can only debit once', async () => {
+  const f = await fixture(3);
+  await f.send(f.players[0], 'deal');
+  const {turn: actor} = await f.storage.get(`room:${f.code}`);
+  const other = f.players.find(id => id !== actor);
+  const before = await f.service.snapshot(actor, f.code);
+  assert.ok(before.legal.call);
+  const bet = commandEnvelope({type:'call',code:f.code},before);
+  await f.send(other, 'rebuy', {amount:250});
+  await f.send(other, 'ready');
+  await f.send(other, 'end');
+  const current = await f.service.snapshot(actor, f.code);
+  assert.ok(current.version > before.version);
+  assert.equal(current.bettingDecision, before.bettingDecision);
+  const rival = commandEnvelope({type:'call',code:f.code},before);
+  const results = await Promise.allSettled([
+    f.service.execute(actor,bet), f.service.execute(actor,bet), f.service.execute(actor,rival)
+  ]);
+  assert.equal(results.filter(result => result.status === 'fulfilled').length,2);
+  assert.equal(results.filter(result => result.value?.replayed).length,1);
+  const rejected = results.find(result => result.status === 'rejected').reason;
+  assert.equal(rejected.status,409);
+  assert.notEqual(rejected.snapshot.bettingDecision,before.bettingDecision);
+  assert.ok(!('deck' in rejected.snapshot));
+  const after = await f.service.snapshot(actor,f.code);
+  assert.equal(after.players.find(p=>p.id===actor).stack,before.players.find(p=>p.id===actor).stack-before.legal.call);
+});
+test('a decision expires at the deadline and cannot be reused on a later turn or hand', async () => {
+  const f = await fixture(3);
+  await f.send(f.players[0],'deal');
+  const {turn: actor} = await f.storage.get(`room:${f.code}`);
+  const before = await f.service.snapshot(actor,f.code);
+  const bet = commandEnvelope({type:'call',code:f.code},before);
+  await assert.rejects(f.service.execute(actor,bet,before.deadline),{status:409});
+  await f.service.advance(before.deadline);
+  for (let count=0;count<10;count++){
+    const {phase, deadline} = await f.storage.get(`room:${f.code}`);
+    if (phase === 'showdown') break;
+    await f.service.advance(deadline);
+  }
+  const end = await f.storage.get(`room:${f.code}`);
+  assert.equal(end.phase,'showdown');
+  await f.service.advance(end.nextDealAt);
+  await assert.rejects(f.service.execute(actor,bet,end.nextDealAt+1),{status:409});
+});
 test('alarms advance a disconnected table, persist hand history, respect payouts and recover exact state', async () => {
   const f = await fixture();
   const {

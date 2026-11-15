@@ -51,6 +51,65 @@ test('HTTP unavailable with healthy WebSocket: fallback accepts action without H
   await settle();await f.client.send({type:'check',code:'ABC234'},f.room);
   assert.equal(calls,1);assert.equal(f.expired,0);assert.equal(f.client.hasPending(),false);
 });
+test('a decision bet sends on the socket immediately even when HTTP stalls',async t=>{
+  let posts=0, sends=0;
+  const f=browser(t,async (_url,options)=>{
+    if(options.method==='POST'){posts++;return new Promise(()=>{});}
+  },(socket,input)=>{
+    sends++;
+    assert.equal(input.decision,'current-decision');
+    socket.emit({protocol:4,type:'command_result',commandId:input.commandId,snapshot:{code:input.code,version:5}});
+  });
+  await settle();
+  await f.client.send({type:'call',code:f.room.code},{...f.room,bettingDecision:'current-decision'});
+  t.mock.timers.tick(300);
+  assert.equal(sends,1);
+  assert.equal(posts,0);
+  assert.equal(f.client.hasPending(),false);
+});
+test('a slow socket starts HTTP promptly and both paths use the same command ID',async t=>{
+  let sent;
+  const f=browser(t,async (_url,options)=>{
+    if(options.method==='POST'){
+      assert.deepEqual(JSON.parse(options.body),sent);
+      return {data:{code:sent.code,version:5}};
+    }
+  },(_socket,input)=>{sent=input;});
+  await settle();
+  const delivered=f.client.send({type:'call',code:f.room.code},{...f.room,bettingDecision:'current-decision'});
+  await settle();
+  assert.ok(sent);
+  t.mock.timers.tick(250);
+  assert.equal((await delivered).version,5);
+  assert.equal(f.client.hasPending(),false);
+});
+test('a betting rejection publishes the fresh snapshot and releases controls immediately',async t=>{
+  const f=browser(t,async ()=>undefined,(socket,input)=>{
+    socket.emit({protocol:4,type:'command_result',commandId:input.commandId,status:409,error:'Decision changed',
+      snapshot:{code:input.code,version:5,bettingDecision:null}});
+  });
+  await settle();
+  await assert.rejects(f.client.send({type:'call',code:f.room.code},{...f.room,bettingDecision:'current-decision'}),/Decision changed/);
+  assert.equal(f.updates.at(-1).room.version,5);
+  assert.equal(f.statuses.at(-1),'connected');
+  assert.equal(f.client.hasPending(),false);
+});
+test('a newer room version keeps a pending bet while its decision still matches',async t=>{
+  const f=browser(t,async (_url,options)=>options.method==='POST'
+    ? {status:429,data:{error:'Too many requests'}} : undefined);
+  await settle();
+  const room={...f.room,bettingDecision:'current-decision'};
+  f.sockets[0].close();
+  await settle();
+  await assert.rejects(f.client.send({type:'call',code:room.code},room),/Too many requests/);
+  t.mock.timers.tick(1000);
+  await settle();
+  f.sockets.at(-1).emit({...f.state,room:{...room,version:room.version+1}});
+  assert.equal(f.client.hasPending(),true);
+  f.sockets.at(-1).emit({...f.state,room:{...room,version:room.version+2,bettingDecision:null}});
+  assert.equal(f.client.hasPending(),false);
+  assert.equal(f.statuses.at(-1),'connected');
+});
 test('both transports fail, turn passes: automatic stale rejection clears pending and restores next turn',async t=>{
   let offline=true;
   const f=browser(t,async(url,o)=>{if(offline)throw new TypeError('Disconnected');if(o.method==='POST')return {status:409,data:{error:'The table changed'}};},socket=>socket.close());
@@ -156,7 +215,7 @@ test('missed turn expires normally; old unaccepted action cannot execute in the 
   const actor=r.turn===host?host:friend, own=await service.snapshot(actor,r.code);
   const stale=commandEnvelope({type:own.legal.call?'call':'check',code:r.code},own);
   await service.advance(r.deadline+1);
-  await assert.rejects(service.execute(actor,stale,r.deadline+2),/table changed|hand has changed/i);
+  await assert.rejects(service.execute(actor,stale,r.deadline+2),/betting decision has changed/i);
   const latest=await service.snapshot(actor,r.code);
   assert.equal(latest.players.find(p=>p.id===actor).away,false);
   assert.equal(latest.players.find(p=>p.id===actor).left,false);

@@ -1,8 +1,9 @@
-import { commandEnvelope, PROTOCOL_VERSION } from '../protocol/poker.mjs';
+import { commandEnvelope, isBet, PROTOCOL_VERSION } from '../protocol/poker.mjs';
 type Snapshot = { code: string; version: number; handStartedAt?: number } & Record<string, any>;
 export type Connection = 'connecting' | 'connected' | 'reconnecting' | 'offline';
 type TableState = { lobby: any; room: Snapshot | null };
 const RATE_LIMIT_RETRY_MS = 5000;
+const BET_HTTP_FALLBACK_MS = 250;
 export class PokerClient {
   private socket?: WebSocket;
   private replies = new Map<string, { resolve: (value: Snapshot) => void; reject: (error: any) => void }>();
@@ -26,8 +27,8 @@ export class PokerClient {
       headers: { ...(input && { 'Content-Type': 'application/json' }), ...(presence && { 'X-Poker-Presence': 'poll' }) },
       ...(input && { body: JSON.stringify(input) }), signal: AbortSignal.timeout(4000)
     });
-    const data = await response.json() as Snapshot & { error?: string };
-    if (!response.ok) throw Object.assign(new Error(data.error || 'Could not reach the table'), { status: response.status });
+    const data = await response.json() as Snapshot & { error?: string; snapshot?: Snapshot };
+    if (!response.ok) throw Object.assign(new Error(data.error || 'Could not reach the table'), { status: response.status, snapshot: data.snapshot });
     return data;
   }
   snapshot(code: string) { this.roomCode = code; return this.request(undefined, code); }
@@ -46,10 +47,9 @@ export class PokerClient {
     if (!stored) return false;
     let input;
     try { input = JSON.parse(stored); } catch { return false; }
-    // The server checks receipts first, then requires the exact table version.
-    // A newer view is authoritative even if the original reply was lost.
-    if (!input || !['fold', 'check', 'call', 'raise'].includes(input.type) ||
+    if (!input || !isBet(input.type) ||
         input.code !== room.code || !Number.isSafeInteger(input.version) || room.version <= input.version) return false;
+    if (input.decision && input.handId === room.handStartedAt && input.decision === room.bettingDecision) return false;
     localStorage.removeItem(this.pendingKey);
     this.retryAfter = 0;
     return true;
@@ -80,29 +80,65 @@ export class PokerClient {
       catch (error) { this.replies.get(input.commandId)?.reject(error); this.replies.delete(input.commandId); }
     });
   }
+  private async deliverBet(input: Record<string, any>): Promise<Snapshot> {
+    // Keep listening to the socket while starting HTTP if its reply is slow.
+    // Both transports share the same durable receipt and command ID.
+    let startHttp!: () => void;
+    let fallback: ReturnType<typeof setTimeout>;
+    const http = new Promise<Snapshot>((resolve, reject) => {
+      startHttp = () => {
+        clearTimeout(fallback);
+        startHttp = () => {};
+        this.request(input).then(resolve, reject);
+      };
+      fallback = setTimeout(() => startHttp(), BET_HTTP_FALLBACK_MS);
+    });
+    const result = (attempt: Promise<Snapshot>, onFailure?: () => void) => attempt.then(
+      snapshot => ({ snapshot }),
+      error => {
+        if (error.snapshot && error.status === 409) return { error };
+        onFailure?.();
+        throw error;
+      }
+    );
+    try {
+      const reply = await Promise.any([result(this.socketRequest(input), () => startHttp()), result(http)]);
+      if ('error' in reply) throw reply.error;
+      return reply.snapshot;
+    } catch (error) {
+      if (!(error instanceof AggregateError)) throw error;
+      throw error.errors.find(e => e.status && e.status < 500) ?? error.errors[0];
+    } finally {
+      clearTimeout(fallback!);
+    }
+  }
   private deliver(input: Record<string, any>): Promise<Snapshot> {
     if (this.delivery) return this.delivery;
     let accepted: Snapshot | undefined;
     const work = async () => {
       try {
         let result: Snapshot;
-        try { result = await this.request(input); }
-        catch (error: any) {
-          if (error.status && error.status < 500) throw error;
-          // Lost HTTP replies and WebSocket retries share the same durable receipt.
-          result = await this.socketRequest(input);
+        if (input.decision && this.socket?.readyState === WebSocket.OPEN) {
+          result = await this.deliverBet(input);
+        } else {
+          try { result = await this.request(input); }
+          catch (error: any) {
+            if (error.status && error.status < 500) throw error;
+            result = await this.socketRequest(input);
+          }
         }
         this.forgetCommand(input.commandId);
         accepted = result;
         return result;
       } catch (error: any) {
+        if (error.status === 409) accepted = error.snapshot;
         if (error.status === 429) this.retryAfter = Date.now() + RATE_LIMIT_RETRY_MS;
         else if (error.status && error.status < 500 && error.status !== 401) this.forgetCommand(input.commandId);
         if (!error.status || error.status >= 500) throw new Error('Reconnecting… Your action will be checked automatically.');
         throw error;
       }
     };
-    this.delivery = work().finally(() => { this.delivery = undefined; this.changed?.(accepted); });
+    this.delivery = Promise.resolve().then(work).finally(() => { this.delivery = undefined; this.changed?.(accepted); });
     return this.delivery;
   }
   connect(update: (state: TableState) => void, status: (state: Connection) => void, expired: () => void,
@@ -182,7 +218,7 @@ export class PokerClient {
           if (message.type === 'command_result') {
             const reply = this.replies.get(message.commandId);
             this.replies.delete(message.commandId);
-            if (message.error) reply?.reject(Object.assign(new Error(message.error), { status: message.status }));
+            if (message.error) reply?.reject(Object.assign(new Error(message.error), { status: message.status, snapshot: message.snapshot }));
             else reply?.resolve(message.snapshot);
           } else if (message.type === 'state' && (!message.room || Number.isSafeInteger(message.room.version))) publish(message);
           else if (message.type === 'social') social?.(message.entry);
@@ -243,7 +279,7 @@ export class PokerClient {
     this.changed = accepted => {
       if (stopped) return;
       if (this.hasPending()) unavailable();
-      else if (waitingForCommand && accepted) publish({ lobby: lastLobby, room: accepted });
+      else if (accepted) publish({ lobby: lastLobby, room: accepted });
       else if (waitingForCommand) refresh();
     };
     const timer = setInterval(heartbeat, 3000);

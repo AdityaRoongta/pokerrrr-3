@@ -17,6 +17,7 @@ import { useReactions } from '../lib/client/use-reactions';
 import { reactionsEnabled } from '../lib/reactions.mjs';
 import { newRoom, command, startHand, act, legal, view, resolveAlias, tick, shortcutRaiseTo } from '../lib/client/practice.mjs';
 import { PokerClient, type Connection } from '../lib/client/poker-client';
+import { isBet } from '../lib/protocol/poker.mjs';
 import { GameHistory } from './game-history';
 import { PlayerLobby, PinSettings } from './player-lobby';
 import { showTestTools } from '../lib/client/environment';
@@ -221,9 +222,9 @@ export default function Home() {
       setBusy(false);
     }
   }
-  async function api(input?: any, roomCode?: string) {
+  async function api(input?: any, roomCode?: string, actionRoom = current.current) {
     if (!transport.current) throw new Error('Player identity is loading');
-    return input ? transport.current.send(input, current.current || undefined) : transport.current.snapshot(roomCode || current.current?.code || '');
+    return input ? transport.current.send(input, actionRoom || undefined) : transport.current.snapshot(roomCode || current.current?.code || '');
   }
   useEffect(() => {
     const unlockSocial = () => socialAudio.current?.unlock();
@@ -363,12 +364,12 @@ export default function Home() {
         });
         update(view(demo.current, token.current));
       } else {
+        const actionRoom = isBet(type) ? room : current.current;
         const r = await api({
           type,
-          code: current.current?.code,
-          version: current.current?.version,
+          code: actionRoom?.code,
           ...extra
-        });
+        }, undefined, actionRoom);
         update(r);
       }
       return true;

@@ -5,7 +5,7 @@ module.exports = async function recoveryBrowser(browser, root) {
   const {TableService} = await import(root+'/server/table-service.mjs');
   const {MemoryStorage} = await import(root+'/tests/memory-storage.mjs');
   const {commandEnvelope} = await import(root+'/lib/protocol/poker.mjs');
-  for (const scenario of ['http_down','lost_reply','both_down','socket_down','offline_reload']) {
+  for (const scenario of ['http_down','lost_reply','both_down','socket_down','offline_reload','slow_http','reload_race']) {
     const host=crypto.randomUUID(), other=crypto.randomUUID(), third=crypto.randomUUID();
     const storage=new MemoryStorage(), service=new TableService(storage);
     let room=(await service.execute(host,commandEnvelope({type:'create',name:'Recovery tester',sb:5,bb:10,seats:3,buyin:1000,games:['NLH'],timer:10}))).snapshot;
@@ -17,7 +17,7 @@ module.exports = async function recoveryBrowser(browser, root) {
     assert.equal(room.turn,host);
     const raw=await storage.get('room:'+code); raw.paused=true; await storage.put('room:'+code,raw);
     const lobby={activeGame:{code,joined:true,players:room.players,settings:room.settings}};
-    const sockets=new Set(), commandIds=[]; let fault=scenario==='offline_reload'?'both_down':'none', httpAccepted=0;
+    const sockets=new Set(), commands=[]; let fault=scenario==='offline_reload'?'both_down':'none', socketAccepted=0;
     const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
     const errors=[], consoleErrors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
     async function state(){return {protocol:4,type:'state',lobby,room:await service.snapshot(host,code)};}
@@ -27,11 +27,14 @@ module.exports = async function recoveryBrowser(browser, root) {
       const req=route.request(),path=new URL(req.url()).pathname;
       if(fault==='both_down')return route.abort();
       if(path==='/api/poker' && req.method()==='POST'){
-        const input=req.postDataJSON();commandIds.push(input.commandId);
+        const input=req.postDataJSON();commands.push(input);
         if(fault==='http_down')return route.abort();
-        if(fault==='lost_reply'){await execute(input);httpAccepted++;await broadcast();return route.abort();}
+        if(fault==='slow_http'){
+          await new Promise(resolve=>setTimeout(resolve,4600));
+          return route.abort().catch(()=>{});
+        }
         try {const json=await execute(input);await broadcast();return route.fulfill({json});}
-        catch(error){return route.fulfill({status:error.status||400,json:{error:error.message}});}
+        catch(error){return route.fulfill({status:error.status||400,json:{error:error.message,snapshot:error.snapshot}});}
       }
       const data=path==='/api/history'?{games:[],nextCursor:null,demo:false,demoAvailable:false,viewerKey:host}:path==='/api/players'?{players:[{id:host,name:'Recovery tester'}]}:path==='/api/session'?{player:{id:host,name:'Recovery tester'}}:path==='/api/lobby'?lobby:path==='/api/chat'?{entries:[],nextCursor:null}:await service.snapshot(host,code);
       return route.fulfill({json:data});
@@ -44,9 +47,15 @@ module.exports = async function recoveryBrowser(browser, root) {
         if(message.type==='ping')ws.send(JSON.stringify({protocol:4,type:'pong'}));
         if(message.type==='resync')ws.send(JSON.stringify(await state()));
         if(message.type==='command'){
-          commandIds.push(message.input.commandId);
-          try{const snapshot=await execute(message.input);ws.send(JSON.stringify({protocol:4,type:'command_result',commandId:message.input.commandId,snapshot}));await broadcast();}
-          catch(error){ws.send(JSON.stringify({protocol:4,type:'command_result',commandId:message.input.commandId,status:error.status||400,error:error.message}));}
+          commands.push(message.input);
+          try {
+            const snapshot=await execute(message.input);
+            if(fault==='lost_reply')socketAccepted++;
+            else ws.send(JSON.stringify({protocol:4,type:'command_result',commandId:message.input.commandId,snapshot}));
+            await broadcast();
+          } catch(error) {
+            ws.send(JSON.stringify({protocol:4,type:'command_result',commandId:message.input.commandId,status:error.status||400,error:error.message,snapshot:error.snapshot}));
+          }
         }
       });
     });
@@ -61,6 +70,17 @@ module.exports = async function recoveryBrowser(browser, root) {
       await page.waitForFunction(()=>{const b=document.querySelector('.check-call');return b&&!b.disabled;});
     }
     if(scenario==='both_down')for(const ws of sockets)ws.close();
+    if(scenario==='slow_http'){
+      const late=await storage.get('room:'+code);
+      late.deadline=Date.now()+3000;
+      await storage.put('room:'+code,late);
+      await broadcast();
+      await page.waitForFunction(()=>/Your turn · [123]s/.test(document.querySelector('.turn-status')?.textContent));
+    }
+    if(scenario==='reload_race'){
+      const fresh=await service.snapshot(other,code);
+      await service.execute(other,commandEnvelope({type:'rebuy',code,amount:250},fresh));
+    }
     // Force the interrupted action while the last received state is still usable.
     // For total disconnection, seed the exact envelope a tapped call would retain.
     if(scenario==='both_down'){
@@ -84,8 +104,9 @@ module.exports = async function recoveryBrowser(browser, root) {
       const after=await service.snapshot(host,code);
       assert.equal(after.version,before.version+1,'Exactly one call was applied');
       assert.equal(after.players.find(p=>p.id===host).stack,990);
-      if(scenario==='lost_reply'){assert.equal(httpAccepted,1);assert.equal(new Set(commandIds).size,1);assert.equal(commandIds.length,2);}
-      if(scenario==='http_down')assert.equal(commandIds.length,2);
+      if(scenario==='lost_reply'){assert.equal(socketAccepted,1);assert.equal(commands.length,2);assert.deepEqual(commands[0],commands[1]);}
+      if(scenario==='http_down'||scenario==='slow_http')assert.equal(commands.length,1);
+      if(scenario==='reload_race')assert.ok(commands[0].version<before.version,'Accepted the rendered decision from an earlier table version');
     }
     assert.equal(await page.getByRole('button',{name:'Sign in',exact:true}).count(),0);
     assert.deepEqual(errors,[]);

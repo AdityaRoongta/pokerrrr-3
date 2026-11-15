@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.1.3 — 15 November 2026
+
+- Send bets over the live connection immediately, with a prompt HTTP fallback and one shared command receipt.
+- Keep betting available when unrelated table actions change the room version. Reject expired decisions with the latest private table view.
+
+Full release notes: [v2.1.3](docs/releases/v2.1.3.md).
+
 ## v2.1.2 — 15 November 2026
 
 - Refresh the table after reconnecting or foregrounding the app, even when the existing WebSocket still responds.

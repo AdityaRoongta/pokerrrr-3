@@ -88,6 +88,7 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
   }
   fetch(request: Request) {
     return this.serial(async () => {
+      let advanced: string | null = null;
       try {
         const url = new URL(request.url);
         if (url.pathname === '/api/players' && request.method === 'GET') return json({
@@ -237,21 +238,21 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
           error: 'Method not allowed'
         }, 405);
         // Catch overdue work before accepting any new player action.
-        const advanced = await this.service.advance();
-        if (advanced) await this.broadcast(advanced);
+        advanced = await this.service.advance();
         if (request.method === 'GET') return json(await this.snapshot(token, url.searchParams.get('code') || ''));
         const input = await this.body(request);
         if (['stand_up', 'cancel_stand_up', 'set_away'].includes(input.type) && !reactionsEnabled(this.env.APP_ENV)) throw new TableError('This control is not enabled', 403);
         if (['create', 'join'].includes(input.type)) input.name = player.name;
         const result = await this.service.execute(token, input);
-        await this.broadcast(result.snapshot.code);
+        if (advanced !== result.snapshot.code) await this.broadcast(result.snapshot.code);
         return json({
           ...await this.withPresence(result.snapshot),
           ack: result.ack
         });
       } catch (error) {
         if (error instanceof TableError) return json({
-          error: error.message
+          error: error.message,
+          snapshot: error.snapshot
         }, error.status);
         // Engine validation messages are safe; parser/storage details are not.
         if (error instanceof SyntaxError || (error as Error)?.name === 'ZodError') return json({
@@ -264,6 +265,7 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
           error: 'Table unavailable. Reconnect and try again.'
         }, 503);
       } finally {
+        if (advanced) await this.broadcast(advanced);
         // Optional effects cannot turn a successful poker command into an error.
         try { await this.maintainSocial(); } catch (error) { console.error('Social maintenance failed', error); }
       }
@@ -272,6 +274,7 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
   webSocketMessage(socket: WebSocket, message: string | ArrayBuffer) {
     return this.serial(async () => {
       let commandId: string | undefined;
+      let advanced: string | null = null;
       try {
         if (typeof message !== 'string' || message.length > 4096) throw new TableError('Invalid message', 400);
         const input = JSON.parse(message);
@@ -286,13 +289,12 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
           this.limit(`player:${peer.playerId}`, 180);
           const player = await this.authorized(peer);
           if (!player) { socket.close(1008, 'Access expired'); return; }
-          const advanced = await this.service.advance();
-          if (advanced) await this.broadcast(advanced);
+          advanced = await this.service.advance();
           if (['create', 'join'].includes(input.input?.type)) input.input.name = player.name;
           const result = await this.service.execute(peer.playerId, input.input);
           socket.send(JSON.stringify({ protocol: PROTOCOL_VERSION, type: 'command_result', commandId,
             snapshot: { ...await this.withPresence(result.snapshot), ack: result.ack } }));
-          await this.broadcast(result.snapshot.code);
+          if (advanced !== result.snapshot.code) await this.broadcast(result.snapshot.code);
         } else if (input.type === 'ping') {
           socket.send(JSON.stringify({ type: 'pong', protocol: PROTOCOL_VERSION }));
           if (!wasConnected) await this.broadcast();
@@ -302,9 +304,11 @@ export class ClubTable extends DurableObject<Cloudflare.Env> {
         if (commandId) {
           const status = error instanceof TableError ? error.status : error instanceof SyntaxError || (error as Error)?.name === 'ZodError' || error instanceof Error && !/SQL|storage|internal/i.test(error.message) ? 400 : 503;
           socket.send(JSON.stringify({ protocol: PROTOCOL_VERSION, type: 'command_result', commandId, status,
+            snapshot: error instanceof TableError ? error.snapshot : undefined,
             error: status < 500 ? (error as Error).message : 'Table unavailable. Reconnecting…' }));
         } else socket.close(1008, 'Please reconnect');
       } finally {
+        if (advanced) await this.broadcast(advanced);
         try { await this.maintainSocial(); } catch (error) { console.error('Socket maintenance failed', error); }
       }
     });

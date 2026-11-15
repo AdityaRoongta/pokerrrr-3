@@ -1,10 +1,11 @@
 import { historyRange, aggregateGames, suggestedPayments, householdPair, historyPlayerKey, publicHistory } from '../lib/game-history.mjs';
-import { newRoom, command, view, tick } from '../lib/poker.mjs';
+import { newRoom, command, view, tick, legal, bettingDecision } from '../lib/poker.mjs';
 import { parseCommand, playerToken, roomCode } from '../lib/protocol/poker.mjs';
 export class TableError extends Error {
-  constructor(message, status = 400) {
+  constructor(message, status = 400, snapshot = undefined) {
     super(message);
     this.status = status;
+    this.snapshot = snapshot;
   }
 }
 const requireState = (condition, message, status = 409) => {
@@ -255,8 +256,15 @@ export class TableService {
         }
         if (input.type !== 'join') {
           requireState(input.type === 'end' || room.host === token || room.players.some(p => p.id === token), 'Join this table first', 403);
-          requireState(input.version === room.version, 'The table changed. Review your turn and try again.');
-          requireState(input.handId === (room.handStartedAt || 0), 'This hand has changed. Review the table.');
+          if (input.decision !== undefined) {
+            if (input.handId !== room.handStartedAt || now >= room.deadline ||
+                input.decision !== bettingDecision(room, legal(room, token))) {
+              throw new TableError('This betting decision has changed. Review the table.', 409, view(room, token, now, true));
+            }
+          } else {
+            requireState(input.version === room.version, 'The table changed. Review your turn and try again.');
+            requireState(input.handId === (room.handStartedAt || 0), 'This hand has changed. Review the table.');
+          }
         }
         // Presentation is a server rule, not just a disabled client button.
         if (input.type === 'deal' && room.phase === 'showdown') requireState(now >= room.payoutFinishedAt, 'Wait for payouts to finish');

@@ -1,0 +1,11 @@
+{
+  "tag": "v2.1.3",
+  "commit": "3bbfe65f18d73b3a54ec7b697ff506d87b3d0d72",
+  "workerVersion": "f31fc743-a398-47ea-9dd5-feb8036db37f",
+  "deploymentId": "5dcba7d5-8b99-4a2c-a33a-c7dfeaa36a37",
+  "rollbackVersion": "2c1050d8-a2df-461e-9858-67f6bfb9014b",
+  "verifiedAt": "2026-11-15T15:26:47.973Z",
+  "productionUrl": "https://dunzo-club.arun-devanathan.workers.dev/",
+  "trafficPercent": 100,
+  "validation": "125 application tests, TypeScript, production and staging artifact guards, isolated production Worker multiplayer smoke, seven compiled-browser recovery scenarios, 252 stress-test hands, and live lobby and health verification passed."
+}

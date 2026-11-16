@@ -1,4 +1,4 @@
-import { commandEnvelope, isBet, PROTOCOL_VERSION } from '../protocol/poker.mjs';
+import { commandEnvelope, isBet, parseCommand, PROTOCOL_VERSION } from '../protocol/poker.mjs';
 type Snapshot = { code: string; version: number; handStartedAt?: number } & Record<string, any>;
 export type Connection = 'connecting' | 'connected' | 'reconnecting' | 'offline';
 type TableState = { lobby: any; room: Snapshot | null };
@@ -8,6 +8,7 @@ export class PokerClient {
   private socket?: WebSocket;
   private replies = new Map<string, { resolve: (value: Snapshot) => void; reject: (error: any) => void }>();
   private delivery?: Promise<Snapshot>;
+  private resumeBetSocket?: () => void;
   private changed?: (accepted?: Snapshot) => void;
   private roomCode = '';
   private retryAfter = 0;
@@ -33,20 +34,26 @@ export class PokerClient {
   }
   snapshot(code: string) { this.roomCode = code; return this.request(undefined, code); }
   private get pendingKey() { return `dunzo-club-command:${this.playerId}`; }
-  hasPending() { return Boolean(localStorage.getItem(this.pendingKey)); }
-  private forgetCommand(commandId: string) {
+  private pendingCommand() {
     const stored = localStorage.getItem(this.pendingKey);
-    if (!stored) return;
-    let input;
-    try { input = JSON.parse(stored); } catch { return; }
-    if (input?.commandId === commandId) localStorage.removeItem(this.pendingKey);
+    if (stored === null) return null;
+    try {
+      const input = JSON.parse(stored);
+      // The coordinator supplies the authenticated name before parsing these commands.
+      parseCommand(input?.type === 'create' || input?.type === 'join' ? { ...input, name: 'Player' } : input);
+      return input;
+    } catch {
+      if (localStorage.getItem(this.pendingKey) === stored) localStorage.removeItem(this.pendingKey);
+      return null;
+    }
+  }
+  hasPending() { return Boolean(this.pendingCommand()); }
+  private forgetCommand(commandId: string) {
+    if (this.pendingCommand()?.commandId === commandId) localStorage.removeItem(this.pendingKey);
   }
   private clearSupersededBet(room: Snapshot | null) {
     if (!room || this.delivery) return false;
-    const stored = localStorage.getItem(this.pendingKey);
-    if (!stored) return false;
-    let input;
-    try { input = JSON.parse(stored); } catch { return false; }
+    const input = this.pendingCommand();
     if (!input || !isBet(input.type) ||
         input.code !== room.code || !Number.isSafeInteger(input.version) || room.version <= input.version) return false;
     if (input.decision && input.handId === room.handStartedAt && input.decision === room.bettingDecision) return false;
@@ -57,9 +64,8 @@ export class PokerClient {
   async retryPending() {
     if (this.delivery) return this.delivery;
     if (Date.now() < this.retryAfter) throw new Error('The table is rate limiting requests. Retrying shortly.');
-    const stored = localStorage.getItem(this.pendingKey);
-    if (!stored) return null;
-    return this.deliver(JSON.parse(stored));
+    const input = this.pendingCommand();
+    return input ? this.deliver(input) : null;
   }
   async send(input: Record<string, any>, room?: Snapshot) {
     if (this.hasPending()) throw new Error('Restoring your connection… Your previous action is being checked automatically.');
@@ -84,32 +90,59 @@ export class PokerClient {
     // Keep listening to the socket while starting HTTP if its reply is slow.
     // Both transports share the same durable receipt and command ID.
     let startHttp!: () => void;
-    let fallback: ReturnType<typeof setTimeout>;
+    let fallback: ReturnType<typeof setTimeout> | undefined;
+    let httpFailed = false;
+    let socketError: unknown;
+    let attemptedSocket: WebSocket | undefined;
+    let socketInFlight = false;
+    let socketFailed!: (error: unknown) => void;
     const http = new Promise<Snapshot>((resolve, reject) => {
       startHttp = () => {
         clearTimeout(fallback);
         startHttp = () => {};
-        this.request(input).then(resolve, reject);
+        this.request(input).then(resolve, error => {
+          httpFailed = true;
+          if (!socketInFlight) socketFailed(socketError ?? error);
+          reject(error);
+        });
       };
-      fallback = setTimeout(() => startHttp(), BET_HTTP_FALLBACK_MS);
     });
-    const result = (attempt: Promise<Snapshot>, onFailure?: () => void) => attempt.then(
+    const socket = new Promise<Snapshot>((resolve, reject) => {
+      socketFailed = reject;
+      this.resumeBetSocket = () => {
+        const available = this.socket;
+        if (socketInFlight || available?.readyState !== WebSocket.OPEN || available === attemptedSocket) return;
+        attemptedSocket = available;
+        socketInFlight = true;
+        this.socketRequest(input).then(resolve, error => {
+          socketInFlight = false;
+          socketError = error;
+          if (httpFailed || (error.status === 409 && error.snapshot)) reject(error);
+          else startHttp();
+        });
+      };
+    });
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      fallback = setTimeout(() => startHttp(), BET_HTTP_FALLBACK_MS);
+      this.resumeBetSocket?.();
+    } else startHttp();
+    const result = (attempt: Promise<Snapshot>) => attempt.then(
       snapshot => ({ snapshot }),
       error => {
         if (error.snapshot && error.status === 409) return { error };
-        onFailure?.();
         throw error;
       }
     );
     try {
-      const reply = await Promise.any([result(this.socketRequest(input), () => startHttp()), result(http)]);
+      const reply = await Promise.any([result(socket), result(http)]);
       if ('error' in reply) throw reply.error;
       return reply.snapshot;
     } catch (error) {
       if (!(error instanceof AggregateError)) throw error;
       throw error.errors.find(e => e.status && e.status < 500) ?? error.errors[0];
     } finally {
-      clearTimeout(fallback!);
+      clearTimeout(fallback);
+      this.resumeBetSocket = undefined;
     }
   }
   private deliver(input: Record<string, any>): Promise<Snapshot> {
@@ -118,7 +151,7 @@ export class PokerClient {
     const work = async () => {
       try {
         let result: Snapshot;
-        if (input.decision && this.socket?.readyState === WebSocket.OPEN) {
+        if (input.decision) {
           result = await this.deliverBet(input);
         } else {
           try { result = await this.request(input); }
@@ -220,7 +253,10 @@ export class PokerClient {
             this.replies.delete(message.commandId);
             if (message.error) reply?.reject(Object.assign(new Error(message.error), { status: message.status, snapshot: message.snapshot }));
             else reply?.resolve(message.snapshot);
-          } else if (message.type === 'state' && (!message.room || Number.isSafeInteger(message.room.version))) publish(message);
+          } else if (message.type === 'state' && (!message.room || Number.isSafeInteger(message.room.version))) {
+            publish(message);
+            this.resumeBetSocket?.();
+          }
           else if (message.type === 'social') social?.(message.entry);
           else if (message.type === 'reaction') reaction?.(message.event, message.serverTime);
           void recover();

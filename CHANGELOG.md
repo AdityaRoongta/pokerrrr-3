@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.1.4 — 16 November 2026
+
+- Send a pending bet over a recovered live connection immediately, even while the HTTP request is still waiting.
+- Discard invalid saved commands and show when a betting action is still sending or recovering.
+
+Full release notes: [v2.1.4](docs/releases/v2.1.4.md).
+
 ## v2.1.3 — 15 November 2026
 
 - Send bets over the live connection immediately, with a prompt HTTP fallback and one shared command receipt.

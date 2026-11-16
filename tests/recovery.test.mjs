@@ -83,6 +83,45 @@ test('a slow socket starts HTTP promptly and both paths use the same command ID'
   assert.equal((await delivered).version,5);
   assert.equal(f.client.hasPending(),false);
 });
+test('a recovered socket picks up a bet while the initial HTTP request still stalls',async t=>{
+  let httpCommand, socketCommand;
+  const f=browser(t,async (_url,options)=>{
+    if(options.method==='POST'){
+      httpCommand=JSON.parse(options.body);
+      return new Promise(()=>{});
+    }
+  },(socket,input)=>{
+    socketCommand=input;
+    socket.emit({protocol:4,type:'command_result',commandId:input.commandId,snapshot:{code:input.code,version:5}});
+  });
+  await settle();
+  f.sockets[0].close();
+  await settle();
+  const delivery=f.client.send({type:'call',code:f.room.code},{...f.room,bettingDecision:'current-decision'});
+  await settle();
+  assert.ok(httpCommand);
+  assert.equal(socketCommand,undefined);
+  t.mock.timers.tick(1000);
+  assert.equal((await delivery).version,5);
+  assert.deepEqual(socketCommand,httpCommand);
+  assert.equal(f.client.hasPending(),false);
+  assert.equal(f.statuses.at(-1),'connected');
+});
+test('malformed and invalid saved commands are discarded without blocking the next decision',async t=>{
+  let posts=0;
+  const f=browser(t,async (_url,options)=>{if(options.method==='POST')posts++;});
+  const key='dunzo-club-command:'+host;
+  for(const stored of ['{"commandId":',JSON.stringify({commandId:crypto.randomUUID(),type:'call'}),'null']){
+    f.stored.set(key,stored);
+    f.sockets[0].emit(f.state);
+    await settle();
+    assert.equal(f.stored.has(key),false);
+    assert.equal(f.statuses.at(-1),'connected');
+  }
+  assert.equal(posts,0);
+  await f.client.send({type:'call',code:f.room.code},f.room);
+  assert.equal(posts,1);
+});
 test('a betting rejection publishes the fresh snapshot and releases controls immediately',async t=>{
   const f=browser(t,async ()=>undefined,(socket,input)=>{
     socket.emit({protocol:4,type:'command_result',commandId:input.commandId,status:409,error:'Decision changed',

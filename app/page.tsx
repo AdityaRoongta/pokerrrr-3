@@ -497,6 +497,8 @@ export default function Home() {
     } else setPanel('install');
   }
   const controlsBusy = busy || !demo.current && connection !== 'connected';
+  const bettingStatus = !controlsBusy ? '' : pending.current ? ' · Sending…' :
+    connection === 'offline' ? ' · Offline' : transport.current?.hasPending() ? ' · Checking action…' : ' · Reconnecting…';
   const me = room?.players.find((p: any) => p.id === room.me),
     live = room && ['preflop', 'flop', 'turn', 'river'].includes(room.phase),
     myTurn = room?.turn === room?.me,
@@ -632,7 +634,7 @@ export default function Home() {
             <span className="table-stakes">{fmt(room.settings.sb)}/{fmt(room.settings.bb)}</span>
             <span>Hand {room.phase === 'lobby' ? 0 : room.completed + (['showdown', 'closed'].includes(room.phase) ? 0 : 1)}</span>
             <span className={`typing-turn-status ${myTurn && live ? 'is-your-turn' : ''}`} role="status">
-              {myTurn && live ? `Your turn · ${seconds}s` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : voting ? 'Runout vote' : room.phase === 'showdown' ? 'Showdown' : room.game}
+              {myTurn && live ? `Your turn · ${seconds}s${bettingStatus}` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : voting ? 'Runout vote' : room.phase === 'showdown' ? 'Showdown' : room.game}
             </span>
             {(room.settings.games?.length || 0) > 1 && room.phase !== 'closed' && <small className="next-variant">
               {room.settings.games[(gameIndex + 1) % room.settings.games.length]} {room.settings.rotation === room.handsIntoRotation ? 'next hand' : `in ${room.settings.rotation - room.handsIntoRotation} ${room.settings.rotation - room.handsIntoRotation === 1 ? 'hand' : 'hands'}`}
@@ -785,7 +787,7 @@ export default function Home() {
           }} className="action-zone">
             <div className="hand-toolbar">
               <span className={`turn-status ${myTurn && live ? 'is-your-turn' : ''}`} role="status">
-                {myTurn && live ? `Your turn · ${seconds}s` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : room.game}
+                {myTurn && live ? `Your turn · ${seconds}s${bettingStatus}` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : room.game}
               </span>
               <div className="hand-toolbar-actions"><button className="text-button" onClick={() => setPanel('ledger')}>Rankings</button>
                 {enableReactions && !social.open && <ChatButton social={social} readOnly={room.phase === 'closed'} />}

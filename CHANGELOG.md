@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.1.5 — 16 November 2026
+
+- Remove View Game Chat from completed game results in production.
+
+Full release notes: [v2.1.5](docs/releases/v2.1.5.md).
+
 ## v2.1.4 — 16 November 2026
 
 - Send a pending bet over a recovered live connection immediately, even while the HTTP request is still waiting.

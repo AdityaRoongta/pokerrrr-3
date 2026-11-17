@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.1.6 — 17 November 2026
+
+- Add timed sessions with extensions, automatic sit-out after two disconnected turn timeouts, and same-game re-entry at the last positive cash-out.
+- Let players already sitting out stand up immediately when they are outside the current hand.
+- Sort hole cards by rank, improve suit and turn-timer visibility, fix Run It Twice card layout, and keep the table layout stable during showdown.
+- Animate tied payouts together, recover missed chat messages, and suppress stale sounds when opening or resuming a table.
+
+Full release notes: [v2.1.6](docs/releases/v2.1.6.md).
+
 ## v2.1.5 — 16 November 2026
 
 - Remove View Game Chat from completed game results in production.

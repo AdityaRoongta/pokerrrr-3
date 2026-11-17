@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.1.7 — 18 November 2026
+
+- Use the recorded Call, Check, Your Turn, Deal and Win sounds. Bets, raises and all-ins use Call. Folds and community-card reveals are silent.
+- Deal NLH, PLO4 and PLO5 in the same 1.46 seconds.
+- Recover missed chat messages after reconnect, retry uncertain sends without duplicating a confirmed message, and show unread chat and delivery status.
+- Archive starting seats and stacks, timestamped betting actions, and dealt cards for newly started hands. The additional hand records are server-only.
+
+Full release notes: [v2.1.7](docs/releases/v2.1.7.md).
+
 ## v2.1.6 — 17 November 2026
 
 - Add timed sessions with extensions, automatic sit-out after two disconnected turn timeouts, and same-game re-entry at the last positive cash-out.

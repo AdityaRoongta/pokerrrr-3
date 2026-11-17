@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dealPlan, boardPlan, showdownTiming, presentationAt, payoutAwards, payoutEvents, visibleStack } from './table-presentation.mjs';
 import { PokerAudio } from './poker-audio';
+import { bettingOpportunity } from './client/raise-selection.mjs';
 export function useTableEffects(room: any, audio: PokerAudio | null) {
   const [flow, setFlow] = useState<any>({}),
     [now, setNow] = useState(Date.now());
@@ -53,8 +54,7 @@ export function useTableEffects(room: any, audio: PokerAudio | null) {
           startedAt,
           key: handKey
         };
-        if (!silence.current && elapsed < 100) audio?.play('shuffle');
-        for (const f of plan.flights) if (!silence.current && f.at >= elapsed) audio?.play('deal', f.at - elapsed);
+        if (!silence.current && elapsed < 250) audio?.play('deal');
       }
     }
     if (newResult) {
@@ -76,12 +76,11 @@ export function useTableEffects(room: any, audio: PokerAudio | null) {
           key: `${handKey}:run-${run.run}`
         };
         if (run.run === 1) next.board = timeline; else next.board2 = timeline;
-        for (const event of run.events) {
-          const delay = timeline.startedAt + event.at - timestamp;
-          if (!silence.current && delay >= 0) audio?.play('board', delay);
-        }
-        const winDelay = startedAt + run.payoutStart - timestamp;
-        if (!silence.current && winDelay >= 0) audio?.play('win', winDelay);
+      }
+      if (!silence.current) {
+        const awards: { at: number; returned?: boolean }[] = payoutEvents(room, startedAt, plan);
+        const winTimes = new Set(awards.filter(award => !award.returned).map(award => award.at));
+        for (const at of winTimes) if (at >= timestamp) audio?.play('win', at - timestamp);
       }
     } else if (changedBoard && room.board.length && !first) {
       const events = boardPlan(newHand ? 0 : before.boardCount, room.board.length),
@@ -91,7 +90,6 @@ export function useTableEffects(room: any, audio: PokerAudio | null) {
         startedAt: base,
         key: `${handKey}:street`
       };
-      if (!silence.current) for (const event of events) audio?.play('board', base - timestamp + event.at);
     }
     if (newHand || changedBoard || newResult) setFlow((old: any) => newHand ? next : {
       ...old,
@@ -115,18 +113,26 @@ export function useTableEffects(room: any, audio: PokerAudio | null) {
     }, 70);
     return () => clearInterval(id);
   }, [flow]);
-  useEffect(() => {
+  const turnOpportunity = bettingOpportunity(room);
+  useLayoutEffect(() => {
     if (!room) {
       heard.current = null;
       return;
     }
     const last = heard.current;
-    if (!silence.current && last?.code === room.code) (room.actionEvents || []).filter((e: any) => e.seq > last.seq && e.at > audibleAfter.current).forEach((e: any, i: number) => audio?.play(e.type, i * 75));
+    if (!silence.current && last?.code === room.code) {
+      const actions = (room.actionEvents || []).filter((e: any) => e.type !== 'fold' && e.seq > last.seq && e.at > audibleAfter.current);
+      actions.forEach((e: any, i: number) => audio?.play(e.type, i * 75));
+      if (turnOpportunity && turnOpportunity !== last.turnOpportunity) {
+        audio?.play('your-turn', actions.length ? (actions.length - 1) * 75 + 145 : 0);
+      }
+    }
     heard.current = {
       code: room.code,
-      seq: room.actionSeq || 0
+      seq: room.actionSeq || 0,
+      turnOpportunity
     };
-  }, [room?.code, room?.actionSeq, audio]);
+  }, [room, turnOpportunity, audio]);
   useEffect(() => {
     const hide = () => {
       if (document.hidden) {

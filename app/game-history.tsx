@@ -196,7 +196,7 @@ export function GameHistory({
     {selected && <div className="modal-backdrop" onClick={() => setSelected(null)}>
       <section className="modal" role="dialog" aria-modal="true" aria-labelledby="game-results-heading" onClick={e => e.stopPropagation()}>
         <button className="modal-close icon-button" aria-label="Close game results" onClick={() => setSelected(null)}>×</button>
-        {archiveChatEnabled && !demo && <button className="secondary" onClick={() => archiveSocial.setOpen(true)}>View Game Chat</button>}
+        {archiveChatEnabled && !demo && <button className="secondary" onClick={() => archiveSocial.openHistory()}>View Game Chat</button>}
         <h2 id="game-results-heading">Game Results{demo ? ' · Simulated' : ''}</h2>
         <p>
           {date(selected.closedAt)}
@@ -222,7 +222,7 @@ export function GameHistory({
       </section>
     </div>}
 
-    {archiveChatEnabled && selected && archiveSocial.open && <ChatDrawer key={selected.code} room={{ ...selected, phase: 'closed' }} social={archiveSocial} myTurn={false} />}
+    {archiveChatEnabled && selected && archiveSocial.historyOpen && <ChatDrawer key={selected.code} room={{ ...selected, phase: 'closed' }} social={archiveSocial} myTurn={false} />}
     {open && <div className="modal-backdrop" onClick={() => {
       clearSettlement();
       setOpen(false);

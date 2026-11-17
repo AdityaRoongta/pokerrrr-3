@@ -4695,8 +4695,10 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .in-game .empty-seat {width: 40px; height: 40px; margin: 0;}
 .seat-state {font-size: 10px; color: var(--gold);}
 .seat-timer {position: absolute; inset: -3px; width: calc(100% + 6px); height: calc(100% + 6px); pointer-events: none; overflow: visible;}
-.seat-timer rect {fill: none; stroke: var(--gold); stroke-width: 3; vector-effect: non-scaling-stroke; transition: stroke-dasharray .5s linear;}
-.seat-timer.urgent rect {stroke: #ef967d;}
+.seat-timer rect {fill: none; vector-effect: non-scaling-stroke;}
+.seat-timer-track {stroke: #68d8c899; stroke-width: 2;}
+.seat-timer-progress {stroke: #48d7bd; stroke-width: 3.5; transition: stroke-dasharray .5s linear;}
+.seat-timer.urgent .seat-timer-progress {stroke: #ff806d;}
 .in-game .acting .seat-info {border-color: transparent; box-shadow: 0 0 18px #d9bb8224;}
 .in-game .action-zone {height: 172px; min-height: 0; padding: 10px 14px; display: flex; flex-direction: column; justify-content: center; overflow-y: auto;}
 .in-game .betting-controls {display: flex; flex-direction: column; gap: 6px; margin: 0;}

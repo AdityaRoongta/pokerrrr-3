@@ -38,6 +38,7 @@ const gameName: Record<string, string> = {
   PLO4: '4-card Omaha',
   PLO5: '5-card Omaha'
 };
+const sortCards = (cards: number[] = []) => [...cards].sort((a, b) => b % 13 - a % 13 || Math.floor(b / 13) - Math.floor(a / 13));
 function Card({
   value,
   small = false,
@@ -550,6 +551,9 @@ export default function Home() {
     const alertKey = bettingOpportunity(room) || '';
     if (lastTurnAlert.current !== alertKey) {
       lastTurnAlert.current = alertKey;
+      // Android browsers/PWAs support the Vibration API. iOS safely ignores
+      // this call, so the existing visual spotlight remains the universal cue.
+      try { navigator.vibrate?.(35); } catch { }
     }
     if (!queued) return;
     // Consume before sending: rerenders and reconnects must never send it twice.
@@ -739,7 +743,7 @@ export default function Home() {
                     if (enableReactions && room.phase !== 'closed') reactions.setTarget(reactions.target === s ? null : s);
                   }}>
                     {p.inHand && p.cards?.length ? <div className="hole-cards">
-                      {p.cards.slice(0, visibleCount).map((c: number, i: number) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
+                      {sortCards(p.cards).slice(0, visibleCount).map((c: number, i: number) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${c}`}>
                         <Card value={c} small highlight={Boolean(effects.resultReady && focusedWinner?.id === p.id && focusedHand?.holeCards?.includes(c))} dim={Boolean(effects.resultReady && focusedWinner?.id === p.id && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />
                       </span>)}
                     </div> : p.inHand && handActive ? <div className="hole-cards">
@@ -773,7 +777,8 @@ export default function Home() {
                     }}>
 
                     {live && !effects.dealing && p.id === room.turn && room.deadline && <svg className={`seat-timer ${seconds <= 5 ? 'urgent' : ''}`} viewBox="0 0 100 100" preserveAspectRatio="none" role="timer" aria-label={`${p.name}: ${seconds} seconds remaining`}>
-                      <rect x="2" y="2" width="96" height="96" rx="10" pathLength="100" strokeDasharray={`${turnFraction * 100} 100`} />
+                      <rect className="seat-timer-track" x="2" y="2" width="96" height="96" rx="10" pathLength="100" />
+                      <rect className="seat-timer-progress" x="2" y="2" width="96" height="96" rx="10" pathLength="100" strokeDasharray={`${turnFraction * 100} 100`} />
                     </svg>}
                     <span>
                       {p.name}
@@ -827,7 +832,7 @@ export default function Home() {
             {seated && <div className="personal-hand" aria-label="Your cards">
               <span className="typing-hole-label" aria-hidden="true">Your cards</span>
               <div className="personal-hole-cards" aria-label="Your cards">
-                {me?.inHand && me.cards?.length ? me.cards.map((c: number, i: number) => <Card key={`${room.handStartedAt || 0}:${i}`} value={c} small highlight={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.holeCards?.includes(c))} dim={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />) : <span className="personal-cards-placeholder">{room.game || 'NLH'} · Your cards</span>}
+                {me?.inHand && me.cards?.length ? sortCards(me.cards).map((c: number) => <Card key={`${room.handStartedAt || 0}:${c}`} value={c} small highlight={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.holeCards?.includes(c))} dim={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />) : <span className="personal-cards-placeholder">{room.game || 'NLH'} · Your cards</span>}
               </div>
             </div>}
             {me?.pendingSeatAction === 'leave' && <p className="game-status" role="status">Standing up after this hand and payouts. <button className="text-button" disabled={controlsBusy || room.terminationPending} onClick={() => send('cancel_stand_up')}>Cancel</button></p>}

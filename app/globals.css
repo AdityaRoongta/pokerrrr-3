@@ -5007,7 +5007,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
 
 /* Compact mobile action deck: status, full-width cards, slider + shortcuts, actions. */
 .in-game .play-area {
-  --action-height: 276px;
+  --action-height: 322px;
   --action-bottom-padding: 7px;
   grid-template-rows: 32px minmax(0,1fr) calc(var(--action-height) + var(--table-safe-bottom, env(safe-area-inset-bottom)));
 }
@@ -5098,7 +5098,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .in-game .table-stage.two-runouts .runout-boards {gap:6px;}
 .in-game .table-stage.two-runouts .board-zone {padding-bottom:0;}
 @media(max-width:620px) {
- .in-game .play-area {--action-height:271px; grid-template-rows:30px minmax(0,1fr) calc(var(--action-height) + var(--table-safe-bottom, env(safe-area-inset-bottom)));}
+ .in-game .play-area {--action-height:317px; grid-template-rows:30px minmax(0,1fr) calc(var(--action-height) + var(--table-safe-bottom, env(safe-area-inset-bottom)));}
  .in-game .rotation-bar {height:30px; min-height:30px;}
  .in-game .action-zone {height:calc(var(--action-height) + var(--table-safe-bottom, env(safe-area-inset-bottom))); padding:4px 8px calc(5px + var(--table-safe-bottom, env(safe-area-inset-bottom))); gap:4px;}
  .in-game .personal-hand {flex-basis:101px; height:101px;}
@@ -5107,7 +5107,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
  .in-game .action-buttons>button {height:54px; min-height:54px;}
 }
 @media(max-height:700px) {
- .in-game .play-area {--action-height:242px; grid-template-rows:28px minmax(0,1fr) calc(var(--action-height) + var(--table-safe-bottom, env(safe-area-inset-bottom)));}
+ .in-game .play-area {--action-height:292px; grid-template-rows:28px minmax(0,1fr) calc(var(--action-height) + var(--table-safe-bottom, env(safe-area-inset-bottom)));}
  .in-game .rotation-bar {height:28px; min-height:28px;}
  .in-game .personal-hand {flex-basis:80px; height:80px;}
  .in-game .personal-hole-cards .card.small {height:75px; width:clamp(44px,14vw,60px);}
@@ -5133,8 +5133,8 @@ html:has(.app.in-game),body:has(.app.in-game) {
   grid-template-columns: 74px minmax(0, 1fr) 44px;
   align-items: stretch;
   gap: 9px;
-  height: 122px;
-  min-height: 122px;
+  height: 166px;
+  min-height: 166px;
 }
 .in-game .raise-display {
   display: flex;
@@ -5156,7 +5156,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
   grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 6px;
   width: 100%;
-  height: 122px;
+  height: 166px;
   margin: 0;
 }
 .in-game .slider-shortcuts .quick-bets > button {
@@ -5170,8 +5170,8 @@ html:has(.app.in-game),body:has(.app.in-game) {
   display: grid;
   place-items: center;
   width: 44px;
-  height: 122px;
-  min-height: 122px;
+  height: 166px;
+  min-height: 166px;
   padding: 7px 0;
   border: 1px solid #d9bb8270;
   border-radius: 14px;
@@ -5179,7 +5179,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
 }
 .in-game .slider-shortcuts .raise-slider-control input[type=range] {
   width: 30px;
-  height: 106px;
+  height: 150px;
   writing-mode: vertical-lr;
   direction: rtl;
   -webkit-appearance: slider-vertical;
@@ -5200,9 +5200,9 @@ html:has(.app.in-game),body:has(.app.in-game) {
   .in-game .slider-shortcuts .quick-bets > button { font-size: 11px; }
 }
 @media (max-height: 700px) {
-  .in-game .slider-shortcuts { height: 96px; min-height: 96px; }
-  .in-game .slider-shortcuts .quick-bets, .in-game .slider-shortcuts .raise-slider-control { height: 96px; min-height: 96px; }
-  .in-game .slider-shortcuts .raise-slider-control input[type=range] { height: 80px; }
+  .in-game .slider-shortcuts { height: 146px; min-height: 146px; }
+  .in-game .slider-shortcuts .quick-bets, .in-game .slider-shortcuts .raise-slider-control { height: 146px; min-height: 146px; }
+  .in-game .slider-shortcuts .raise-slider-control input[type=range] { height: 130px; }
 }
 
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }

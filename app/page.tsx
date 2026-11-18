@@ -604,6 +604,8 @@ export default function Home() {
   const readyPlayers = visiblePlayers.filter((p: any) => p.stack > 0 && !p.away).length;
   const turnFraction = Math.max(0, Math.min(1, (room?.deadline - clock - offset.current) / ((room?.settings.timer || 15) * 1000)));
   const nextHandFraction = Math.max(0, Math.min(1, (room?.nextDealAt - clock - offset.current) / 3000));
+  const rabbitRemaining = Math.max(0, Math.ceil(((room?.rabbitHunt?.deadline || 0) - clock - offset.current) / 1000));
+  const rabbitOpen = room?.phase === 'showdown' && room?.rabbitHunt && !room.rabbitHunt.requestedBy && !room.rabbitHunt.expiredAt && rabbitRemaining > 0;
   const waitingCall = Math.min(me?.stack || 0, Math.max(0, Math.max(0, ...(room?.players || []).filter((p: any) => p.inHand && !p.folded).map((p: any) => p.bet || 0)) - (me?.bet || 0)));
   const displayedCall = myTurn ? (l?.call || 0) : waitingCall;
   const canQueueAction = Boolean(!myTurn && me?.inHand && !me.folded && !me.away && me.stack > 0);
@@ -698,9 +700,13 @@ export default function Home() {
                             timeline = runIndex === 1 ? effects.board2 : effects.board,
                             reveal = timeline?.events.find((event: { index: number }) => event.index === i),
                             flip = value !== undefined && reveal && effects.now < timeline.startedAt + reveal.at + 450;
-                          return <div key={`${room.handStartedAt || 0}:${runIndex}:${i}:${value ?? 'empty'}`} className={flip ? 'board-card-wrap board-dealt' : 'board-card-wrap'}>
+                          const rabbitCard = rabbitOpen && room.runCount !== 2 && i === board.length;
+                          return <div key={`${room.handStartedAt || 0}:${runIndex}:${i}:${value ?? 'empty'}`} className={`${flip ? 'board-card-wrap board-dealt' : 'board-card-wrap'} ${rabbitCard ? 'rabbit-hunt-card' : ''}`}>
                             {flip && <div className="board-flip-back" aria-hidden="true"><span>♠</span></div>}
-                            <Card value={value} highlight={value !== undefined && winningBoard.includes(value)} dim={effects.resultReady && winningBoard.length > 0 && value !== undefined && !winningBoard.includes(value)} />
+                            {rabbitCard ? <button className="rabbit-hunt-trigger" disabled={controlsBusy} onClick={() => void send('rabbit_hunt')} aria-label={`Reveal Rabbit Hunt card, ${rabbitRemaining} seconds remaining`}>
+                              <Card back />
+                              <b>{rabbitRemaining}s</b>
+                            </button> : <Card value={value} highlight={value !== undefined && winningBoard.includes(value)} dim={effects.resultReady && winningBoard.length > 0 && value !== undefined && !winningBoard.includes(value)} />}
                           </div>;
                         })}
                       </div>
@@ -866,6 +872,7 @@ export default function Home() {
                 </div>
               </> : <div className="between-hands">
                 {room.paused && <span className="paused-state">Auto-deal paused</span>}
+                {room.phase === 'showdown' && me?.cards?.length > 0 && !room.history?.[0]?.reveals?.some((reveal: any) => reveal.name === me.name) && <button className="secondary reveal-cards" disabled={controlsBusy} onClick={() => void send('reveal_cards')}>Reveal my cards</button>}
                 {room.phase === 'closed' ? <button className="primary" onClick={() => setPanel('ledger')}>Current Game Rankings <ArrowUpRight size={16} /></button> : room.phase === 'showdown' ? <div className="auto-deal-status" role="status">
                   {room.nextDealAt && <div className="next-hand-timer" role="timer" aria-label="Next hand countdown"><i style={{transform: `scaleX(${nextHandFraction})`}} /></div>}
                   {room.host && <button className="secondary pause-deal" disabled={controlsBusy} onClick={() => send('pause')} aria-label={room.paused ? 'Resume auto-deal' : 'Pause auto-deal'}>

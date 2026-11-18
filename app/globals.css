@@ -5325,3 +5325,38 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     padding: 8px 0 0;
   }
 }
+
+/* A post-flop uncontested hand can expose one tappable Rabbit Hunt card.
+   It occupies the next board slot, so the table geometry never jumps. */
+.rabbit-hunt-trigger {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--gold);
+  cursor: pointer;
+}
+.rabbit-hunt-trigger .card { pointer-events: none; }
+.rabbit-hunt-trigger>b {
+  position: absolute;
+  right: -8px;
+  top: -9px;
+  min-width: 25px;
+  padding: 3px 5px;
+  border: 1px solid var(--gold);
+  border-radius: 99px;
+  background: #14221c;
+  font-size: 10px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.rabbit-hunt-trigger:focus-visible { outline: 3px solid #ffdc52; outline-offset: 3px; }
+.two-runouts .runout-boards { max-height: 100%; overflow: hidden; }
+@media (max-width: 380px), (max-height: 560px) {
+  .in-game .table-stage.two-runouts .runout-boards { gap: 3px; }
+  .in-game .table-stage.two-runouts .board-cards>.board-card-wrap>.card { width: 24px; height: 34px; }
+  .in-game .table-stage.two-runouts .board-cards .card b { font-size: 11px; }
+  .in-game .table-stage.two-runouts .board-cards .card>span { font-size: 14px; }
+}

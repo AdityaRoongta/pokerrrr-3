@@ -5007,7 +5007,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
 
 /* Compact mobile action deck: status, full-width cards, slider + shortcuts, actions. */
 .in-game .play-area {
-  --action-height: 246px;
+  --action-height: 276px;
   --action-bottom-padding: 7px;
   grid-template-rows: 32px minmax(0,1fr) calc(var(--action-height) + var(--table-safe-bottom, env(safe-area-inset-bottom)));
 }
@@ -5030,6 +5030,29 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .in-game .personal-hole-cards .card.small {
   flex:0 1 auto; width:clamp(52px,15vw,76px); height:96px;
   min-width:0; padding:4px; transform:none; margin:0;
+}
+.in-game .personal-hole-cards {
+  position: relative;
+  touch-action: none;
+}
+.in-game .personal-hole-cards .personal-card-wrap {
+  display: block;
+  flex: 0 0 auto;
+  margin-inline: -9px;
+  transform-origin: 50% 100%;
+  transition: transform 100ms ease-out;
+}
+.in-game .personal-hole-cards.is-peeking .personal-card-wrap {
+  transform: translateY(var(--fan-lift)) rotate(var(--fan-angle));
+}
+.in-game .peek-cards-hint {
+  position: absolute;
+  right: 10px;
+  bottom: 2px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: .01em;
+  pointer-events: none;
 }
 .in-game .personal-hole-cards .card.small b {font-size:clamp(20px,5.8vw,28px);}
 .in-game .personal-hole-cards .card.small>span {font-size:clamp(22px,6.5vw,30px);}
@@ -5075,7 +5098,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .in-game .table-stage.two-runouts .runout-boards {gap:6px;}
 .in-game .table-stage.two-runouts .board-zone {padding-bottom:0;}
 @media(max-width:620px) {
- .in-game .play-area {--action-height:241px; grid-template-rows:30px minmax(0,1fr) calc(var(--action-height) + var(--table-safe-bottom, env(safe-area-inset-bottom)));}
+ .in-game .play-area {--action-height:271px; grid-template-rows:30px minmax(0,1fr) calc(var(--action-height) + var(--table-safe-bottom, env(safe-area-inset-bottom)));}
  .in-game .rotation-bar {height:30px; min-height:30px;}
  .in-game .action-zone {height:calc(var(--action-height) + var(--table-safe-bottom, env(safe-area-inset-bottom))); padding:4px 8px calc(5px + var(--table-safe-bottom, env(safe-area-inset-bottom))); gap:4px;}
  .in-game .personal-hand {flex-basis:101px; height:101px;}
@@ -5084,7 +5107,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
  .in-game .action-buttons>button {height:54px; min-height:54px;}
 }
 @media(max-height:700px) {
- .in-game .play-area {--action-height:217px; grid-template-rows:28px minmax(0,1fr) calc(var(--action-height) + var(--table-safe-bottom, env(safe-area-inset-bottom)));}
+ .in-game .play-area {--action-height:242px; grid-template-rows:28px minmax(0,1fr) calc(var(--action-height) + var(--table-safe-bottom, env(safe-area-inset-bottom)));}
  .in-game .rotation-bar {height:28px; min-height:28px;}
  .in-game .personal-hand {flex-basis:80px; height:80px;}
  .in-game .personal-hole-cards .card.small {height:75px; width:clamp(44px,14vw,60px);}
@@ -5110,8 +5133,8 @@ html:has(.app.in-game),body:has(.app.in-game) {
   grid-template-columns: 74px minmax(0, 1fr) 44px;
   align-items: stretch;
   gap: 9px;
-  height: 92px;
-  min-height: 92px;
+  height: 122px;
+  min-height: 122px;
 }
 .in-game .raise-display {
   display: flex;
@@ -5133,7 +5156,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
   grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 6px;
   width: 100%;
-  height: 92px;
+  height: 122px;
   margin: 0;
 }
 .in-game .slider-shortcuts .quick-bets > button {
@@ -5147,8 +5170,8 @@ html:has(.app.in-game),body:has(.app.in-game) {
   display: grid;
   place-items: center;
   width: 44px;
-  height: 92px;
-  min-height: 92px;
+  height: 122px;
+  min-height: 122px;
   padding: 7px 0;
   border: 1px solid #d9bb8270;
   border-radius: 14px;
@@ -5156,7 +5179,7 @@ html:has(.app.in-game),body:has(.app.in-game) {
 }
 .in-game .slider-shortcuts .raise-slider-control input[type=range] {
   width: 30px;
-  height: 76px;
+  height: 106px;
   writing-mode: vertical-lr;
   direction: rtl;
   -webkit-appearance: slider-vertical;
@@ -5177,9 +5200,9 @@ html:has(.app.in-game),body:has(.app.in-game) {
   .in-game .slider-shortcuts .quick-bets > button { font-size: 11px; }
 }
 @media (max-height: 700px) {
-  .in-game .slider-shortcuts { height: 78px; min-height: 78px; }
-  .in-game .slider-shortcuts .quick-bets, .in-game .slider-shortcuts .raise-slider-control { height: 78px; min-height: 78px; }
-  .in-game .slider-shortcuts .raise-slider-control input[type=range] { height: 62px; }
+  .in-game .slider-shortcuts { height: 96px; min-height: 96px; }
+  .in-game .slider-shortcuts .quick-bets, .in-game .slider-shortcuts .raise-slider-control { height: 96px; min-height: 96px; }
+  .in-game .slider-shortcuts .raise-slider-control input[type=range] { height: 80px; }
 }
 
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }

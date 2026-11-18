@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.1.8 — 18 November 2026
+
+- Keep mobile betting controls and seat action labels visible.
+- Improve session extension buttons, reveal flop cards in sequence, and expose opponents’ suits at showdown.
+- Remove initials above seats without cards, omit empty games from history, and automatically open an expanded final rankings card.
+
+[Release notes](docs/releases/v2.1.8.md)
+
 ## v2.1.7 — 18 November 2026
 
 - Use the recorded Call, Check, Your Turn, Deal and Win sounds. Bets, raises and all-ins use Call. Folds and community-card reveals are silent.

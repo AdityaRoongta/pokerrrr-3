@@ -7,12 +7,16 @@ const gameSamples = {
   'your-turn': '/sounds/your-turn.wav',
 } as const;
 type GameSample = keyof typeof gameSamples;
+// CC0 recording by sagetyrtle, trimmed and levelled.
+// https://commons.wikimedia.org/wiki/File:Laughter(s).ogg
+const samples = { ...gameSamples, laugh: '/sounds/reaction-laugh.mp3' } as const;
+type Sample = keyof typeof samples;
 
 export type PokerSound = GameSample | 'raise' | 'allin' | keyof typeof REACTIONS;
 export class PokerAudio {
   private context: AudioContext | null = null;
   private nodes = new Set<AudioScheduledSourceNode>();
-  private samples = new Map<GameSample, Promise<AudioBuffer | null>>();
+  private samples = new Map<Sample, Promise<AudioBuffer | null>>();
   enabled = true;
   constructor(private readonly preloadGameSounds = false) {}
   private generation = 0;
@@ -24,7 +28,7 @@ export class PokerAudio {
       this.context ??= new C();
       if (this.preloadGameSounds) {
         for (const kind of Object.keys(gameSamples) as GameSample[]) void this.loadSample(this.context, kind);
-      }
+      } else void this.loadSample(this.context, 'laugh');
       if (this.context?.state === 'suspended') void this.context.resume().catch(() => { });
     } catch {/* Audio is optional on browsers without Web Audio. */ }
   }
@@ -45,10 +49,10 @@ export class PokerAudio {
     this.nodes.add(node);
     node.onended = () => this.nodes.delete(node);
   }
-  private loadSample(ctx: AudioContext, kind: GameSample) {
+  private loadSample(ctx: AudioContext, kind: Sample) {
     let pending = this.samples.get(kind);
     if (!pending) {
-      pending = fetch(gameSamples[kind]).then(response => {
+      pending = fetch(samples[kind]).then(response => {
         if (!response.ok) throw new Error('Game audio unavailable');
         return response.arrayBuffer();
       }).then(bytes => ctx.decodeAudioData(bytes)).catch(() => {
@@ -72,17 +76,20 @@ export class PokerAudio {
     }
     if (ctx.state !== 'running') return;
     const at = ctx.currentTime + Math.max(0, delayMs) / 1000;
+    const social = Object.hasOwn(REACTIONS, kind) ? REACTIONS[kind as keyof typeof REACTIONS] : null;
+    const impact = ctx.currentTime + Math.max(0, delayMs + (social?.impactAt || 0)) / 1000;
     const sample = kind === 'raise' || kind === 'allin' ? 'call' : kind;
-    if (Object.hasOwn(gameSamples, sample)) {
+    if (Object.hasOwn(samples, sample)) {
+      const start = sample === 'laugh' ? impact : at;
       const generation = this.generation;
-      void this.loadSample(ctx, sample as GameSample).then(buffer => {
+      void this.loadSample(ctx, sample as Sample).then(buffer => {
         if (!buffer || generation !== this.generation || !this.enabled ||
-            document.hidden || ctx.state !== 'running' || ctx.currentTime > at + .35) return;
+            document.hidden || ctx.state !== 'running' || ctx.currentTime > start + (social ? .12 : .35)) return;
         const src = ctx.createBufferSource();
         src.buffer = buffer;
         src.connect(ctx.destination);
         this.source(src);
-        src.start(Math.max(at, ctx.currentTime));
+        src.start(Math.max(start, ctx.currentTime));
       });
       return;
     }
@@ -107,12 +114,12 @@ export class PokerAudio {
       src.start(time);
       src.stop(time + duration);
     };
-    const tone = (time: number, frequency: number, duration: number, volume: number) => {
+    const tone = (time: number, frequency: number, duration: number, volume: number, decay = 1) => {
       const osc = ctx.createOscillator(),
         gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(frequency, time);
-      osc.frequency.exponentialRampToValueAtTime(frequency * .78, time + duration);
+      osc.frequency.exponentialRampToValueAtTime(frequency * decay, time + duration);
       gain.gain.setValueAtTime(.001, time);
       gain.gain.linearRampToValueAtTime(volume, time + .004);
       gain.gain.exponentialRampToValueAtTime(.001, time + duration);
@@ -122,48 +129,30 @@ export class PokerAudio {
       osc.start(time);
       osc.stop(time + duration);
     };
-    const voice = (time: number, frequency: number, duration: number, volume: number) => {
-      const osc = ctx.createOscillator(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
-      osc.type = 'sawtooth'; osc.frequency.setValueAtTime(frequency, time);
-      osc.frequency.exponentialRampToValueAtTime(frequency * .65, time + duration);
-      filter.type = 'bandpass'; filter.frequency.setValueAtTime(frequency * 3.5, time); filter.Q.value = 2;
-      gain.gain.setValueAtTime(.001, time); gain.gain.linearRampToValueAtTime(volume, time + .025);
-      gain.gain.exponentialRampToValueAtTime(.001, time + duration);
-      osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
-      this.source(osc); osc.start(time); osc.stop(time + duration);
-    };
-    const social = Object.hasOwn(REACTIONS, kind) ? REACTIONS[kind as keyof typeof REACTIONS] : null;
-    const impact = ctx.currentTime + Math.max(0, delayMs + (social?.impactAt || 0)) / 1000;
     if (kind === 'chappal') {
-      const impact = ctx.currentTime + Math.max(0, delayMs + REACTIONS.chappal.impactAt) / 1000;
-      if (delayMs >= 0) noise(at, .10, 1400, .045);
-      // A dry broadband crack, a very short low thud and a tiny second skin
-      // contact. No musical pitch or long tail: all three land with the flick.
-      noise(impact, .048, 2600, .48);
-      noise(impact + .006, .075, 650, .22);
-      tone(impact, 115, .055, .19);
-      noise(impact + .014, .028, 3600, .13);
+      if (delayMs >= 0) noise(at, .08, 1400, .025);
+      noise(impact, .042, 2600, .28);
+      noise(impact + .006, .064, 650, .15);
+      tone(impact, 115, .055, .09);
     } else if (kind === 'cheers') {
-      // Two bright glass resonances meet at the visual clink.
-      tone(impact, 2200, .36, .13); tone(impact + .018, 3300, .28, .065);
-      noise(impact, .018, 4700, .09);
-    } else if (kind === 'money') {
-      for (let i = 0; i < 6; i++) noise(impact + i * .065, .055, 1200 + i * 180, .055);
-      [920, 1380, 1840].forEach((frequency, i) => tone(impact + .08 + i * .07, frequency, .12, .045));
+      // Glass rings at stable frequencies. The short attack is the rims touching.
+      noise(impact, .015, 5100, .055);
+      tone(impact, 2348, .24, .065);
+      tone(impact + .005, 3817, .13, .035);
+      tone(impact + .011, 2910, .19, .022);
     } else if (kind === 'tomato') {
-      if (delayMs >= 0) noise(at, .13, 1000, .04);
-      tone(impact, 95, .14, .2); noise(impact, .17, 420, .23);
-      noise(impact + .035, .12, 1700, .1);
-    } else if (kind === 'crown') {
-      [523, 659, 784, 1047].forEach((frequency, i) => tone(impact + i * .065, frequency, .28, .07));
-    } else if (kind === 'laugh') {
-      [155, 185, 150, 175].forEach((frequency, i) => voice(impact + i * .12, frequency, .105, .13));
-    } else if (kind === 'duck') {
-      voice(impact, 280, .15, .14); voice(impact + .19, 245, .18, .14);
+      // Initial soft crush with short, irregular wet transients and a pulp tail.
+      noise(impact, .11, 580, .19);
+      noise(impact + .007, .035, 1940, .12);
+      noise(impact + .021, .085, 1060, .11);
+      noise(impact + .048, .034, 2760, .042);
+      noise(impact + .062, .13, 380, .07);
     } else if (kind === 'punch') {
-      if (delayMs >= 0) noise(at, .13, 850, .06);
-      noise(impact, .055, 1800, .29); tone(impact, 72, .13, .24);
-      noise(impact + .012, .09, 300, .15);
+      // A padded impact with a short leather transient and a damped body.
+      if (delayMs >= 0) noise(at + .04, .13, 780, .025);
+      noise(impact, .035, 1180, .10);
+      noise(impact + .004, .10, 260, .18);
+      tone(impact, 88, .075, .105, .57);
     }
   }
 }

@@ -152,7 +152,7 @@ export async function runApiSuite(base, restart, environment = 'staging') {
     code,
     name: 'Integration Friend',
     seat: 2,
-    buyin: 1750
+    buyin: 950
   }));
   room = await api(host, null, code);
   const peers = [];
@@ -327,7 +327,7 @@ export async function runApiSuite(base, restart, environment = 'staging') {
     assert.equal(layoutCheck.status, environment === 'production' ? 404 : 200);
     await layoutCheck.arrayBuffer();
     const games = new Set();
-    const extraReactions = ['cheers', 'money', 'tomato', 'crown', 'laugh', 'duck', 'punch'];
+    const extraReactions = ['cheers', 'tomato', 'laugh', 'punch'];
     let nextCatalogueAt = Date.now() + 3000;
     for (let i = 0; i < 7; i++) {
       room = await api(host, null, code);
@@ -344,7 +344,7 @@ export async function runApiSuite(base, restart, environment = 'staging') {
         code
       }, room));
       games.add(room.game);
-      if (['staging', 'production'].includes(environment)) {
+      if (i < extraReactions.length && ['staging', 'production'].includes(environment)) {
         await sleep(Math.max(0, nextCatalogueAt - Date.now()));
         const response = await react(host, {code, requestId:crypto.randomUUID(), reaction:extraReactions[i], targetSeat:2});
         const sent = await response.json();
@@ -370,7 +370,7 @@ export async function runApiSuite(base, restart, environment = 'staging') {
         room = await api(host, null, code);
       }
       assert.equal(room.phase, 'showdown');
-      assert.equal(room.players.reduce((n, p) => n + p.stack, 0), 2850);
+      assert.equal(room.players.reduce((n, p) => n + p.stack, 0), 2050);
       await assert.rejects(api(host, commandEnvelope({
         type: 'deal',
         code
@@ -412,7 +412,7 @@ export async function runApiSuite(base, restart, environment = 'staging') {
       const archive = await (await request(new URL(`/api/chat?code=${code}`, base), {headers:{Cookie:cookies.get(host)}})).json();
       assert.equal(archive.entries.filter(e => e.kind === 'message').length, 1);
     }
-    assert.equal(room.players.reduce((n, p) => n + p.cashout, 0), 2850);
+    assert.equal(room.players.reduce((n, p) => n + p.cashout, 0), 2050);
     const headers = {
       Cookie: cookies.get(observer)
     };

@@ -43,7 +43,8 @@ export function PlayerLobby({
     setPin('');
     await onLogin(selected, entered);
   }
-  return <section className="setup">
+  const launching = !loading && Boolean(player) && !activeGame;
+  return <section className={launching ? "setup game-launch" : "setup"}>
 
     {loading ? <p role="status">Loading your table…</p> : !player ? <>
 
@@ -73,7 +74,7 @@ export function PlayerLobby({
 
       {activeGame ? <p>{activeGame.players.map((p: any) => p.name).join(' · ') || 'Waiting for players'}<br />{activeGame.settings.sb} / {activeGame.settings.bb} blinds</p> : null}
 
-      <form onSubmit={async e => {
+      <form className={launching ? "game-launch-fields" : undefined} onSubmit={async e => {
         e.preventDefault();
         await onOpen({
           bb,
@@ -93,7 +94,7 @@ export function PlayerLobby({
             </label>)}
           </fieldset>
 
-          <label>Big Blind<input type="number" min={2} max={100000} step={2} value={bb} onChange={e => setBb(Number(e.target.value))} required /><small>Small Blind: {bb > 0 ? bb / 2 : 0}</small></label>
+          <label>Big blind<input type="number" min={2} max={100000} step={2} value={bb} onChange={e => setBb(Number(e.target.value))} required /></label>
 
           <label>Session length<select value={sessionMinutes} onChange={e => setSessionMinutes(Number(e.target.value))}>
             {[30, 60, 90].map(minutes => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
@@ -103,7 +104,7 @@ export function PlayerLobby({
           </select></label>
 
           <label>Switch game every<select value={rotation} onChange={e => setRotation(Number(e.target.value))}>
-            {[2, 3, 4].map(n => <option key={n} value={n}>{n} completed hands</option>)}
+            {[2, 3, 4].map(n => <option key={n} value={n}>{n} hands</option>)}
           </select></label>
         </>}
 

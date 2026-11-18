@@ -30,8 +30,9 @@ for (const game of ['NLH', 'PLO4', 'PLO5']) test(`${game}: all-in departure wait
   const expected = player.stack;
   tick(r, r.payoutFinishedAt); assert.equal(player.left, true); assert.equal(player.cashout, expected); assert.equal(player.stack, 0);
   tick(r, r.payoutFinishedAt + 1); assert.equal(player.cashout, expected);
-  command(r, player.id, { type: 'join', seat: 4, buyin: expected || 1700 }, r.payoutFinishedAt + 2);
-  assert.equal(player.buyins, 1000 + (expected || 1700)); assert.equal(player.cashout, expected); assert.equal(player.stack, expected || 1700); assert.equal(player.inHand, false);
+  const reentry = Math.min(expected || 1000, 1000);
+  command(r, player.id, { type: 'join', seat: 4, buyin: reentry }, r.payoutFinishedAt + 2);
+  assert.equal(player.buyins, 1000 + reentry); assert.equal(player.cashout, expected); assert.equal(player.stack, reentry); assert.equal(player.inHand, false);
   assert.equal(r.players.reduce((s, p) => s + p.stack + p.cashout - p.buyins, 0), 0);
 });
 test('Away preserves current turn and deadline, excludes future hands, return restores eligibility', () => {
@@ -182,4 +183,70 @@ test('a signed-in spectator can extend a running game once per command', async (
     service.execute(ids[2], commandEnvelope({type:'extend_session', code, minutes:15},watcher), accepted.snapshot.sessionEndsAt),
     /No running session timer/
   );
+});
+
+test('offline busted seats stand up after two further payouts, with reconnect and reload protection', () => {
+  const room = fixture();
+  const busted = room.players[0];
+  busted.stack = 0;
+  room.paused = true;
+  room.phase = 'showdown';
+  room.payoutFinishedAt = 12000;
+  room.completed = 4;
+  const offline = new Set([ids[1]]);
+  const online = new Set(ids);
+  tick(room, 12000, false, offline);
+  assert.equal(busted.bustedOfflineSinceHand, 4);
+  assert.equal(nextDeadline(room), null);
+
+  room.completed++;
+  room.payoutFinishedAt += 1000;
+  tick(room, 13000, false, offline);
+  assert.equal(busted.left, false);
+  tick(room, 13001, false, online);
+  assert.equal(busted.bustedOfflineSinceHand, undefined);
+  tick(room, 13002, false, offline);
+  assert.equal(busted.bustedOfflineSinceHand, 5);
+
+  room.completed += 2;
+  room.payoutFinishedAt = 15000;
+  assert.equal(nextDeadline(room), 15000);
+  tick(room, 14999, false, offline);
+  assert.equal(busted.left, false);
+  const saved = structuredClone(room);
+  command(saved, busted.id, { type: 'rebuy', amount: 500 }, 14999);
+  tick(saved, 15000, false, offline);
+  assert.equal(saved.players[0].left, false);
+  assert.equal(saved.players[0].bustedOfflineSinceHand, undefined);
+  tick(room, 15000, false, offline);
+  assert.equal(busted.left, true);
+  assert.equal(busted.cashout, 0);
+  assert.equal(busted.buyins, 1000);
+  tick(room, 15001, false, offline);
+  assert.equal(busted.left, true);
+});
+
+test('a seated non-host can deal the first hand while observers and later manual deals keep their permissions', () => {
+  const room = fixture();
+  assert.throws(() => command(room, ids[2], { type: 'deal' }, 11000), /Join the table/);
+  command(room, ids[1], { type: 'deal' }, 11000);
+  assert.equal(room.phase, 'preflop');
+  const turn = room.turn;
+  act(room, turn, 'fold', 0, 11001);
+  assert.equal(room.phase, 'showdown');
+  assert.throws(() => command(room, ids[1], { type: 'deal' }, room.payoutFinishedAt), /host/);
+});
+
+test('buy-ins and reloads are capped per transaction, including legacy rooms', () => {
+  const room = fixture();
+  room.settings.maxBuyin = 100000000;
+  assert.throws(() => command(room, ids[2], { type: 'join', name: 'Charlie', buyin: 1001 }), /Starting chips/);
+  assert.throws(() => command(room, ids[0], { type: 'rebuy', amount: 1001 }), /Reload/);
+  for (let i = 0; i < 2; i++) command(room, ids[0], { type: 'rebuy', amount: 1000 });
+  assert.equal(room.players[0].stack, 3000);
+  command(room, ids[0], { type: 'stand_up' });
+  assert.equal(view(room, ids[0]).players[0].reentryBuyin, 1000);
+  command(room, ids[0], { type: 'join', buyin: 1000 });
+  assert.equal(room.players[0].stack, 1000);
+  assert.equal(room.players[0].cashout, 3000);
 });

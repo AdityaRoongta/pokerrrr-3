@@ -5103,6 +5103,85 @@ html:has(.app.in-game),body:has(.app.in-game) {
 .in-game .action-zone > * { flex-shrink: 0; }
 .in-game .slider-shortcuts, .in-game .action-buttons { flex-shrink: 0; }
 
+/* Keep the raise amount visible while the thumb is being moved: the vertical
+   slider stays on the right edge, leaving the centre free for shortcuts. */
+.in-game .slider-shortcuts {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) 44px;
+  align-items: stretch;
+  gap: 9px;
+  height: 92px;
+  min-height: 92px;
+}
+.in-game .raise-display {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid #d9bb8270;
+  border-radius: 10px;
+  background: #19271f;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.in-game .raise-display small { color: var(--muted); font-size: 10px; line-height: 1; }
+.in-game .raise-display strong { margin-top: 4px; font-size: 20px; line-height: 1; }
+.in-game .slider-shortcuts .quick-bets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+  height: 92px;
+  margin: 0;
+}
+.in-game .slider-shortcuts .quick-bets > button {
+  width: auto;
+  height: auto;
+  min-height: 0;
+  padding: 3px;
+  font-size: 12px;
+}
+.in-game .slider-shortcuts .raise-slider-control {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 92px;
+  min-height: 92px;
+  padding: 7px 0;
+  border: 1px solid #d9bb8270;
+  border-radius: 14px;
+  background: #19271f;
+}
+.in-game .slider-shortcuts .raise-slider-control input[type=range] {
+  width: 30px;
+  height: 76px;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  -webkit-appearance: slider-vertical;
+  appearance: slider-vertical;
+  cursor: ns-resize;
+}
+.in-game .slider-shortcuts .raise-slider-control input[type=range]::-webkit-slider-runnable-track {
+  width: 6px;
+  height: 100%;
+  background: linear-gradient(to top, var(--gold) var(--range-fill), #ffffff19 var(--range-fill));
+}
+.in-game .slider-shortcuts .raise-slider-control input[type=range]::-webkit-slider-thumb { margin: 0; cursor: ns-resize; }
+@media (max-width: 360px) {
+  .in-game .slider-shortcuts { grid-template-columns: 64px minmax(0, 1fr) 38px; gap: 6px; }
+  .in-game .raise-display { padding: 5px; }
+  .in-game .raise-display strong { font-size: 17px; }
+  .in-game .slider-shortcuts .raise-slider-control { width: 38px; }
+  .in-game .slider-shortcuts .quick-bets > button { font-size: 11px; }
+}
+@media (max-height: 700px) {
+  .in-game .slider-shortcuts { height: 78px; min-height: 78px; }
+  .in-game .slider-shortcuts .quick-bets, .in-game .slider-shortcuts .raise-slider-control { height: 78px; min-height: 78px; }
+  .in-game .slider-shortcuts .raise-slider-control input[type=range] { height: 62px; }
+}
+
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 /* Compact table menu: confirmations replace the list, never extend it. */

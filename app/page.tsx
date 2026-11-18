@@ -844,6 +844,16 @@ export default function Home() {
               {voting ? null : live ? <>
                 <div className="betting-controls">
                   <div className="slider-shortcuts">
+                    <div className="raise-display" aria-live="polite">
+                      <small>Raise to</small>
+                      <strong>{myTurn && l?.canRaise ? fmt(raise) : '—'}</strong>
+                    </div>
+                    <div className="quick-bets" aria-label="Raise shortcuts">
+                      {([['½', .5], ['Pot', 1], ['2×', 2], ['3×', 3], ['5×', 5]] as const).map(([label, n]) => <button className="bet-shortcut" key={label} title={label === '½' ? 'Half pot' : label === 'Pot' ? 'Pot-sized bet' : `${label} pot`} disabled={!myTurn || controlsBusy || !l?.canRaise} aria-pressed={selectedShortcut === label} onClick={() => {
+                        setSelectedShortcut(label); setRaise(shortcutRaiseTo(current.current, token.current, n));
+                      }}>{label}</button>)}
+                      <button className="bet-shortcut" title="All-in" disabled={!myTurn || controlsBusy || !l?.canRaise} aria-pressed={selectedShortcut === 'All'} onClick={() => { setSelectedShortcut('All'); setRaise(l.max); }}>All</button>
+                    </div>
                     <div className="raise-slider-control">
                       <input type="range" aria-label="Raise amount slider" min={0} max={1000} step={1} value={raiseMax > raiseMin ? Math.round(Math.sqrt((raiseValue - raiseMin) / (raiseMax - raiseMin)) * 1000) : 0} disabled={!myTurn || controlsBusy || !l?.canRaise || raiseMin === raiseMax} onChange={e => {
                         setSelectedShortcut('');
@@ -853,12 +863,6 @@ export default function Home() {
                         const snapped = Math.round(raw / blind) * blind;
                         setRaise(Number(e.target.value) === 1000 ? raiseMax : clampRaise(snapped));
                       }} style={{ '--range-fill': `${raiseMax > raiseMin ? Math.sqrt((raiseValue - raiseMin) / (raiseMax - raiseMin)) * 100 : 0}%` } as React.CSSProperties} />
-                    </div>
-                    <div className="quick-bets" aria-label="Raise shortcuts">
-                      {([['½', .5], ['Pot', 1]] as const).map(([label, n]) => <button className="bet-shortcut" key={label} title={label === '½' ? 'Half pot' : 'Pot'} disabled={!myTurn || controlsBusy || !l?.canRaise} aria-pressed={selectedShortcut === label} onClick={() => {
-                        setSelectedShortcut(label); setRaise(shortcutRaiseTo(current.current, token.current, n));
-                      }}>{label}</button>)}
-                      <button className="bet-shortcut" title="All-in" disabled={!myTurn || controlsBusy || !l?.canRaise} aria-pressed={selectedShortcut === 'All'} onClick={() => { setSelectedShortcut('All'); setRaise(l.max); }}>All</button>
                     </div>
                   </div>
                   <div className="action-buttons">

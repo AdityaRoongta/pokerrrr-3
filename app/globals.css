@@ -5223,10 +5223,10 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* Keep the table's upper grid edge and felt height steady across the showdown. */
 .app.in-game .topbar { flex-shrink: 0; }
 .app.in-game:not(.composing-chat) .play-area {
-  grid-template-rows: auto minmax(0, 1fr) minmax(0, min(var(--action-height), 46%));
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 .app.in-game:not(.composing-chat) .play-area > .action-zone {
-  height: 100%;
+  height: auto;
   align-self: stretch;
 }
 .in-game .rotation-bar .session-clock { margin-left: auto; font-variant-numeric: tabular-nums; }
@@ -5259,3 +5259,43 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   font-size: clamp(15px, 4.4vw, 19px);
   margin-top: 0;
 }
+
+.in-game .your-seat:has(> .player-action, > .seat-state) { --seat-edge-y: 52px; }
+.in-game .seat.occupied:not(.your-seat).cards-revealed .hole-cards .card.small:not(.back) {
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 1px;
+}
+.in-game .seat.occupied:not(.your-seat).cards-revealed .hole-cards .card.small:not(.back) > span {
+  align-self: flex-start;
+  margin: 0;
+  line-height: 1;
+}
+.in-game .session-extensions > button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #d9bb8260;
+  border-radius: 8px;
+  background: #263a2d;
+  color: #ffe4ae;
+}
+.in-game .session-extensions > button:disabled {
+  opacity: 1;
+  background: #1b2921;
+  color: #a6ada1;
+}
+
+.modal.final-rankings {
+  width: min(100%, 720px);
+  max-width: 720px;
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  padding: clamp(12px, 4vw, 24px);
+}
+.final-rankings h2 {
+  margin: 0 36px 6px 0;
+  font-size: clamp(20px, 5vw, 30px);
+}
+.final-rankings > p { margin: 0; }
+.final-rankings .ledger-scroll { margin: 10px 0; }
+.final-rankings td, .final-rankings th { padding: clamp(4px, 1.2dvh, 10px) 5px; }
+.final-rankings td:first-child { white-space: normal; overflow-wrap: anywhere; }

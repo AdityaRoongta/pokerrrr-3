@@ -91,6 +91,12 @@ export default function Home() {
     [selectedRun, setSelectedRun] = useState(0),
     [selectedSeat, setSelectedSeat] = useState<number | null>(null);
   const appViewport = useAppViewport(Boolean(room));
+  const finalRankings = panel === 'ledger' && room?.phase === 'closed';
+  useEffect(() => {
+    if (room?.phase !== 'closed') return;
+    setConfirm('');
+    setPanel('ledger');
+  }, [room?.code, room?.phase]);
   const queuedAction = useRef<{ choice: 'fold' | 'check-fold' | 'check'; player: string; code: string; hand: number; phase: string } | null>(null);
   const audio = useRef<PokerAudio | null>(null);
   if (!audio.current) audio.current = new PokerAudio(true);
@@ -667,7 +673,7 @@ export default function Home() {
                         {Array.from({
                           length: 5
                         }, (_, i) => {
-                          const shown = (myTurn && live) || effects.boardVisible(i, runIndex),
+                          const shown = effects.boardVisible(i, runIndex),
                             value = shown ? board[i] : undefined,
                             winningBoard = effects.resultReady && runIndex + 1 === focusedRunNumber ? focusedHand?.boardCards || [] : [],
                             timeline = runIndex === 1 ? effects.board2 : effects.board;
@@ -702,23 +708,21 @@ export default function Home() {
               }}>
                 {p ? <>
                   {win && <div className="winner-badge"><Trophy size={10} /> +{fmt(win.wonAmount ?? win.amount)}</div>}
-                  {p.id !== room.me && <div className="seat-top" data-reaction-target={enableReactions && room.phase !== 'closed' ? s : undefined} onClick={() => {
+                  {p.id !== room.me && p.inHand && (p.cards?.length || handActive) ? <div className="seat-top" data-reaction-target={enableReactions && room.phase !== 'closed' ? s : undefined} onClick={() => {
                     if (enableReactions && room.phase !== 'closed') reactions.setTarget(reactions.target === s ? null : s);
                   }}>
-                    {p.inHand && p.cards?.length ? <div className="hole-cards">
+                    {p.cards?.length ? <div className="hole-cards">
                       {p.cards.slice(0, visibleCount).map((c: number, i: number) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
                         <Card value={c} small highlight={Boolean(effects.resultReady && focusedWinner?.id === p.id && focusedHand?.holeCards?.includes(c))} dim={Boolean(effects.resultReady && focusedWinner?.id === p.id && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />
                       </span>)}
-                    </div> : p.inHand && handActive ? <div className="hole-cards">
+                    </div> : <div className="hole-cards">
                       {Array.from({
                         length: visibleCount
                       }, (_, i) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
                         <Card small back />
                       </span>)}
-                    </div> : <div className="avatar">
-                      {p.name.slice(0, 2).toUpperCase()}
                     </div>}
-                  </div>}
+                  </div> : null}
                   <div className="seat-info"
                     data-reaction-target={enableReactions && p.id !== room.me && room.phase !== 'closed' ? s : undefined}
                     role={room.phase !== 'closed' && (p.id === room.me || enableReactions) ? 'button' : undefined}
@@ -875,11 +879,11 @@ export default function Home() {
       {notice}
     </div>}
 
-    {panel && <div className={`modal-backdrop ${room && ['info', 'ledger'].includes(panel) ? 'table-sheet-backdrop' : ''}`} onClick={() => {
+    {panel && <div className={`modal-backdrop ${room && !finalRankings && ['info', 'ledger'].includes(panel) ? 'table-sheet-backdrop' : ''}`} onClick={() => {
       setPanel('');
       setConfirm('');
     }}>
-      <section role="dialog" aria-modal="true" aria-label={panel === 'confirm' ? (confirm === 'stand_up' ? 'Confirm stand up' : 'Confirm terminate game') : panel === 'ledger' ? 'Current Game Rankings' : panel === 'info' ? 'Game Info' : 'Table controls'} className={`modal ${panel === 'menu' ? 'compact-menu' : ''} ${panel === 'confirm' ? 'confirmation-dialog' : ''} ${panel === 'ledger' ? 'wide' : ''} ${room && ['info', 'ledger'].includes(panel) ? 'table-sheet' : ''}`} onClick={e => e.stopPropagation()}>
+      <section role="dialog" aria-modal="true" aria-label={panel === 'confirm' ? (confirm === 'stand_up' ? 'Confirm stand up' : 'Confirm terminate game') : panel === 'ledger' ? (finalRankings ? 'Final Game Rankings' : 'Current Game Rankings') : panel === 'info' ? 'Game Info' : 'Table controls'} className={`modal ${panel === 'menu' ? 'compact-menu' : ''} ${panel === 'confirm' ? 'confirmation-dialog' : ''} ${panel === 'ledger' ? 'wide' : ''} ${finalRankings ? 'final-rankings' : room && ['info', 'ledger'].includes(panel) ? 'table-sheet' : ''}`} onClick={e => e.stopPropagation()}>
         <button className="modal-close icon-button" onClick={() => {
           setPanel('');
           setConfirm('');
@@ -1004,7 +1008,7 @@ export default function Home() {
             <button className="primary" disabled={controlsBusy || Boolean(room.terminationPending)} onClick={async () => {
               if (await send(confirm)) {
                 setConfirm('');
-                setPanel('');
+                setPanel(openPanel => openPanel === 'confirm' ? '' : openPanel);
               }
             }}>{busy ? 'Processing…' : confirm === 'stand_up' ? 'Stand Up' : 'Terminate Game'}</button></div>
           {error && <p className="error" role="alert">{error}</p>}
@@ -1023,7 +1027,7 @@ export default function Home() {
         </>}
 
         {panel === 'ledger' && <>
-          <h2>Current Game Rankings</h2>
+          <h2>{finalRankings ? 'Final Game Rankings' : 'Current Game Rankings'}</h2>
           <p>
             {room.phase === 'closed' ? 'Final balances. Payments happen outside the app.' : 'Live balances. Final settlement is calculated when the game ends.'}
           </p>

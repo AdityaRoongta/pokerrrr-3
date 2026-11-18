@@ -6,7 +6,6 @@ import { useSocial } from '../lib/client/use-social';
 import { ChatDrawer } from './table-chat';
 import { showTestTools } from '../lib/client/environment';
 import { currentSettlementWeek, settlementDate, settlementText } from '../lib/game-history.mjs';
-const archiveChatEnabled = process.env.NEXT_PUBLIC_APP_ENV !== 'production' && reactionsEnabled(process.env.NEXT_PUBLIC_APP_ENV);
 const fmt = (n: number) => new Intl.NumberFormat('en-IN', {
   signDisplay: 'exceptZero'
 }).format(n);
@@ -47,7 +46,7 @@ export function GameHistory({
     [result, setResult] = useState<any>(null),
     [calculating, setCalculating] = useState(false),
     [settleError, setSettleError] = useState('');
-  const archiveSocial = useSocial(archiveChatEnabled && !demo && selected ? { ...selected, phase: 'closed', me: viewerKey, players: [] } : null, false, 'connected', archiveChatEnabled);
+  const archiveSocial = useSocial(selected ? { ...selected, phase: 'closed', me: viewerKey, players: [] } : null, false, 'connected', reactionsEnabled(process.env.NEXT_PUBLIC_APP_ENV));
   const historyRequest = useRef<AbortController | null>(null),
     settlementRequest = useRef<AbortController | null>(null);
   async function load(next?: string) {
@@ -196,7 +195,7 @@ export function GameHistory({
     {selected && <div className="modal-backdrop" onClick={() => setSelected(null)}>
       <section className="modal" role="dialog" aria-modal="true" aria-labelledby="game-results-heading" onClick={e => e.stopPropagation()}>
         <button className="modal-close icon-button" aria-label="Close game results" onClick={() => setSelected(null)}>×</button>
-        {archiveChatEnabled && !demo && <button className="secondary" onClick={() => archiveSocial.openHistory()}>View Game Chat</button>}
+        {reactionsEnabled(process.env.NEXT_PUBLIC_APP_ENV) && !demo && <button className="secondary" onClick={() => archiveSocial.openHistory()}>View Game Chat</button>}
         <h2 id="game-results-heading">Game Results{demo ? ' · Simulated' : ''}</h2>
         <p>
           {date(selected.closedAt)}
@@ -222,7 +221,7 @@ export function GameHistory({
       </section>
     </div>}
 
-    {archiveChatEnabled && selected && archiveSocial.historyOpen && <ChatDrawer key={selected.code} room={{ ...selected, phase: 'closed' }} social={archiveSocial} myTurn={false} />}
+    {selected && archiveSocial.historyOpen && <ChatDrawer key={selected.code} room={{ ...selected, phase: 'closed' }} social={archiveSocial} myTurn={false} />}
     {open && <div className="modal-backdrop" onClick={() => {
       clearSettlement();
       setOpen(false);

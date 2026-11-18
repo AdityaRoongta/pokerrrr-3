@@ -38,6 +38,10 @@ const gameName: Record<string, string> = {
   PLO4: '4-card Omaha',
   PLO5: '5-card Omaha'
 };
+function sortedHoleCards(cards: number[]) {
+  return [...cards].sort((a, b) => a % 13 - b % 13 || a - b);
+}
+
 function Card({
   value,
   small = false,
@@ -102,9 +106,6 @@ export default function Home() {
   if (!audio.current) audio.current = new PokerAudio(true);
   const socialAudio = useRef<PokerAudio | null>(null);
   if (!socialAudio.current) socialAudio.current = new PokerAudio();
-  const effects = useTableEffects(room, audio.current),
-    animationBusy = useRef(false);
-  animationBusy.current = effects.presentationBusy;
   const [player, setPlayer] = useState<{
     id: string;
     name: string;
@@ -123,6 +124,14 @@ export default function Home() {
     current = useRef<Room>(null),
     pending = useRef(false),
     offset = useRef(0);
+  const queued = queuedAction.current;
+  const autoActing = Boolean(
+    queued && room?.legal && !busy && !pending.current && (demo.current || connection === 'connected')
+    && preactionValid(queued, room) && resolvePreaction(queued.choice, room.legal.call)
+  );
+  const effects = useTableEffects(room, audio.current, autoActing);
+  const animationBusy = useRef(false);
+  animationBusy.current = effects.presentationBusy;
   const social = useSocial(room, Boolean(demo.current), connection, enableReactions);
   const reactions = useReactions(current, demo, enableReactions);
   // HTTP replies and socket pushes can race. Never replace a newer snapshot.
@@ -495,6 +504,19 @@ export default function Home() {
     setError('');
     autoResume.current = false;
   }
+  function closeTablePanel() {
+    setConfirm('');
+    if (finalRankings) void exit();
+    else setPanel('');
+  }
+  useEffect(() => {
+    if (!finalRankings) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) closeTablePanel();
+    };
+    document.addEventListener('keydown', dismiss);
+    return () => document.removeEventListener('keydown', dismiss);
+  }, [finalRankings]);
   async function installApp() {
     if (install) {
       await install.prompt();
@@ -586,7 +608,7 @@ export default function Home() {
   const displayedCall = myTurn ? (l?.call || 0) : waitingCall;
   const canQueueAction = Boolean(!myTurn && me?.inHand && !me.folded && !me.away && me.stack > 0);
   const clampRaise = (v: number) => Math.min(raiseMax, Math.max(raiseMin, Math.round(v || raiseMin)));
-  return <div ref={appViewport} className={`app ${room ? 'in-game' : ''} ${social.open ? 'composing-chat' : ''}`} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
+  return <div ref={appViewport} className={`app ${room ? 'in-game' : ''} ${social.open ? 'chat-active' : ''}`} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
 
     <header className="topbar">
       <button className="brand" onClick={room ? exit : undefined} aria-label="Dunzo Club">
@@ -637,9 +659,6 @@ export default function Home() {
             <span className="table-stakes">{fmt(room.settings.sb)}/{fmt(room.settings.bb)}</span>
             <span>Hand {room.phase === 'lobby' ? 0 : room.completed + (['showdown', 'closed'].includes(room.phase) ? 0 : 1)}</span>
             {room.sessionEndsAt && <span className="session-clock" aria-label="Session time remaining">{Math.floor(sessionSeconds / 60)}:{String(sessionSeconds % 60).padStart(2, '0')}</span>}
-            <span className={`typing-turn-status ${myTurn && live ? `is-your-turn ${seconds <= 5 ? 'urgent' : ''}` : ''}`} role="status">
-              {myTurn && live ? `Your turn · ${seconds}s${bettingStatus}` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : voting ? 'Runout vote' : room.phase === 'showdown' ? 'Showdown' : room.game}
-            </span>
             {(room.settings.games?.length || 0) > 1 && room.phase !== 'closed' && <small className="next-variant">
               {room.settings.games[(gameIndex + 1) % room.settings.games.length]} {room.settings.rotation === room.handsIntoRotation ? 'next hand' : `in ${room.settings.rotation - room.handsIntoRotation} ${room.settings.rotation - room.handsIntoRotation === 1 ? 'hand' : 'hands'}`}
             </small>}
@@ -676,8 +695,11 @@ export default function Home() {
                           const shown = effects.boardVisible(i, runIndex),
                             value = shown ? board[i] : undefined,
                             winningBoard = effects.resultReady && runIndex + 1 === focusedRunNumber ? focusedHand?.boardCards || [] : [],
-                            timeline = runIndex === 1 ? effects.board2 : effects.board;
-                          return <div key={`${room.handStartedAt || 0}:${runIndex}:${i}:${shown}`} className={value !== undefined && timeline?.events.some((e: any) => e.index === i) ? 'board-card-wrap board-dealt' : 'board-card-wrap'}>
+                            timeline = runIndex === 1 ? effects.board2 : effects.board,
+                            reveal = timeline?.events.find((event: { index: number }) => event.index === i),
+                            flip = value !== undefined && reveal && effects.now < timeline.startedAt + reveal.at + 450;
+                          return <div key={`${room.handStartedAt || 0}:${runIndex}:${i}:${value ?? 'empty'}`} className={flip ? 'board-card-wrap board-dealt' : 'board-card-wrap'}>
+                            {flip && <div className="board-flip-back" aria-hidden="true"><span>♠</span></div>}
                             <Card value={value} highlight={value !== undefined && winningBoard.includes(value)} dim={effects.resultReady && winningBoard.length > 0 && value !== undefined && !winningBoard.includes(value)} />
                           </div>;
                         })}
@@ -712,7 +734,7 @@ export default function Home() {
                     if (enableReactions && room.phase !== 'closed') reactions.setTarget(reactions.target === s ? null : s);
                   }}>
                     {p.cards?.length ? <div className="hole-cards">
-                      {p.cards.slice(0, visibleCount).map((c: number, i: number) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
+                      {sortedHoleCards(p.cards).slice(0, visibleCount).map((c: number, i: number) => <span className={effects.dealing ? 'arriving-hole-card' : ''} style={{ '--fan-angle': `${(i - (cardCount - 1) / 2) * 9}deg`, '--fan-lift': `${Math.abs(i - (cardCount - 1) / 2) * 3}px` } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
                         <Card value={c} small highlight={Boolean(effects.resultReady && focusedWinner?.id === p.id && focusedHand?.holeCards?.includes(c))} dim={Boolean(effects.resultReady && focusedWinner?.id === p.id && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />
                       </span>)}
                     </div> : <div className="hole-cards">
@@ -783,23 +805,18 @@ export default function Home() {
 
           </div>
 
-          <div onPointerDownCapture={e => {
-            // Keep the composer focused so the first betting tap cannot move the
-            // button by dismissing the keyboard before its click is delivered.
-            if (social.open && (e.target as HTMLElement).closest('.betting-controls button, .pause-deal')) e.preventDefault();
-          }} className="action-zone">
+          <div className="action-zone">
             <div className="hand-toolbar">
               <span className={`turn-status ${myTurn && live ? `is-your-turn ${seconds <= 5 ? 'urgent' : ''}` : ''}`} role="status">
                 {myTurn && live ? `Your turn · ${seconds}s${bettingStatus}` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : room.game}
               </span>
               <div className="hand-toolbar-actions"><button className="text-button" onClick={() => setPanel('ledger')}>Rankings</button>
-                {enableReactions && !social.open && <ChatButton social={social} readOnly={room.phase === 'closed'} />}
+                {enableReactions && <ChatButton social={social} readOnly={room.phase === 'closed'} />}
               </div>
             </div>
             {seated && <div className="personal-hand" aria-label="Your cards">
-              <span className="typing-hole-label" aria-hidden="true">Your cards</span>
               <div className="personal-hole-cards" aria-label="Your cards">
-                {me?.inHand && me.cards?.length ? [...me.cards].sort((a: number, b: number) => a % 13 - b % 13 || a - b).map((c: number, i: number) => <Card key={`${room.handStartedAt || 0}:${i}`} value={c} small highlight={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.holeCards?.includes(c))} dim={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />) : <span className="personal-cards-placeholder">{room.game || 'NLH'} · Your cards</span>}
+                {me?.inHand && me.cards?.length ? sortedHoleCards(me.cards).map((c: number, i: number) => <Card key={`${room.handStartedAt || 0}:${i}`} value={c} small highlight={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.holeCards?.includes(c))} dim={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />) : <span className="personal-cards-placeholder">{room.game || 'NLH'} · Your cards</span>}
               </div>
             </div>}
             {me?.pendingSeatAction === 'leave' && <p className="game-status" role="status">Standing up after this hand and payouts. <button className="text-button" disabled={controlsBusy || room.terminationPending} onClick={() => send('cancel_stand_up')}>Cancel</button></p>}
@@ -841,18 +858,9 @@ export default function Home() {
                   <div className="action-buttons">
                     <button className="fold" disabled={controlsBusy || (myTurn && !l) || (!myTurn && !canQueueAction)} aria-pressed={!myTurn && preaction === (displayedCall ? 'fold' : 'check-fold')} onClick={() => myTurn ? send('fold') : selectPreaction(displayedCall ? 'fold' : 'check-fold')}>{!myTurn && !displayedCall ? 'Check / Fold' : 'Fold'}</button>
                     <button className="secondary check-call" disabled={controlsBusy || (myTurn && !l) || (!myTurn && (!canQueueAction || Boolean(displayedCall)))} aria-pressed={!myTurn && preaction === 'check'} onClick={() => myTurn ? send(l?.call ? 'call' : 'check') : selectPreaction('check')}>{displayedCall ? `Call ${fmt(displayedCall)}` : 'Check'}</button>
-                    <button className="primary" disabled={!myTurn || controlsBusy || !l?.canRaise || !raiseValid} onClick={() => {
-                      if (social.open) {
-                        // The typing-view button opens amount selection only.
-                        // A second explicit tap on the normal Raise button bets.
-                        (document.getElementById('chat-message') as HTMLInputElement | null)?.blur();
-                        social.setOpen(false);
-                        return;
-                      }
-                      void send('raise', { amount: raise });
-                    }}>
-                      <span className="raise-button-label">{social.open ? 'Raise…' : 'Raise'}</span>
-                      {!social.open && <span className="raise-button-amount">{myTurn && l?.canRaise ? fmt(raise) : '—'}</span>}
+                    <button className="primary" disabled={!myTurn || controlsBusy || !l?.canRaise || !raiseValid} onClick={() => void send('raise', { amount: raise })}>
+                      <span className="raise-button-label">Raise</span>
+                      <span className="raise-button-amount">{myTurn && l?.canRaise ? fmt(raise) : '—'}</span>
                     </button>
                   </div>
                 </div>
@@ -863,7 +871,7 @@ export default function Home() {
                   {room.host && <button className="secondary pause-deal" disabled={controlsBusy} onClick={() => send('pause')} aria-label={room.paused ? 'Resume auto-deal' : 'Pause auto-deal'}>
                     {room.paused ? <Play size={16} /> : <Pause size={16} />}
                   </button>}
-                </div> : room.host ? <button className="primary" disabled={controlsBusy || effects.presentationBusy || visiblePlayers.filter((p: any) => p.stack > 0 && !p.away).length < 2} onClick={() => send('deal')}>{room.phase === 'lobby' ? 'Deal first hand' : 'Deal next hand'} <ArrowUpRight size={17} /></button> : <button className="secondary" onClick={openReload}><Plus size={16} /> Load Chips</button>}
+                </div> : (room.host || room.phase === 'lobby') ? <button className="primary" disabled={controlsBusy || effects.presentationBusy || readyPlayers < 2} onClick={() => send('deal')}>{room.phase === 'lobby' ? 'Deal first hand' : 'Deal next hand'} <ArrowUpRight size={17} /></button> : <button className="secondary" onClick={openReload}><Plus size={16} /> Load Chips</button>}
               </div>}
             </>}
             {enableReactions && <ChatDrawer key={`${room.code}:${room.createdAt}`} room={room} social={social} myTurn={Boolean(myTurn && live)} />}
@@ -879,15 +887,9 @@ export default function Home() {
       {notice}
     </div>}
 
-    {panel && <div className={`modal-backdrop ${room && !finalRankings && ['info', 'ledger'].includes(panel) ? 'table-sheet-backdrop' : ''}`} onClick={() => {
-      setPanel('');
-      setConfirm('');
-    }}>
+    {panel && <div className={`modal-backdrop ${room && !finalRankings && ['info', 'ledger'].includes(panel) ? 'table-sheet-backdrop' : ''}`} onClick={closeTablePanel}>
       <section role="dialog" aria-modal="true" aria-label={panel === 'confirm' ? (confirm === 'stand_up' ? 'Confirm stand up' : 'Confirm terminate game') : panel === 'ledger' ? (finalRankings ? 'Final Game Rankings' : 'Current Game Rankings') : panel === 'info' ? 'Game Info' : 'Table controls'} className={`modal ${panel === 'menu' ? 'compact-menu' : ''} ${panel === 'confirm' ? 'confirmation-dialog' : ''} ${panel === 'ledger' ? 'wide' : ''} ${finalRankings ? 'final-rankings' : room && ['info', 'ledger'].includes(panel) ? 'table-sheet' : ''}`} onClick={e => e.stopPropagation()}>
-        <button className="modal-close icon-button" onClick={() => {
-          setPanel('');
-          setConfirm('');
-        }} aria-label="Close">
+        <button className="modal-close icon-button" onClick={closeTablePanel} aria-label={finalRankings ? "Close and return to lobby" : "Close"}>
           <X size={20} />
         </button>
 
@@ -930,10 +932,10 @@ export default function Home() {
         {panel === 'buyin' && <>
           <h2>Load Chips</h2>
           <p>
-            {handActive && me?.inHand ? 'Choose your amount. Chips are added automatically after this hand.' : 'Choose how many chips to add. Reloads are automatic.'}
+            {handActive && me?.inHand ? 'Choose your amount. Chips are added automatically after this hand.' : 'Choose how many chips to add.'} Up to {fmt(room.settings.maxBuyin)} chips per reload.
           </p>
-          <label>Chips<input type="number" min={room.settings.bb} max={room.settings.maxBuyin} value={rebuy} onChange={e => setRebuy(Number(e.target.value))} /></label>
-          <button className="primary full" disabled={controlsBusy || room.requests.some((q: any) => q.id === room.me)} onClick={async () => {
+          <label>Chips<input type="number" min={room.settings.bb} max={room.settings.maxBuyin} step={1} value={rebuy} onChange={e => setRebuy(Number(e.target.value))} /></label>
+          <button className="primary full" disabled={controlsBusy || !Number.isInteger(rebuy) || rebuy < room.settings.bb || rebuy > room.settings.maxBuyin || room.requests.some((q: any) => q.id === room.me)} onClick={async () => {
             if (await send('rebuy', {
               amount: rebuy
             })) {
@@ -1100,7 +1102,7 @@ export default function Home() {
                   <span>
                     {p.name}
                   </span>
-                  {p.cards.map((c: number, i: number) => <Card key={i} value={c} small />)}
+                  {sortedHoleCards(p.cards).map((c: number, i: number) => <Card key={i} value={c} small />)}
                 </div>)}
                 <div className="history-actions">
                   {h.actions.map((a: string, i: number) => <div key={i}>

@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.1.10 — 19 November 2026
+
+- Use smaller text for Start Game options.
+- Show Current Game Rankings in a taller, compact card and remove its CSV export button.
+- Use a cartoon chuckle for Haha and foamy beer mugs for Cheers.
+
+[Release notes](docs/releases/v2.1.10.md)
+
 ## v2.1.9 — 18 November 2026
 
 - Deal the first hand from any occupied seat. Each buy-in and reload is capped at 100 big blinds. Players can reload again and build larger stacks.

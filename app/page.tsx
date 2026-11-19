@@ -65,6 +65,7 @@ function Card({
     <b>
       {rank === 'T' ? '10' : rank}
     </b>
+    <i className="corner-suit" aria-hidden="true">{suit}</i>
     <span>
       {suit}
     </span>

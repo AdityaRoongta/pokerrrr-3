@@ -867,6 +867,7 @@ h1>span {
   font-size: 26px;
   margin-top: 2px;
 }
+.corner-suit { display: none; }
 
 .card.red {
   color: #ac5543;
@@ -5245,6 +5246,20 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4,
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 { gap: 0; }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .card.small,
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .card.small { position: relative; }
+  /* The centre suit is intentionally covered by the fan. Repeat a compact
+     suit below each rank so every Omaha card remains identifiable. */
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .corner-suit,
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .corner-suit {
+    position: absolute;
+    display: block;
+    left: 5px;
+    top: 35px;
+    font-size: 19px;
+    font-style: normal;
+    line-height: 1;
+  }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .personal-card-wrap { margin-inline: 0; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .personal-card-wrap + .personal-card-wrap { margin-left: -72px; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .card.small {

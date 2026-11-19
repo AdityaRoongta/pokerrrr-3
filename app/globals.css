@@ -5047,11 +5047,20 @@ html:has(.app.in-game),body:has(.app.in-game) {
 }
 .in-game .peek-cards-hint {
   position: absolute;
-  right: 10px;
-  bottom: 2px;
-  color: var(--muted);
+  top: -19px;
+  left: 50%;
+  z-index: 20;
+  transform: translateX(-50%);
+  padding: 3px 8px;
+  border: 1px solid #d9bb8270;
+  border-radius: 999px;
+  background: #162920;
+  box-shadow: 0 2px 8px #0008;
+  color: #f0e9d7;
   font-size: 10px;
   letter-spacing: .01em;
+  line-height: 1.1;
+  white-space: nowrap;
   pointer-events: none;
 }
 .in-game .personal-hole-cards .card.small b {font-size:clamp(20px,5.8vw,28px);}

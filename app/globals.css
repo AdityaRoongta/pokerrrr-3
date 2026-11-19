@@ -5033,35 +5033,11 @@ html:has(.app.in-game),body:has(.app.in-game) {
 }
 .in-game .personal-hole-cards {
   position: relative;
-  touch-action: none;
 }
 .in-game .personal-hole-cards .personal-card-wrap {
   display: block;
   flex: 0 0 auto;
   margin-inline: -9px;
-  transform-origin: 50% 100%;
-  transition: transform 100ms ease-out;
-}
-.in-game .personal-hole-cards.is-peeking .personal-card-wrap {
-  transform: translateY(var(--fan-lift)) rotate(var(--fan-angle));
-}
-.in-game .peek-cards-hint {
-  position: absolute;
-  top: -19px;
-  left: 50%;
-  z-index: 20;
-  transform: translateX(-50%);
-  padding: 3px 8px;
-  border: 1px solid #d9bb8270;
-  border-radius: 999px;
-  background: #162920;
-  box-shadow: 0 2px 8px #0008;
-  color: #f0e9d7;
-  font-size: 10px;
-  letter-spacing: .01em;
-  line-height: 1.1;
-  white-space: nowrap;
-  pointer-events: none;
 }
 .in-game .personal-hole-cards .card.small b {font-size:clamp(20px,5.8vw,28px);}
 .in-game .personal-hole-cards .card.small>span {font-size:clamp(22px,6.5vw,30px);}
@@ -5252,9 +5228,34 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     width: clamp(43px, 13vw, 55px);
     height: 138px;
   }
-  .in-game .action-zone:has(.betting-controls) .peek-cards-hint {
-    top: -17px;
-    left: 50%;
+  /* Two-card hands use the full left panel; Omaha progressively overlaps the
+     cards so all ranks remain readable without pushing into bet controls. */
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .personal-card-wrap {
+    margin-inline: 0;
+  }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small {
+    width: 100px;
+    height: 138px;
+  }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small b {
+    font-size: 36px;
+  }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small > span {
+    font-size: 42px;
+  }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .personal-card-wrap {
+    margin-inline: -4px;
+  }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .card.small {
+    width: 62px;
+    height: 138px;
+  }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .personal-card-wrap {
+    margin-inline: -5px;
+  }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .card.small {
+    width: 54px;
+    height: 138px;
   }
   .in-game .action-zone:has(.betting-controls) .betting-controls {
     display: contents;
@@ -5312,6 +5313,14 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards .card.small {
     height: 116px;
   }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small {
+    width: 84px;
+    height: 116px;
+  }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small b { font-size: 30px; }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small > span { font-size: 34px; }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .card.small { width: 53px; height: 116px; }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .card.small { width: 47px; height: 116px; }
   .in-game .action-zone:has(.betting-controls) .raise-slider-control input[type=range] {
     height: 108px;
   }

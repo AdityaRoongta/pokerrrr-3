@@ -90,7 +90,6 @@ export default function Home() {
     [confirm, setConfirm] = useState(''),
     [sound, setSound] = useState(true),
     [preaction, setPreaction] = useState<'fold' | 'check-fold' | 'check' | null>(null),
-    [peekingCards, setPeekingCards] = useState(false),
     [selectedWinner, setSelectedWinner] = useState(''),
     [selectedShortcut, setSelectedShortcut] = useState(''),
     [selectedRun, setSelectedRun] = useState(0),
@@ -103,11 +102,6 @@ export default function Home() {
     setPanel('ledger');
   }, [room?.code, room?.phase]);
   const queuedAction = useRef<{ choice: 'fold' | 'check-fold' | 'check'; player: string; code: string; hand: number; phase: string } | null>(null);
-  const peekPointer = useRef<{ id: number; startY: number } | null>(null);
-  useEffect(() => {
-    peekPointer.current = null;
-    setPeekingCards(false);
-  }, [room?.handStartedAt, room?.phase]);
   const audio = useRef<PokerAudio | null>(null);
   if (!audio.current) audio.current = new PokerAudio(true);
   const socialAudio = useRef<PokerAudio | null>(null);
@@ -851,38 +845,10 @@ export default function Home() {
               </div>
             </div>
             {seated && <div className="personal-hand" aria-label="Your cards">
-              <div
-                className={`personal-hole-cards ${peekingCards ? 'is-peeking' : 'is-concealed'}`}
-                aria-label={me?.inHand && me.cards?.length ? 'Your cards. Slide upward and hold to peek.' : 'Your cards'}
-                onPointerDown={e => {
-                  if (!me?.inHand || !me.cards?.length || (e.pointerType === 'mouse' && e.button !== 0)) return;
-                  peekPointer.current = { id: e.pointerId, startY: e.clientY };
-                  e.currentTarget.setPointerCapture?.(e.pointerId);
-                }}
-                onPointerMove={e => {
-                  const pointer = peekPointer.current;
-                  if (!pointer || pointer.id !== e.pointerId) return;
-                  if (e.clientY <= pointer.startY - 18) setPeekingCards(true);
-                }}
-                onPointerUp={e => {
-                  if (peekPointer.current?.id !== e.pointerId) return;
-                  peekPointer.current = null;
-                  setPeekingCards(false);
-                  e.currentTarget.releasePointerCapture?.(e.pointerId);
-                }}
-                onPointerCancel={() => {
-                  peekPointer.current = null;
-                  setPeekingCards(false);
-                }}
-                onLostPointerCapture={() => {
-                  peekPointer.current = null;
-                  setPeekingCards(false);
-                }}
-              >
-                {me?.inHand && me.cards?.length ? sortedHoleCards(me.cards).map((c: number, i: number, cards: number[]) => <span className="personal-card-wrap" style={{ '--fan-angle': `${(i - (cards.length - 1) / 2) * 7}deg`, '--fan-lift': `${Math.abs(i - (cards.length - 1) / 2) * -3}px`, zIndex: i + 1 } as React.CSSProperties} key={`${room.handStartedAt || 0}:${i}`}>
-                  <Card value={c} back={!peekingCards} small highlight={Boolean(peekingCards && effects.resultReady && focusedWinner?.id === room.me && focusedHand?.holeCards?.includes(c))} dim={Boolean(peekingCards && effects.resultReady && focusedWinner?.id === room.me && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />
+              <div className={`personal-hole-cards cards-${me?.cards?.length || 0}`} aria-label="Your cards">
+                {me?.inHand && me.cards?.length ? sortedHoleCards(me.cards).map((c: number, i: number) => <span className="personal-card-wrap" style={{ zIndex: i + 1 }} key={`${room.handStartedAt || 0}:${i}`}>
+                  <Card value={c} small highlight={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.holeCards?.includes(c))} dim={Boolean(effects.resultReady && focusedWinner?.id === room.me && focusedHand?.boardCards?.length && !focusedHand.holeCards.includes(c))} />
                 </span>) : <span className="personal-cards-placeholder">{room.game || 'NLH'} · Your cards</span>}
-                {me?.inHand && me.cards?.length && !peekingCards && <span className="peek-cards-hint" aria-hidden="true">Slide up and hold to peek</span>}
               </div>
             </div>}
             {me?.pendingSeatAction === 'leave' && <p className="game-status" role="status">Standing up after this hand and payouts. <button className="text-button" disabled={controlsBusy || room.terminationPending} onClick={() => send('cancel_stand_up')}>Cancel</button></p>}

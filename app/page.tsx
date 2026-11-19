@@ -835,7 +835,7 @@ export default function Home() {
 
           </div>
 
-          <div className="action-zone">
+          <div className={`action-zone${rabbitOpen ? ' rabbit-hunt-active' : ''}`}>
             <div className="hand-toolbar">
               <span className={`turn-status ${myTurn && live ? `is-your-turn ${seconds <= 5 ? 'urgent' : ''}` : ''}`} role="status">
                 {myTurn && live ? `Your turn · ${seconds}s${bettingStatus}` : live ? `${room.players.find((p: { id: string; name: string }) => p.id === room.turn)?.name || 'Player'}’s turn` : room.game}

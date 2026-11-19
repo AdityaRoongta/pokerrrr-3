@@ -5213,8 +5213,8 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     width: 100%;
   }
   .in-game .action-zone:has(.betting-controls) .personal-hand {
-    flex: 0 0 calc(56% - 3px);
-    width: calc(56% - 3px);
+    flex: 0 0 calc(53% - 3px);
+    width: calc(53% - 3px);
     height: 146px;
     min-height: 146px;
     padding: 0;
@@ -5231,10 +5231,10 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   /* Two-card hands use the full left panel; Omaha progressively overlaps the
      cards so all ranks remain readable without pushing into bet controls. */
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .personal-card-wrap {
-    margin-inline: 0;
+    margin-inline: -2px;
   }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small {
-    width: 100px;
+    width: 98px;
     height: 138px;
   }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small b {
@@ -5276,19 +5276,95 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: repeat(3, minmax(0, 1fr));
     height: 146px;
-    gap: 3px;
+    gap: 4px;
+    padding: 4px;
+    border-color: #bca15d8c;
+    border-radius: 14px;
+    background: linear-gradient(145deg, #203b2c, #10241a);
+    box-shadow: inset 0 0 0 1px #f8e9bd0d, 0 5px 14px #02060444;
   }
   .in-game .action-zone:has(.betting-controls) .quick-bets > button {
     font-size: 16px;
+    padding: 2px;
+    border: 1px solid #ad9660;
+    border-radius: 9px;
+    background: linear-gradient(145deg, #284633, #162c20);
+    box-shadow: inset 0 1px 0 #fff3cd1a, inset 0 -1px 0 #02080570;
+    color: #f5edd7;
+    font-weight: 700;
+    text-shadow: 0 1px #0008;
+  }
+  .in-game .action-zone:has(.betting-controls) .quick-bets > button:disabled {
+    background: linear-gradient(145deg, #1d3327, #122219);
+    border-color: #8b7a514f;
+    color: #d6d2c5;
+  }
+  .in-game .action-zone:has(.betting-controls) .quick-bets > button[aria-pressed="true"] {
+    background: linear-gradient(145deg, #4e754d, #294c32);
+    border-color: #f0d27c;
+    box-shadow: inset 0 0 0 1px #fff0b44d, 0 0 8px #e7be5752;
   }
   .in-game .action-zone:has(.betting-controls) .raise-slider-control {
+    position: relative;
     width: 40px;
     height: 146px;
     min-height: 146px;
-    padding-block: 7px;
+    overflow: hidden;
+    padding: 0;
+    border-color: #bca15d;
+    border-radius: 14px;
+    background: linear-gradient(145deg, #203b2c, #10241a);
+    box-shadow: inset 0 0 0 1px #f8e9bd0d, 0 5px 14px #02060444;
   }
   .in-game .action-zone:has(.betting-controls) .raise-slider-control input[type=range] {
-    height: 130px;
+    width: 130px;
+    height: 38px;
+    writing-mode: horizontal-tb;
+    direction: ltr;
+    -webkit-appearance: none;
+    appearance: none;
+    transform: rotate(-90deg);
+    transform-origin: center;
+    cursor: ns-resize;
+    touch-action: pan-y;
+  }
+  .in-game .action-zone:has(.betting-controls) .raise-slider-control input[type=range]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 7px;
+    border: 1px solid #8f7b49;
+    border-radius: 999px;
+    background: linear-gradient(to right, #e0bd69 var(--range-fill), #edf2df24 var(--range-fill));
+    box-shadow: inset 0 1px 2px #0008;
+  }
+  .in-game .action-zone:has(.betting-controls) .raise-slider-control input[type=range]::-webkit-slider-thumb {
+    width: 27px;
+    height: 27px;
+    margin-top: -11px;
+    -webkit-appearance: none;
+    appearance: none;
+    border: 2px solid #f8e6ae;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff6d4, #dfbf71 58%, #8b703b);
+    box-shadow: 0 2px 5px #000a, inset 0 1px 1px #fff8;
+  }
+  .in-game .action-zone:has(.betting-controls) .raise-slider-control input[type=range]::-moz-range-track {
+    height: 7px;
+    border: 1px solid #8f7b49;
+    border-radius: 999px;
+    background: #edf2df24;
+  }
+  .in-game .action-zone:has(.betting-controls) .raise-slider-control input[type=range]::-moz-range-progress {
+    height: 7px;
+    border-radius: 999px;
+    background: #e0bd69;
+  }
+  .in-game .action-zone:has(.betting-controls) .raise-slider-control input[type=range]::-moz-range-thumb {
+    width: 23px;
+    height: 23px;
+    border: 2px solid #f8e6ae;
+    border-radius: 50%;
+    background: #dfbf71;
+    box-shadow: 0 2px 5px #000a;
   }
   .in-game .action-zone:has(.betting-controls) .action-buttons {
     flex: 0 0 100%;
@@ -5299,6 +5375,21 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     height: 58px;
     min-height: 58px;
     font-size: 18px;
+    border-radius: 12px;
+    box-shadow: inset 0 1px 0 #fff5df2b, inset 0 -2px 0 #0004, 0 3px 8px #0004;
+  }
+  .in-game .action-zone:has(.betting-controls) .action-buttons > .fold {
+    border-color: #e09a91;
+    background: linear-gradient(145deg, #a94949, #713535);
+  }
+  .in-game .action-zone:has(.betting-controls) .action-buttons > .check-call {
+    border-color: #8fd0aa;
+    background: linear-gradient(145deg, #398368, #245a49);
+  }
+  .in-game .action-zone:has(.betting-controls) .action-buttons > .primary {
+    border-color: #f4d77f;
+    background: linear-gradient(145deg, #f0d182, #c99f50);
+    color: #19251d;
   }
 }
 
@@ -5314,15 +5405,17 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     height: 116px;
   }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small {
-    width: 84px;
+    width: 93px;
     height: 116px;
   }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small b { font-size: 30px; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small > span { font-size: 34px; }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .personal-card-wrap { margin-inline: 0; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .card.small { width: 53px; height: 116px; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .card.small { width: 47px; height: 116px; }
   .in-game .action-zone:has(.betting-controls) .raise-slider-control input[type=range] {
-    height: 108px;
+    width: 108px;
+    height: 38px;
   }
   .in-game .action-zone:has(.betting-controls) .action-buttons,
   .in-game .action-zone:has(.betting-controls) .action-buttons > button {
@@ -5554,6 +5647,14 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 /* A post-flop uncontested hand can expose one tappable Rabbit Hunt card.
    It occupies the next board slot, so the table geometry never jumps. */
+/* Keep the lower panel at its normal play height while Rabbit Hunt is open.
+   The board has room for the facedown card without briefly resizing controls. */
+@media (max-width: 620px) {
+  .in-game .action-zone.rabbit-hunt-active { min-height: 251px; }
+}
+@media (max-width: 620px) and (max-height: 700px) {
+  .in-game .action-zone.rabbit-hunt-active { min-height: 215px; }
+}
 .rabbit-hunt-trigger {
   position: relative;
   display: grid;

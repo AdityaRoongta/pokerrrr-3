@@ -5243,16 +5243,16 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small > span {
     font-size: 42px;
   }
-  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .personal-card-wrap {
-    margin-inline: -26px;
-  }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4,
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 { gap: 0; }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .personal-card-wrap { margin-inline: 0; }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .personal-card-wrap + .personal-card-wrap { margin-left: -72px; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .card.small {
     width: 98px;
     height: 138px;
   }
-  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .personal-card-wrap {
-    margin-inline: -30px;
-  }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .personal-card-wrap { margin-inline: 0; }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .personal-card-wrap + .personal-card-wrap { margin-left: -79px; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .card.small {
     width: 98px;
     height: 138px;
@@ -5411,9 +5411,11 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small b { font-size: 30px; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .card.small > span { font-size: 34px; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-2 .personal-card-wrap { margin-inline: 0; }
-  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .personal-card-wrap { margin-inline: -21px; }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .personal-card-wrap { margin-inline: 0; }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .personal-card-wrap + .personal-card-wrap { margin-left: -52px; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .card.small { width: 83px; height: 116px; }
-  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .personal-card-wrap { margin-inline: -25px; }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .personal-card-wrap { margin-inline: 0; }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .personal-card-wrap + .personal-card-wrap { margin-left: -60px; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .card.small { width: 83px; height: 116px; }
   .in-game .action-zone:has(.betting-controls) .raise-slider-control input[type=range] {
     width: 108px;

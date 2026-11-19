@@ -680,7 +680,7 @@ export default function Home() {
 
     {!room ? <main className="lobby simple-lobby">
 
-      <PlayerLobby player={player} players={players} activeGame={lobby.activeGame} loading={authLoading} busy={busy} error={error} onLogin={login} onOpen={openTable} onPractice={showTestTools ? practice : undefined} onRetry={retryLastAction} hasPending={transport.current?.hasPending() || false} />
+      <PlayerLobby player={player} players={players} activeGame={lobby.activeGame} loading={authLoading} busy={busy} error={error} onLogin={login} onOpen={openTable} onPractice={showTestTools ? () => practice() : undefined} onRetry={retryLastAction} hasPending={transport.current?.hasPending() || false} />
 
       {player && <GameHistory key={player.id} refreshKey={lobby.activeGame?.code || ''} />}
 

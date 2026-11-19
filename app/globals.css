@@ -5715,3 +5715,70 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .in-game .table-stage.two-runouts .board-cards .card b { font-size: 11px; }
   .in-game .table-stage.two-runouts .board-cards .card>span { font-size: 14px; }
 }
+
+/* One shared, phone-readable card face for the board and every revealed hand.
+   The exposed left index stays legible when Omaha cards overlap; the centre pip
+   gives standalone board cards the familiar poker-table look. */
+.card:not(.back):not(.empty) {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  background: linear-gradient(145deg, #fffdf8 0%, #f2eee4 100%);
+  border: 1px solid #d7d0c0;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px #0004;
+  font-variant-numeric: lining-nums;
+}
+.card:not(.back):not(.empty) b {
+  position: absolute;
+  z-index: 1;
+  top: 8%;
+  left: 10%;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 750;
+  line-height: .86;
+}
+.card:not(.back):not(.empty) .corner-suit {
+  position: absolute;
+  z-index: 1;
+  display: block;
+  top: 34%;
+  left: 11%;
+  margin: 0;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: .9;
+}
+.card:not(.back):not(.empty) > span {
+  position: absolute;
+  top: 61%;
+  left: 50%;
+  display: block;
+  margin: 0;
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+}
+.card:not(.back):not(.empty).small b { font-size: 13px; }
+.card:not(.back):not(.empty).small .corner-suit { top: 38%; font-size: 10px; }
+.card:not(.back):not(.empty).small > span { top: 64%; font-size: 18px; }
+
+/* Hero cards are larger, but use precisely the same hierarchy as board cards. */
+.in-game .your-seat .hole-cards .card.small b { font-size: 21px; }
+.in-game .your-seat .hole-cards .card.small .corner-suit { top: 36%; font-size: 16px; }
+.in-game .your-seat .hole-cards .card.small > span { top: 62%; font-size: 32px; }
+
+/* Very compact revealed opponent and two-run board cards retain the same face. */
+.in-game .omaha-seat .hole-cards .card.small .corner-suit { top: 38%; font-size: 9px; }
+.in-game .omaha-seat .hole-cards .card.small > span { top: 65%; font-size: 14px; }
+.in-game .two-runouts .board-cards .card .corner-suit { top: 37%; font-size: 10px; }
+.in-game .two-runouts .board-cards .card > span { top: 64%; font-size: 18px; }
+@media (max-height: 700px) {
+  .in-game .your-seat .hole-cards .card.small b { font-size: 19px; }
+  .in-game .your-seat .hole-cards .card.small .corner-suit { font-size: 14px; }
+  .in-game .your-seat .hole-cards .card.small > span { font-size: 29px; }
+}

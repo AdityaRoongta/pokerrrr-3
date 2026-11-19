@@ -5260,6 +5260,15 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     font-style: normal;
     line-height: 1;
   }
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .card.small > span,
+  .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-5 .card.small > span {
+    position: absolute;
+    top: 58%;
+    left: 50%;
+    align-self: auto;
+    margin: 0;
+    transform: translate(-50%, -50%);
+  }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .personal-card-wrap { margin-inline: 0; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .personal-card-wrap + .personal-card-wrap { margin-left: -72px; }
   .in-game .action-zone:has(.betting-controls) .personal-hole-cards.cards-4 .card.small {

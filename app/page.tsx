@@ -471,7 +471,10 @@ export default function Home() {
     startHand(r);
     update(view(r, token.current));
   }
-  function previewAllIn() {
+  // Practice-only shortcut: create a fresh heads-up all-in and stop at an
+  // immediately usable Once / Twice vote. Choosing Twice lets the normal
+  // engine deal both boards, rather than showing a mocked result.
+  function previewRunItTwice() {
     if (!showTestTools) return;
     const r: Room = newRoom('DEMO', token.current, {
       name: name.trim() || 'You',
@@ -491,6 +494,10 @@ export default function Home() {
     startHand(r, Date.now() - 6000);
     act(r, r.turn, 'raise', legal(r, r.turn)!.max);
     act(r, r.turn, 'call');
+    if (r.runVote) {
+      r.runVote.opensAt = Date.now();
+      r.runVote.deadline = Date.now() + 5000;
+    }
     demo.current = r;
     setPanel('');
     setError('');
@@ -1018,7 +1025,7 @@ export default function Home() {
             }}>Add {minutes} min</button>)}
           </div>}
           <div className="menu-list">
-            {showTestTools && demo.current && <button onClick={previewAllIn}><Layers3 size={18} /> Preview all-in vote</button>}
+            {showTestTools && demo.current && <button onClick={previewRunItTwice}><Layers3 size={18} /> Preview Run It Twice</button>}
             {showTestTools && demo.current && live && <button onClick={previewRabbitHunt}>Preview Rabbit Hunt</button>}
             {seated && room.phase !== 'closed' && <>
               <button onClick={() => send('ready')} disabled={controlsBusy || me.pendingSeatAction === 'leave' || room.terminationPending}>

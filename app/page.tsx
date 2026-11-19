@@ -365,6 +365,30 @@ export default function Home() {
     }
     update(view(r, token.current));
   }
+  // Practice-only shortcut: keep the local player in the hand while every
+  // simulated opponent folds, so Rabbit Hunt can be tested without waiting
+  // for unlikely bot behaviour.
+  function previewRabbitHunt() {
+    if (!showTestTools) return;
+    const r = demo.current;
+    const hero = r?.players.find((p: any) => p.id === token.current);
+    if (!r || !hero?.inHand || !['preflop', 'flop', 'turn'].includes(r.phase)) {
+      setError('Start a fresh practice hand to preview Rabbit Hunt.');
+      return;
+    }
+    let steps = 0;
+    try {
+      while (r.turn && ['preflop', 'flop', 'turn'].includes(r.phase) && steps++ < 200) {
+        const action = legal(r, r.turn);
+        if (!action) break;
+        act(r, r.turn, r.turn === token.current ? action.call ? 'call' : 'check' : 'fold');
+      }
+      setPanel('');
+      update(view(r, token.current));
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
   // Block duplicate taps and wait for a fresh connection before submitting actions.
   async function send(type: string, extra: any = {}) {
     if (pending.current) return false;
@@ -1029,6 +1053,7 @@ export default function Home() {
           </div>}
           <div className="menu-list">
             {showTestTools && demo.current && <button onClick={previewAllIn}><Layers3 size={18} /> Preview all-in vote</button>}
+            {showTestTools && demo.current && live && <button onClick={previewRabbitHunt}>Preview Rabbit Hunt</button>}
             {seated && room.phase !== 'closed' && <>
               <button onClick={() => send('ready')} disabled={controlsBusy || me.pendingSeatAction === 'leave' || room.terminationPending}>
                 {me.pendingSeatAction === 'sit_out' ? 'Cancel Sit Out' : me.away ? 'Sit In' : 'Sit Out'}

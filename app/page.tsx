@@ -448,7 +448,7 @@ export default function Home() {
     }
   }
   // Practice is isolated in demo.current and never sends multiplayer commands.
-  function practice() {
+  function practice(game: 'NLH' | 'PLO4' | 'PLO5' | null = null) {
     if (!showTestTools) return;
     setError('');
     const r = newRoom('DEMO', token.current, {
@@ -457,7 +457,8 @@ export default function Home() {
       bb,
       buyin,
       seats: 8,
-      rotation
+      rotation,
+      ...(game ? { games: [game] } : {})
     });
     for (const n of ['Alex', 'Sam', 'Jamie', 'Rohan', 'Priya']) {
       const id = playerId();
@@ -469,6 +470,7 @@ export default function Home() {
     }
     demo.current = r;
     startHand(r);
+    setPanel('');
     update(view(r, token.current));
   }
   // Practice-only shortcut: create a fresh heads-up all-in and stop at an
@@ -1027,6 +1029,8 @@ export default function Home() {
           <div className="menu-list">
             {showTestTools && demo.current && <button onClick={previewRunItTwice}><Layers3 size={18} /> Preview Run It Twice</button>}
             {showTestTools && demo.current && live && <button onClick={previewRabbitHunt}>Preview Rabbit Hunt</button>}
+            {showTestTools && demo.current && <button onClick={() => practice('PLO4')}>Preview PLO4 table</button>}
+            {showTestTools && demo.current && <button onClick={() => practice('PLO5')}>Preview PLO5 table</button>}
             {seated && room.phase !== 'closed' && <>
               <button onClick={() => send('ready')} disabled={controlsBusy || me.pendingSeatAction === 'leave' || room.terminationPending}>
                 {me.pendingSeatAction === 'sit_out' ? 'Cancel Sit Out' : me.away ? 'Sit In' : 'Sit Out'}
